@@ -8,6 +8,10 @@ const EXAMPLE_INGREDIENTS = [
   "닭가슴살", "감자", "시금치", "버섯", "대파", "김치",
 ];
 
+const STYLE_OPTIONS = ["한식", "양식", "일식", "중식", "건강식", "간편식", "채식"];
+const PAIRING_OPTIONS = ["밥", "면", "빵", "술", "국물", "샐러드"];
+const TYPE_OPTIONS = ["찌개", "볶음", "파스타", "국", "구이", "튀김", "샐러드", "무침", "조림"];
+
 export default function HomePage() {
   const router = useRouter();
   const [ingredients, setIngredients] = useState<string[]>([]);
@@ -15,6 +19,11 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const [showOptions, setShowOptions] = useState(false);
+  const [prefStyle, setPrefStyle] = useState("");
+  const [prefPairing, setPrefPairing] = useState("");
+  const [prefType, setPrefType] = useState("");
 
   const addIngredient = (value: string) => {
     const trimmed = value.trim();
@@ -37,6 +46,14 @@ export default function HomePage() {
     }
   };
 
+  const toggleChip = (
+    value: string,
+    current: string,
+    setter: (v: string) => void,
+  ) => {
+    setter(current === value ? "" : value);
+  };
+
   const handleSubmit = async () => {
     if (ingredients.length === 0) {
       setError("재료를 하나 이상 입력해주세요!");
@@ -45,11 +62,17 @@ export default function HomePage() {
     setIsLoading(true);
     setError("");
 
+    const preferences = {
+      style: prefStyle.trim() || undefined,
+      pairing: prefPairing.trim() || undefined,
+      type: prefType.trim() || undefined,
+    };
+
     try {
       const response = await fetch("/api/generate-recipes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ingredients }),
+        body: JSON.stringify({ ingredients, preferences }),
       });
 
       const data = await response.json();
@@ -68,6 +91,8 @@ export default function HomePage() {
       setIsLoading(false);
     }
   };
+
+  const hasPreferences = prefStyle || prefPairing || prefType;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -130,7 +155,7 @@ export default function HomePage() {
         </div>
 
         {/* Quick Add Examples */}
-        <div className="mb-8">
+        <div className="mb-6">
           <p className="text-sm font-medium text-gray-500 mb-3">빠른 추가</p>
           <div className="flex flex-wrap gap-2">
             {EXAMPLE_INGREDIENTS.map((item) => (
@@ -151,6 +176,141 @@ export default function HomePage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Optional Preferences */}
+        <div className="mb-6">
+          <button
+            onClick={() => setShowOptions((v) => !v)}
+            className="w-full flex items-center justify-between px-5 py-3.5 rounded-2xl
+              bg-white shadow-sm border transition-all hover:border-orange-200"
+            style={{ borderColor: hasPreferences ? "#fed7aa" : "#f3f4f6" }}
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold"
+              style={{ color: hasPreferences ? "#ea580c" : "#6b7280" }}>
+              <span>⚙️</span>
+              상세 옵션
+              {hasPreferences && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold"
+                  style={{ background: "#fff7ed", color: "#ea580c", border: "1px solid #fed7aa" }}>
+                  {[prefStyle, prefPairing, prefType].filter(Boolean).length}개 선택됨
+                </span>
+              )}
+            </span>
+            <span className="text-gray-400 text-xs transition-transform"
+              style={{ transform: showOptions ? "rotate(180deg)" : "rotate(0deg)" }}>
+              ▼
+            </span>
+          </button>
+
+          {showOptions && (
+            <div className="mt-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-5">
+              {/* 스타일 */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                  🍽️ 원하는 스타일
+                </label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {STYLE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => toggleChip(opt, prefStyle, setPrefStyle)}
+                      className="px-3 py-1.5 rounded-full text-sm font-medium transition-all"
+                      style={prefStyle === opt ? {
+                        background: "linear-gradient(135deg, #ff6b35, #ffc857)",
+                        color: "white",
+                        border: "1px solid transparent",
+                      } : {
+                        background: "white",
+                        color: "#6b7280",
+                        border: "1px solid #e5e7eb",
+                      }}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={prefStyle}
+                  onChange={(e) => setPrefStyle(e.target.value)}
+                  placeholder="직접 입력 (예: 매콤한, 담백한, 퓨전...)"
+                  className="w-full px-4 py-2.5 rounded-xl text-sm border outline-none transition-all"
+                  style={{ borderColor: prefStyle ? "#fed7aa" : "#e5e7eb" }}
+                />
+              </div>
+
+              {/* 페어링 */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                  🥂 페어링할 음식
+                </label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {PAIRING_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => toggleChip(opt, prefPairing, setPrefPairing)}
+                      className="px-3 py-1.5 rounded-full text-sm font-medium transition-all"
+                      style={prefPairing === opt ? {
+                        background: "linear-gradient(135deg, #ff6b35, #ffc857)",
+                        color: "white",
+                        border: "1px solid transparent",
+                      } : {
+                        background: "white",
+                        color: "#6b7280",
+                        border: "1px solid #e5e7eb",
+                      }}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={prefPairing}
+                  onChange={(e) => setPrefPairing(e.target.value)}
+                  placeholder="직접 입력 (예: 맥주, 와인, 흰쌀밥...)"
+                  className="w-full px-4 py-2.5 rounded-xl text-sm border outline-none transition-all"
+                  style={{ borderColor: prefPairing ? "#fed7aa" : "#e5e7eb" }}
+                />
+              </div>
+
+              {/* 종류 */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                  🍜 요리 종류
+                </label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {TYPE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => toggleChip(opt, prefType, setPrefType)}
+                      className="px-3 py-1.5 rounded-full text-sm font-medium transition-all"
+                      style={prefType === opt ? {
+                        background: "linear-gradient(135deg, #ff6b35, #ffc857)",
+                        color: "white",
+                        border: "1px solid transparent",
+                      } : {
+                        background: "white",
+                        color: "#6b7280",
+                        border: "1px solid #e5e7eb",
+                      }}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={prefType}
+                  onChange={(e) => setPrefType(e.target.value)}
+                  placeholder="직접 입력 (예: 파스타, 찌개, 덮밥...)"
+                  className="w-full px-4 py-2.5 rounded-xl text-sm border outline-none transition-all"
+                  style={{ borderColor: prefType ? "#fed7aa" : "#e5e7eb" }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Error */}

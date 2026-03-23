@@ -6,7 +6,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
 
 export async function POST(req: NextRequest) {
   try {
-    const { ingredients } = await req.json();
+    const { ingredients, preferences } = await req.json();
 
     if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
       return NextResponse.json({ error: "재료를 입력해주세요." }, { status: 400 });
@@ -14,13 +14,23 @@ export async function POST(req: NextRequest) {
 
     const ingredientList = ingredients.join(", ");
 
+    const prefLines = [
+      preferences?.style   && `- 원하는 스타일: ${preferences.style}`,
+      preferences?.pairing && `- 페어링할 음식: ${preferences.pairing}`,
+      preferences?.type    && `- 요리 종류: ${preferences.type}`,
+    ].filter(Boolean).join("\n");
+
+    const preferenceSection = prefLines
+      ? `\n\n선택 옵션 (반드시 반영해주세요):\n${prefLines}`
+      : "";
+
     const result = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       config: {
         systemInstruction: `당신은 한국 요리 전문 셰프입니다. 사용자가 가진 재료를 바탕으로 만들 수 있는 레시피를 추천해주세요.
 반드시 유효한 JSON만 응답하세요. 마크다운 코드 블록 없이 순수 JSON만 반환하세요.`,
       },
-      contents: `집에 있는 재료: ${ingredientList}
+      contents: `집에 있는 재료: ${ingredientList}${preferenceSection}
 
 이 재료들로 만들 수 있는 3가지 레시피를 추천해주세요.
 
