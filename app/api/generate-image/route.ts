@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, SafetyFilterLevel } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
@@ -12,6 +12,7 @@ export async function POST(req: NextRequest) {
     }
 
     let prompt = "";
+    let aspectRatio = "1:1";
 
     if (type === "recipe-card") {
       prompt = `A beautiful, appetizing professional food photography of Korean dish "${recipeName}".
@@ -26,10 +27,12 @@ Natural daylight, top-down view, professional food styling, clean and minimal.`;
 Close-up shot of hands cooking, natural kitchen setting, warm lighting.
 Realistic, detailed, instructional food photography style.`;
     } else if (type === "summary") {
+      aspectRatio = "4:3";
       prompt = `Award-winning food photography of finished Korean dish "${recipeName}", beautifully plated.
 Dark moody background, dramatic side lighting, fine dining presentation.
 Steam rising, garnished, highly detailed. Magazine cover quality.`;
     } else if (type === "instagram") {
+      aspectRatio = "3:4";
       const ingredientList = Array.isArray(ingredients)
         ? ingredients.map((i: { name: string; amount: string; unit: string }) => `${i.name} ${i.amount}${i.unit}`).join(", ")
         : "";
@@ -37,7 +40,6 @@ Steam rising, garnished, highly detailed. Magazine cover quality.`;
         ? steps.map((s: { number: number; title: string }) => `${s.number}. ${s.title}`).join(" → ")
         : "";
       prompt = `Vertical portrait Instagram food post photo of Korean dish "${recipeName}".
-Portrait orientation (taller than wide, 3:4 ratio).
 Key ingredients: ${ingredientList}.
 Cooking steps: ${stepList}.
 Vibrant, warm-toned professional food photography. Beautifully plated on a rustic wooden table.
@@ -47,24 +49,24 @@ Instagram-worthy composition with visual hierarchy. Magazine cover quality.`;
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
     }
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3-pro-image-preview",
-      contents: prompt,
+    const response = await ai.models.generateImages({
+      model: "imagen-4.0-generate-001",
+      prompt,
       config: {
-        responseModalities: ["IMAGE"],
+        numberOfImages: 1,
+        aspectRatio,
+        safetyFilterLevel: SafetyFilterLevel.BLOCK_LOW_AND_ABOVE,
       },
     });
 
-    const parts = response.candidates?.[0]?.content?.parts;
-    const imagePart = parts?.find((p) => p.inlineData);
-    const imageBytes = imagePart?.inlineData?.data;
+    const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
 
     if (!imageBytes) {
       return NextResponse.json({ error: "이미지 생성에 실패했습니다." }, { status: 500 });
     }
 
-    const mimeType = imagePart?.inlineData?.mimeType ?? "image/png";
-    const dataUrl = `data:${mimeType};base64,${imageBytes}`;
+    const base64 = Buffer.from(imageBytes).toString("base64");
+    const dataUrl = `data:image/png;base64,${base64}`;
 
     return NextResponse.json({ imageUrl: dataUrl });
   } catch (error) {
