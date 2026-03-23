@@ -75,9 +75,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ recipe: recipeDetail });
   } catch (error) {
-    console.error("Recipe detail generation error:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Recipe detail generation error:", message);
     return NextResponse.json(
-      { error: "레시피 상세 정보 생성 중 오류가 발생했습니다." },
+      { error: `레시피 상세 정보 생성 중 오류가 발생했습니다: ${message}` },
       { status: 500 }
     );
   }

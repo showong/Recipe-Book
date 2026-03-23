@@ -34,7 +34,7 @@ Steam rising, garnished, highly detailed. Magazine cover quality.`;
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-image-preview",
       contents: prompt,
       config: {
         responseModalities: ["IMAGE"],
@@ -54,9 +54,10 @@ Steam rising, garnished, highly detailed. Magazine cover quality.`;
 
     return NextResponse.json({ imageUrl: dataUrl });
   } catch (error) {
-    console.error("Image generation error:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Image generation error:", message);
     return NextResponse.json(
-      { error: "이미지 생성 중 오류가 발생했습니다." },
+      { error: `이미지 생성 중 오류가 발생했습니다: ${message}` },
       { status: 500 }
     );
   }
