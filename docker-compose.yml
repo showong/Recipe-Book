@@ -1,0 +1,8 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local       # GOOGLE_API_KEY 자동으로 읽어옴
+    restart: unless-stopped
