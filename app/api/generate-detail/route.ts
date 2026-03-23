@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-3-flash-preview",
       config: {
         systemInstruction: `당신은 한국 요리 전문 셰프이자 요리 교육자입니다. 초등학생도 따라할 수 있을 만큼 상세하고 친절한 레시피를 작성해주세요.
 반드시 유효한 JSON만 응답하세요. 마크다운 코드 블록 없이 순수 JSON만 반환하세요.`,
