@@ -1,10 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
 import { RecipeDetail } from "@/types/recipe";
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,16 +12,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "레시피 이름을 입력해주세요." }, { status: 400 });
     }
 
-    const stream = client.messages.stream({
-      model: "claude-opus-4-6",
-      max_tokens: 8192,
-      thinking: { type: "adaptive" },
-      system: `당신은 한국 요리 전문 셰프이자 요리 교육자입니다. 초등학생도 따라할 수 있을 만큼 상세하고 친절한 레시피를 작성해주세요.
+    const result = await ai.models.generateContent({
+      model: "gemini-3-flash",
+      config: {
+        systemInstruction: `당신은 한국 요리 전문 셰프이자 요리 교육자입니다. 초등학생도 따라할 수 있을 만큼 상세하고 친절한 레시피를 작성해주세요.
 반드시 유효한 JSON만 응답하세요. 마크다운 코드 블록 없이 순수 JSON만 반환하세요.`,
-      messages: [
-        {
-          role: "user",
-          content: `레시피 이름: ${recipeName}
+      },
+      contents: `레시피 이름: ${recipeName}
 보유 재료: ${ownedIngredients?.join(", ") || ""}
 추가 필요 재료: ${additionalIngredients?.join(", ") || ""}
 
@@ -71,21 +66,9 @@ export async function POST(req: NextRequest) {
 3. 계량은 반드시 밥숟가락(T), 찻숟가락(t), 컵(cup), g, ml 등 명확하게 표시하세요.
 4. 총 6-10단계로 구성하세요.
 5. 단계별 emoji는 해당 조리 동작을 표현하는 이모지를 사용하세요.`,
-        },
-      ],
     });
 
-    const response = await stream.finalMessage();
-
-    let textContent = "";
-    for (const block of response.content) {
-      if (block.type === "text") {
-        textContent = block.text;
-        break;
-      }
-    }
-
-    // Clean up markdown code blocks if present
+    let textContent = result.text ?? "";
     textContent = textContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
     const recipeDetail: RecipeDetail = JSON.parse(textContent);

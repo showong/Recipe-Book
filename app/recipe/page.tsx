@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RecipeDetail } from "@/types/recipe";
 import { Suspense } from "react";
+import Image from "next/image";
 
 function RecipeDetailContent() {
   const router = useRouter();
@@ -12,6 +13,13 @@ function RecipeDetailContent() {
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [activeSection, setActiveSection] = useState<"ingredients" | "steps" | "summary">("ingredients");
   const summaryRef = useRef<HTMLDivElement>(null);
+
+  // Images from Imagen
+  const [heroImage, setHeroImage] = useState<string | null>(null);
+  const [ingredientsImage, setIngredientsImage] = useState<string | null>(null);
+  const [summaryImage, setSummaryImage] = useState<string | null>(null);
+  const [ingredientsImageLoading, setIngredientsImageLoading] = useState(false);
+  const [summaryImageLoading, setSummaryImageLoading] = useState(false);
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -23,10 +31,41 @@ function RecipeDetailContent() {
       const parsed = JSON.parse(decodeURIComponent(data));
       setRecipe(parsed.recipe);
       setIngredients(parsed.ingredients || []);
+      // Hero image may have been pre-generated on the recipes page
+      if (parsed.heroImage) setHeroImage(parsed.heroImage);
+
+      // Start generating ingredient layout image and summary image
+      if (parsed.recipe?.name) {
+        generateImage(parsed.recipe.name, "ingredients", setIngredientsImage, setIngredientsImageLoading);
+        generateImage(parsed.recipe.name, "summary", setSummaryImage, setSummaryImageLoading);
+      }
     } catch {
       router.push("/");
     }
   }, [searchParams, router]);
+
+  const generateImage = async (
+    recipeName: string,
+    type: string,
+    setter: (url: string) => void,
+    loadingSetter: (v: boolean) => void,
+    stepTitle?: string,
+  ) => {
+    loadingSetter(true);
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipeName, type, stepTitle }),
+      });
+      const data = await res.json();
+      if (data.imageUrl) setter(data.imageUrl);
+    } catch {
+      // silently fail
+    } finally {
+      loadingSetter(false);
+    }
+  };
 
   if (!recipe) {
     return (
@@ -45,42 +84,47 @@ function RecipeDetailContent() {
 
   return (
     <div className="min-h-screen pb-20">
-      {/* Header */}
-      <div className="hero-gradient py-10 px-4 text-white text-center relative">
-        <button
-          onClick={() => router.back()}
-          className="absolute left-4 top-6 text-white opacity-80 hover:opacity-100 transition-opacity flex items-center gap-1 text-sm font-medium"
-        >
-          ← 뒤로
-        </button>
-        <div className="text-5xl mb-3">{recipe.emoji}</div>
-        <h1 className="text-3xl font-extrabold mb-2">{recipe.name}</h1>
-        <p className="text-sm opacity-90 max-w-md mx-auto">{recipe.description}</p>
-
-        {/* Stats row */}
-        <div className="flex justify-center gap-6 mt-4">
-          <div className="text-center">
-            <div className="text-xl font-bold">⏱ {recipe.totalTime}</div>
-            <div className="text-xs opacity-75">총 시간</div>
+      {/* Header with Imagen hero photo */}
+      <div className="relative overflow-hidden" style={{ minHeight: "280px" }}>
+        {heroImage ? (
+          <div className="absolute inset-0">
+            <Image src={heroImage} alt={recipe.name} fill className="object-cover" unoptimized />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%)" }} />
           </div>
-          <div className="text-center">
-            <div className="text-xl font-bold">👤 {recipe.servings}인분</div>
-            <div className="text-xs opacity-75">분량</div>
-          </div>
-          <div className="text-center">
-            <div className="text-xl font-bold">📊 {recipe.difficulty}</div>
-            <div className="text-xs opacity-75">난이도</div>
+        ) : (
+          <div className="absolute inset-0 hero-gradient" />
+        )}
+        <div className="relative z-10 py-10 px-4 text-white text-center">
+          <button
+            onClick={() => router.back()}
+            className="absolute left-4 top-6 text-white opacity-80 hover:opacity-100 transition-opacity flex items-center gap-1 text-sm font-medium"
+          >
+            ← 뒤로
+          </button>
+          {!heroImage && <div className="text-5xl mb-3">{recipe.emoji}</div>}
+          <h1 className="text-3xl font-extrabold mb-2 drop-shadow">{recipe.name}</h1>
+          <p className="text-sm opacity-90 max-w-md mx-auto drop-shadow">{recipe.description}</p>
+          <div className="flex justify-center gap-6 mt-4">
+            <div className="text-center">
+              <div className="text-xl font-bold">⏱ {recipe.totalTime}</div>
+              <div className="text-xs opacity-75">총 시간</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-bold">👤 {recipe.servings}인분</div>
+              <div className="text-xs opacity-75">분량</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-bold">📊 {recipe.difficulty}</div>
+              <div className="text-xs opacity-75">난이도</div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Highlight / Kick Banner */}
-      <div className="max-w-3xl mx-auto px-4 -mt-4 mb-6">
+      <div className="max-w-3xl mx-auto px-4 -mt-4 mb-6 relative z-20">
         <div className="kick-pulse rounded-2xl p-4 text-center shadow-lg"
-          style={{
-            background: "linear-gradient(135deg, #ff6b35, #ffc857)",
-            color: "white",
-          }}>
+          style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)", color: "white" }}>
           <div className="text-sm font-bold opacity-90 mb-1">⭐ 이 요리의 핵심 포인트</div>
           <div className="text-lg font-extrabold">{recipe.highlight}</div>
         </div>
@@ -100,15 +144,9 @@ function RecipeDetailContent() {
                 key={section}
                 onClick={() => setActiveSection(section)}
                 className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                  activeSection === section
-                    ? "text-white shadow-md"
-                    : "text-gray-500 hover:text-gray-700"
+                  activeSection === section ? "text-white shadow-md" : "text-gray-500 hover:text-gray-700"
                 }`}
-                style={
-                  activeSection === section
-                    ? { background: "linear-gradient(135deg, #ff6b35, #ffc857)" }
-                    : {}
-                }
+                style={activeSection === section ? { background: "linear-gradient(135deg, #ff6b35, #ffc857)" } : {}}
               >
                 {labels[section]}
               </button>
@@ -119,6 +157,41 @@ function RecipeDetailContent() {
         {/* =========== INGREDIENTS SECTION =========== */}
         {activeSection === "ingredients" && (
           <div className="fade-in-up space-y-4">
+            {/* Imagen: ingredient layout card */}
+            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
+              <div className="px-5 py-3 flex items-center justify-between"
+                style={{ background: "linear-gradient(135deg, #f8fafc, #e2e8f0)" }}>
+                <span className="text-sm font-bold text-gray-600 flex items-center gap-1.5">
+                  📸 Imagen 재료 사진
+                </span>
+                {ingredientsImageLoading && (
+                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                    <svg className="spinner w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    생성 중...
+                  </span>
+                )}
+              </div>
+              <div className="relative w-full h-56 bg-gray-50">
+                {ingredientsImage ? (
+                  <Image src={ingredientsImage} alt="재료" fill className="object-cover" unoptimized />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-300">
+                    {ingredientsImageLoading ? (
+                      <div className="text-center">
+                        <div className="text-4xl mb-2">🥕</div>
+                        <p className="text-sm text-gray-400">Imagen으로 재료 사진 생성 중...</p>
+                      </div>
+                    ) : (
+                      <span className="text-5xl opacity-30">📷</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Owned ingredients card */}
             <div className="bg-white rounded-3xl shadow-md overflow-hidden">
               <div className="px-6 py-4 flex items-center gap-2"
@@ -129,8 +202,7 @@ function RecipeDetailContent() {
               <div className="p-6">
                 <div className="grid grid-cols-2 gap-3">
                   {ownedIngredients.map((ing) => (
-                    <div key={ing.name} className="flex items-center justify-between
-                      p-3 rounded-xl"
+                    <div key={ing.name} className="flex items-center justify-between p-3 rounded-xl"
                       style={{ background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
                       <span className="font-semibold text-sm text-gray-700">{ing.name}</span>
                       <span className="text-sm font-bold" style={{ color: "#16a34a" }}>
@@ -142,7 +214,6 @@ function RecipeDetailContent() {
               </div>
             </div>
 
-            {/* Needed ingredients card */}
             {neededIngredients.length > 0 && (
               <div className="bg-white rounded-3xl shadow-md overflow-hidden">
                 <div className="px-6 py-4 flex items-center gap-2"
@@ -153,8 +224,7 @@ function RecipeDetailContent() {
                 <div className="p-6">
                   <div className="grid grid-cols-2 gap-3">
                     {neededIngredients.map((ing) => (
-                      <div key={ing.name} className="flex items-center justify-between
-                        p-3 rounded-xl"
+                      <div key={ing.name} className="flex items-center justify-between p-3 rounded-xl"
                         style={{ background: "#fff7ed", border: "1px solid #fed7aa" }}>
                         <span className="font-semibold text-sm text-gray-700">{ing.name}</span>
                         <span className="text-sm font-bold" style={{ color: "#ea580c" }}>
@@ -167,7 +237,7 @@ function RecipeDetailContent() {
               </div>
             )}
 
-            {/* All ingredients summary card */}
+            {/* Full list */}
             <div className="bg-white rounded-3xl shadow-md p-6">
               <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
                 <span>📋</span> 전체 재료 목록
@@ -231,13 +301,9 @@ function RecipeDetailContent() {
                 >
                   <div className="p-6">
                     <div className="flex items-start gap-4">
-                      {/* Step number + emoji */}
                       <div className="flex-shrink-0">
                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl
-                          ${step.isKick
-                            ? "bg-orange-100"
-                            : "bg-gray-100"
-                          }`}>
+                          ${step.isKick ? "bg-orange-100" : "bg-gray-100"}`}>
                           {step.emoji}
                         </div>
                         <div className="text-center mt-1">
@@ -247,7 +313,6 @@ function RecipeDetailContent() {
                         </div>
                       </div>
 
-                      {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <h4 className={`font-extrabold text-base ${step.isKick ? "text-orange-700" : "text-gray-800"}`}>
@@ -262,7 +327,6 @@ function RecipeDetailContent() {
                         </div>
                         <p className="text-sm text-gray-600 leading-relaxed">{step.description}</p>
 
-                        {/* Kick reason */}
                         {step.isKick && step.kickReason && (
                           <div className="mt-3 p-3 rounded-xl text-sm font-medium"
                             style={{ background: "rgba(255, 107, 53, 0.08)", color: "#c2410c" }}>
@@ -270,26 +334,19 @@ function RecipeDetailContent() {
                           </div>
                         )}
 
-                        {/* Parallel task */}
                         {step.parallel && (
                           <div className="mt-2 p-2.5 rounded-xl text-xs flex items-start gap-2"
                             style={{ background: "#f0fdf4", color: "#16a34a" }}>
                             <span className="text-base">⚡</span>
-                            <div>
-                              <span className="font-bold">시간 절약:</span>{" "}
-                              {step.parallel}
-                            </div>
+                            <div><span className="font-bold">시간 절약:</span> {step.parallel}</div>
                           </div>
                         )}
 
-                        {/* Tip */}
                         {step.tip && (
                           <div className="mt-2 p-2.5 rounded-xl text-xs flex items-start gap-2"
                             style={{ background: "#eff6ff", color: "#1d4ed8" }}>
                             <span className="text-base">💡</span>
-                            <div>
-                              <span className="font-bold">팁:</span> {step.tip}
-                            </div>
+                            <div><span className="font-bold">팁:</span> {step.tip}</div>
                           </div>
                         )}
                       </div>
@@ -331,8 +388,11 @@ function RecipeDetailContent() {
         {/* =========== SUMMARY SECTION =========== */}
         {activeSection === "summary" && (
           <div className="fade-in-up" ref={summaryRef}>
-            <SummaryCard recipe={recipe} />
-
+            <SummaryCard
+              recipe={recipe}
+              summaryImage={summaryImage}
+              summaryImageLoading={summaryImageLoading}
+            />
             <div className="mt-6 flex gap-3">
               <button
                 onClick={() => router.push("/")}
@@ -354,22 +414,46 @@ function RecipeDetailContent() {
   );
 }
 
-function SummaryCard({ recipe }: { recipe: RecipeDetail }) {
+function SummaryCard({
+  recipe,
+  summaryImage,
+  summaryImageLoading,
+}: {
+  recipe: RecipeDetail;
+  summaryImage: string | null;
+  summaryImageLoading: boolean;
+}) {
   return (
     <div className="rounded-3xl overflow-hidden shadow-2xl"
       style={{ background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)" }}>
-      {/* Top banner */}
-      <div className="px-6 py-5"
-        style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
-        <div className="flex items-center gap-3">
-          <span className="text-4xl">{recipe.emoji}</span>
-          <div>
-            <h2 className="text-xl font-extrabold text-white">{recipe.name}</h2>
-            <div className="flex gap-3 mt-1 text-sm text-white/80">
-              <span>⏱ {recipe.totalTime}</span>
-              <span>👤 {recipe.servings}인분</span>
-              <span>📊 {recipe.difficulty}</span>
-            </div>
+      {/* Imagen summary image */}
+      <div className="relative w-full h-56 bg-gray-800">
+        {summaryImage ? (
+          <Image src={summaryImage} alt={recipe.name} fill className="object-cover" unoptimized />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+            <div className="text-5xl opacity-50">{recipe.emoji}</div>
+            {summaryImageLoading && (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                Imagen으로 완성 사진 생성 중...
+              </div>
+            )}
+          </div>
+        )}
+        {/* Gradient overlay */}
+        <div className="absolute inset-0"
+          style={{ background: "linear-gradient(to bottom, transparent 50%, rgba(26,26,46,1) 100%)" }} />
+        {/* Title overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-4">
+          <h2 className="text-2xl font-extrabold text-white drop-shadow">{recipe.name}</h2>
+          <div className="flex gap-3 mt-1 text-sm text-white/70">
+            <span>⏱ {recipe.totalTime}</span>
+            <span>👤 {recipe.servings}인분</span>
+            <span>📊 {recipe.difficulty}</span>
           </div>
         </div>
       </div>
@@ -382,9 +466,7 @@ function SummaryCard({ recipe }: { recipe: RecipeDetail }) {
 
         {/* Key ingredients */}
         <div>
-          <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-3">
-            주요 재료
-          </h3>
+          <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-3">주요 재료</h3>
           <div className="flex flex-wrap gap-2">
             {recipe.ingredients.slice(0, 8).map((ing) => (
               <span key={ing.name}
@@ -392,7 +474,7 @@ function SummaryCard({ recipe }: { recipe: RecipeDetail }) {
                 style={{
                   background: ing.isOwned ? "rgba(74, 222, 128, 0.2)" : "rgba(251, 146, 60, 0.2)",
                   color: ing.isOwned ? "#4ade80" : "#fb923c",
-                  border: `1px solid ${ing.isOwned ? "rgba(74, 222, 128, 0.3)" : "rgba(251, 146, 60, 0.3)"}`,
+                  border: `1px solid ${ing.isOwned ? "rgba(74,222,128,0.3)" : "rgba(251,146,60,0.3)"}`,
                 }}>
                 {ing.name} {ing.amount}{ing.unit}
               </span>
@@ -402,29 +484,20 @@ function SummaryCard({ recipe }: { recipe: RecipeDetail }) {
 
         {/* Step-by-step condensed */}
         <div>
-          <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-3">
-            조리 순서
-          </h3>
+          <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-3">조리 순서</h3>
           <div className="space-y-2">
             {recipe.steps.map((step) => (
               <div key={step.number} className="flex items-start gap-3">
                 <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
-                  ${step.isKick
-                    ? "bg-orange-500 text-white"
-                    : "bg-white/10 text-white/60"
-                  }`}>
+                  ${step.isKick ? "bg-orange-500 text-white" : "bg-white/10 text-white/60"}`}>
                   {step.number}
                 </div>
                 <div className="flex-1">
                   <span className={`text-sm font-semibold ${step.isKick ? "text-orange-400" : "text-white/80"}`}>
                     {step.title}
                   </span>
-                  {step.isKick && (
-                    <span className="ml-2 text-xs font-bold text-orange-400">⭐</span>
-                  )}
-                  {step.time && (
-                    <span className="ml-1 text-xs text-white/40">({step.time})</span>
-                  )}
+                  {step.isKick && <span className="ml-2 text-xs font-bold text-orange-400">⭐</span>}
+                  {step.time && <span className="ml-1 text-xs text-white/40">({step.time})</span>}
                 </div>
               </div>
             ))}
@@ -433,8 +506,10 @@ function SummaryCard({ recipe }: { recipe: RecipeDetail }) {
 
         {/* Highlight */}
         <div className="p-4 rounded-2xl"
-          style={{ background: "linear-gradient(135deg, rgba(255,107,53,0.2), rgba(255,200,87,0.2))",
-            border: "1px solid rgba(255,107,53,0.3)" }}>
+          style={{
+            background: "linear-gradient(135deg, rgba(255,107,53,0.2), rgba(255,200,87,0.2))",
+            border: "1px solid rgba(255,107,53,0.3)",
+          }}>
           <p className="text-xs font-bold text-orange-400 mb-1">⭐ 핵심 포인트</p>
           <p className="text-sm text-white/90 font-medium">{recipe.highlight}</p>
         </div>
@@ -442,14 +517,11 @@ function SummaryCard({ recipe }: { recipe: RecipeDetail }) {
         {/* Pairings */}
         {recipe.pairings.length > 0 && (
           <div>
-            <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
-              🤝 어울리는 음식
-            </h3>
+            <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2">🤝 어울리는 음식</h3>
             <p className="text-sm text-white/70">{recipe.pairings.join(" · ")}</p>
           </div>
         )}
 
-        {/* Taste */}
         <div className="text-center pt-2 pb-1">
           <span className="text-2xl">😋</span>
           <p className="text-sm text-white/60 mt-1">{recipe.taste}</p>

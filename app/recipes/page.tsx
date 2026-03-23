@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RecipeSuggestion } from "@/types/recipe";
 import { Suspense } from "react";
+import Image from "next/image";
 
 function RecipesContent() {
   const router = useRouter();
@@ -13,6 +14,9 @@ function RecipesContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  // Map of recipeId -> base64 image URL
+  const [recipeImages, setRecipeImages] = useState<Record<string, string>>({});
+  const [imageLoadingIds, setImageLoadingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -22,14 +26,40 @@ function RecipesContent() {
     }
     try {
       const parsed = JSON.parse(decodeURIComponent(data));
-      setRecipes(parsed.recipes || []);
+      const loadedRecipes: RecipeSuggestion[] = parsed.recipes || [];
+      setRecipes(loadedRecipes);
       setIngredients(parsed.ingredients || []);
+      // Start generating images for all recipe cards in parallel
+      loadedRecipes.forEach((r) => generateRecipeImage(r));
     } catch {
       router.push("/");
     } finally {
       setIsLoading(false);
     }
   }, [searchParams, router]);
+
+  const generateRecipeImage = async (recipe: RecipeSuggestion) => {
+    setImageLoadingIds((prev) => new Set(prev).add(recipe.id));
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipeName: recipe.name, type: "recipe-card" }),
+      });
+      const data = await res.json();
+      if (data.imageUrl) {
+        setRecipeImages((prev) => ({ ...prev, [recipe.id]: data.imageUrl }));
+      }
+    } catch {
+      // silently fail — card shows without image
+    } finally {
+      setImageLoadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(recipe.id);
+        return next;
+      });
+    }
+  };
 
   const handleSelectRecipe = async (recipe: RecipeSuggestion) => {
     setSelectedId(recipe.id);
@@ -56,6 +86,7 @@ function RecipesContent() {
       const encoded = encodeURIComponent(JSON.stringify({
         recipe: data.recipe,
         ingredients,
+        heroImage: recipeImages[recipe.id] || null,
       }));
       router.push(`/recipe?data=${encoded}`);
     } catch (err) {
@@ -85,7 +116,7 @@ function RecipesContent() {
   return (
     <div className="min-h-screen pb-20">
       {/* Header */}
-      <div className="hero-gradient py-10 px-4 text-white text-center">
+      <div className="hero-gradient py-10 px-4 text-white text-center relative">
         <button
           onClick={() => router.push("/")}
           className="absolute left-4 top-6 text-white opacity-80 hover:opacity-100 transition-opacity flex items-center gap-1 text-sm font-medium"
@@ -141,6 +172,9 @@ function RecipesContent() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {recipes.map((recipe, index) => {
             const diffStyle = difficultyColor(recipe.difficulty);
+            const imgUrl = recipeImages[recipe.id];
+            const isImgLoading = imageLoadingIds.has(recipe.id);
+
             return (
               <div
                 key={recipe.id}
@@ -148,82 +182,90 @@ function RecipesContent() {
                   fade-in-up fade-in-up-delay-${index + 1}`}
                 onClick={() => !selectedId && handleSelectRecipe(recipe)}
               >
-                {/* Card Header */}
-                <div className="p-6 pb-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="text-5xl">{recipe.emoji}</div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-xs font-bold px-2.5 py-1 rounded-full"
-                        style={{ background: diffStyle.bg, color: diffStyle.text }}>
-                        {recipe.difficulty}
-                      </span>
-                      <span className="text-xs text-gray-400">⏱ {recipe.cookingTime}</span>
+                {/* Imagen Photo */}
+                <div className="relative w-full h-48 bg-gray-100 overflow-hidden">
+                  {imgUrl ? (
+                    <Image
+                      src={imgUrl}
+                      alt={recipe.name}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                      <div className="text-5xl">{recipe.emoji}</div>
+                      {isImgLoading && (
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                          <svg className="spinner w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                          </svg>
+                          이미지 생성 중...
+                        </div>
+                      )}
                     </div>
+                  )}
+                  {/* Overlay badges */}
+                  <div className="absolute top-3 left-3 flex gap-1.5">
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full shadow-sm"
+                      style={{ background: diffStyle.bg, color: diffStyle.text }}>
+                      {recipe.difficulty}
+                    </span>
                   </div>
-                  <h3 className="text-xl font-extrabold text-gray-800 mb-1">{recipe.name}</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">{recipe.description}</p>
+                  <div className="absolute top-3 right-3">
+                    <span className="text-xs px-2.5 py-1 rounded-full shadow-sm"
+                      style={{ background: "rgba(0,0,0,0.5)", color: "white" }}>
+                      ⏱ {recipe.cookingTime}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Taste */}
-                <div className="px-6 pb-3">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm"
+                {/* Card Body */}
+                <div className="p-5">
+                  <h3 className="text-xl font-extrabold text-gray-800 mb-1">{recipe.name}</h3>
+                  <p className="text-sm text-gray-500 leading-relaxed mb-3">{recipe.description}</p>
+
+                  {/* Taste */}
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm mb-3"
                     style={{ background: "#fff7ed", color: "#ea580c" }}>
                     <span>😋</span>
                     <span className="font-medium">{recipe.taste}</span>
                   </div>
-                </div>
 
-                {/* Highlight / Kick */}
-                <div className="px-6 pb-4">
-                  <div className="p-3 rounded-xl text-sm font-medium"
+                  {/* Highlight / Kick */}
+                  <div className="p-3 rounded-xl text-sm font-medium mb-3"
                     style={{ background: "#fffbeb", border: "1px solid #fde68a" }}>
                     <span className="text-yellow-600">✨ </span>
                     <span className="text-gray-700">{recipe.highlight}</span>
                   </div>
-                </div>
 
-                {/* Ingredients */}
-                <div className="px-6 pb-4">
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                      보유 재료
-                    </p>
+                  {/* Ingredients */}
+                  <div className="space-y-2 mb-3">
                     <div className="flex flex-wrap gap-1.5">
-                      {recipe.ownedIngredients.slice(0, 5).map((ing) => (
-                        <span key={ing} className="px-2.5 py-1 rounded-full text-xs font-medium"
+                      {recipe.ownedIngredients.slice(0, 4).map((ing) => (
+                        <span key={ing} className="px-2 py-0.5 rounded-full text-xs font-medium"
                           style={{ background: "#dcfce7", color: "#16a34a" }}>
                           ✓ {ing}
                         </span>
                       ))}
+                      {recipe.additionalIngredients.map((ing) => (
+                        <span key={ing} className="px-2 py-0.5 rounded-full text-xs font-medium"
+                          style={{ background: "#fff7ed", color: "#ea580c" }}>
+                          + {ing}
+                        </span>
+                      ))}
                     </div>
-                    {recipe.additionalIngredients.length > 0 && (
-                      <>
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-2">
-                          추가 필요
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {recipe.additionalIngredients.map((ing) => (
-                            <span key={ing} className="px-2.5 py-1 rounded-full text-xs font-medium"
-                              style={{ background: "#fff7ed", color: "#ea580c" }}>
-                              + {ing}
-                            </span>
-                          ))}
-                        </div>
-                      </>
-                    )}
                   </div>
-                </div>
 
-                {/* Pairings */}
-                {recipe.pairings.length > 0 && (
-                  <div className="px-6 pb-4">
-                    <p className="text-xs font-semibold text-gray-400 mb-1.5">🤝 어울리는 음식</p>
-                    <p className="text-sm text-gray-600">{recipe.pairings.join(" · ")}</p>
-                  </div>
-                )}
+                  {/* Pairings */}
+                  {recipe.pairings.length > 0 && (
+                    <p className="text-xs text-gray-500 mb-4">
+                      🤝 {recipe.pairings.join(" · ")}
+                    </p>
+                  )}
 
-                {/* CTA */}
-                <div className="px-6 pb-6">
+                  {/* CTA */}
                   <button
                     className="w-full py-3 rounded-2xl text-white text-sm font-bold transition-all
                       hover:opacity-90 active:scale-95"
@@ -234,11 +276,6 @@ function RecipesContent() {
                   >
                     이 레시피로 요리하기 →
                   </button>
-                </div>
-
-                {/* Servings badge */}
-                <div className="absolute top-4 left-4 opacity-0"
-                  style={{ position: "relative", opacity: 1 }}>
                 </div>
               </div>
             );

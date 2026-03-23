@@ -1,10 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
 import { RecipeSuggestion } from "@/types/recipe";
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,16 +14,13 @@ export async function POST(req: NextRequest) {
 
     const ingredientList = ingredients.join(", ");
 
-    const stream = client.messages.stream({
-      model: "claude-opus-4-6",
-      max_tokens: 4096,
-      thinking: { type: "adaptive" },
-      system: `당신은 한국 요리 전문 셰프입니다. 사용자가 가진 재료를 바탕으로 만들 수 있는 레시피를 추천해주세요.
+    const result = await ai.models.generateContent({
+      model: "gemini-3-flash",
+      config: {
+        systemInstruction: `당신은 한국 요리 전문 셰프입니다. 사용자가 가진 재료를 바탕으로 만들 수 있는 레시피를 추천해주세요.
 반드시 유효한 JSON만 응답하세요. 마크다운 코드 블록 없이 순수 JSON만 반환하세요.`,
-      messages: [
-        {
-          role: "user",
-          content: `집에 있는 재료: ${ingredientList}
+      },
+      contents: `집에 있는 재료: ${ingredientList}
 
 이 재료들로 만들 수 있는 3가지 레시피를 추천해주세요.
 
@@ -52,21 +47,9 @@ export async function POST(req: NextRequest) {
 difficulty는 반드시 "쉬움", "보통", "어려움" 중 하나여야 합니다.
 additionalIngredients는 최대 4개로 제한해주세요.
 pairings는 2-3개로 제한해주세요.`,
-        },
-      ],
     });
 
-    const response = await stream.finalMessage();
-
-    let textContent = "";
-    for (const block of response.content) {
-      if (block.type === "text") {
-        textContent = block.text;
-        break;
-      }
-    }
-
-    // Clean up markdown code blocks if present
+    let textContent = result.text ?? "";
     textContent = textContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
     const parsed = JSON.parse(textContent);
