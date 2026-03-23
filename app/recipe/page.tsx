@@ -20,6 +20,8 @@ function RecipeDetailContent() {
   const [summaryImage, setSummaryImage] = useState<string | null>(null);
   const [ingredientsImageLoading, setIngredientsImageLoading] = useState(false);
   const [summaryImageLoading, setSummaryImageLoading] = useState(false);
+  const [instagramImage, setInstagramImage] = useState<string | null>(null);
+  const [instagramImageLoading, setInstagramImageLoading] = useState(false);
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -64,6 +66,29 @@ function RecipeDetailContent() {
       // silently fail
     } finally {
       loadingSetter(false);
+    }
+  };
+
+  const generateInstagramImage = async () => {
+    if (!recipe) return;
+    setInstagramImageLoading(true);
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipeName: recipe.name,
+          type: "instagram",
+          ingredients: recipe.ingredients,
+          steps: recipe.steps,
+        }),
+      });
+      const data = await res.json();
+      if (data.imageUrl) setInstagramImage(data.imageUrl);
+    } catch {
+      // silently fail
+    } finally {
+      setInstagramImageLoading(false);
     }
   };
 
@@ -393,6 +418,15 @@ function RecipeDetailContent() {
               summaryImage={summaryImage}
               summaryImageLoading={summaryImageLoading}
             />
+
+            {/* Instagram Card */}
+            <InstagramCard
+              recipe={recipe}
+              instagramImage={instagramImage}
+              instagramImageLoading={instagramImageLoading}
+              onGenerate={generateInstagramImage}
+            />
+
             <div className="mt-6 flex gap-3">
               <button
                 onClick={() => router.push("/")}
@@ -525,6 +559,98 @@ function SummaryCard({
         <div className="text-center pt-2 pb-1">
           <span className="text-2xl">😋</span>
           <p className="text-sm text-white/60 mt-1">{recipe.taste}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InstagramCard({
+  recipe,
+  instagramImage,
+  instagramImageLoading,
+  onGenerate,
+}: {
+  recipe: RecipeDetail;
+  instagramImage: string | null;
+  instagramImageLoading: boolean;
+  onGenerate: () => void;
+}) {
+  const handleDownload = () => {
+    if (!instagramImage) return;
+    const a = document.createElement("a");
+    a.href = instagramImage;
+    a.download = `${recipe.name}-instagram.png`;
+    a.click();
+  };
+
+  return (
+    <div className="mt-6 rounded-3xl overflow-hidden shadow-xl"
+      style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
+      <div className="p-px rounded-3xl">
+        <div className="bg-white rounded-3xl overflow-hidden">
+          {/* Header */}
+          <div className="px-5 py-4 flex items-center gap-3"
+            style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
+            <span className="text-2xl">📸</span>
+            <div>
+              <p className="text-white font-extrabold text-sm">인스타용 이미지</p>
+              <p className="text-white/80 text-xs">3:4 비율 · 재료 & 단계 기반 생성</p>
+            </div>
+          </div>
+
+          <div className="p-5">
+            {!instagramImage && !instagramImageLoading && (
+              <button
+                onClick={onGenerate}
+                className="w-full py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90 active:scale-95"
+                style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
+                ✨ 인스타용 이미지 생성하기
+              </button>
+            )}
+
+            {instagramImageLoading && (
+              <div className="flex flex-col items-center gap-3 py-10">
+                <svg className="spinner w-8 h-8 text-pink-500" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                <p className="text-sm font-medium text-gray-500">인스타용 이미지 생성 중...</p>
+                <p className="text-xs text-gray-400">재료와 조리법을 분석하고 있어요</p>
+              </div>
+            )}
+
+            {instagramImage && (
+              <div className="space-y-4">
+                {/* 3:4 ratio image container */}
+                <div className="relative w-full mx-auto overflow-hidden rounded-2xl shadow-lg"
+                  style={{ aspectRatio: "3 / 4", maxWidth: "360px" }}>
+                  <Image
+                    src={instagramImage}
+                    alt={`${recipe.name} 인스타용`}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleDownload}
+                    className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
+                    style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
+                    ⬇️ 이미지 저장
+                  </button>
+                  <button
+                    onClick={onGenerate}
+                    className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-gray-50"
+                    style={{ borderColor: "#fd1d1d", color: "#fd1d1d" }}>
+                    🔄 재생성
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

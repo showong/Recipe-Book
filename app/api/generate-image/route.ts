@@ -5,7 +5,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
 
 export async function POST(req: NextRequest) {
   try {
-    const { recipeName, type, stepTitle } = await req.json();
+    const { recipeName, type, stepTitle, ingredients, steps } = await req.json();
 
     if (!recipeName) {
       return NextResponse.json({ error: "레시피 이름이 필요합니다." }, { status: 400 });
@@ -29,6 +29,20 @@ Realistic, detailed, instructional food photography style.`;
       prompt = `Award-winning food photography of finished Korean dish "${recipeName}", beautifully plated.
 Dark moody background, dramatic side lighting, fine dining presentation.
 Steam rising, garnished, highly detailed. Magazine cover quality.`;
+    } else if (type === "instagram") {
+      const ingredientList = Array.isArray(ingredients)
+        ? ingredients.map((i: { name: string; amount: string; unit: string }) => `${i.name} ${i.amount}${i.unit}`).join(", ")
+        : "";
+      const stepList = Array.isArray(steps)
+        ? steps.map((s: { number: number; title: string }) => `${s.number}. ${s.title}`).join(" → ")
+        : "";
+      prompt = `Vertical portrait Instagram food post photo of Korean dish "${recipeName}".
+Portrait orientation (taller than wide, 3:4 ratio).
+Key ingredients: ${ingredientList}.
+Cooking steps: ${stepList}.
+Vibrant, warm-toned professional food photography. Beautifully plated on a rustic wooden table.
+Shallow depth of field, bokeh background, natural window light from the side.
+Instagram-worthy composition with visual hierarchy. Magazine cover quality.`;
     } else {
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
     }
