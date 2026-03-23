@@ -1,0 +1,475 @@
+"use client";
+
+import { useEffect, useState, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { RecipeDetail } from "@/types/recipe";
+import { Suspense } from "react";
+
+function RecipeDetailContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
+  const [ingredients, setIngredients] = useState<string[]>([]);
+  const [activeSection, setActiveSection] = useState<"ingredients" | "steps" | "summary">("ingredients");
+  const summaryRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const data = searchParams.get("data");
+    if (!data) {
+      router.push("/");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(decodeURIComponent(data));
+      setRecipe(parsed.recipe);
+      setIngredients(parsed.ingredients || []);
+    } catch {
+      router.push("/");
+    }
+  }, [searchParams, router]);
+
+  if (!recipe) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-5xl mb-4">🍳</div>
+          <p className="text-lg font-medium text-gray-600">레시피를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const kickSteps = recipe.steps.filter((s) => s.isKick);
+  const ownedIngredients = recipe.ingredients.filter((i) => i.isOwned);
+  const neededIngredients = recipe.ingredients.filter((i) => !i.isOwned);
+
+  return (
+    <div className="min-h-screen pb-20">
+      {/* Header */}
+      <div className="hero-gradient py-10 px-4 text-white text-center relative">
+        <button
+          onClick={() => router.back()}
+          className="absolute left-4 top-6 text-white opacity-80 hover:opacity-100 transition-opacity flex items-center gap-1 text-sm font-medium"
+        >
+          ← 뒤로
+        </button>
+        <div className="text-5xl mb-3">{recipe.emoji}</div>
+        <h1 className="text-3xl font-extrabold mb-2">{recipe.name}</h1>
+        <p className="text-sm opacity-90 max-w-md mx-auto">{recipe.description}</p>
+
+        {/* Stats row */}
+        <div className="flex justify-center gap-6 mt-4">
+          <div className="text-center">
+            <div className="text-xl font-bold">⏱ {recipe.totalTime}</div>
+            <div className="text-xs opacity-75">총 시간</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xl font-bold">👤 {recipe.servings}인분</div>
+            <div className="text-xs opacity-75">분량</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xl font-bold">📊 {recipe.difficulty}</div>
+            <div className="text-xs opacity-75">난이도</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Highlight / Kick Banner */}
+      <div className="max-w-3xl mx-auto px-4 -mt-4 mb-6">
+        <div className="kick-pulse rounded-2xl p-4 text-center shadow-lg"
+          style={{
+            background: "linear-gradient(135deg, #ff6b35, #ffc857)",
+            color: "white",
+          }}>
+          <div className="text-sm font-bold opacity-90 mb-1">⭐ 이 요리의 핵심 포인트</div>
+          <div className="text-lg font-extrabold">{recipe.highlight}</div>
+        </div>
+      </div>
+
+      <div className="max-w-3xl mx-auto px-4">
+        {/* Section Tabs */}
+        <div className="flex gap-2 mb-6 bg-white rounded-2xl p-1.5 shadow-sm">
+          {(["ingredients", "steps", "summary"] as const).map((section) => {
+            const labels: Record<string, string> = {
+              ingredients: "🛒 재료",
+              steps: "👨‍🍳 조리법",
+              summary: "📋 요약",
+            };
+            return (
+              <button
+                key={section}
+                onClick={() => setActiveSection(section)}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  activeSection === section
+                    ? "text-white shadow-md"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+                style={
+                  activeSection === section
+                    ? { background: "linear-gradient(135deg, #ff6b35, #ffc857)" }
+                    : {}
+                }
+              >
+                {labels[section]}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* =========== INGREDIENTS SECTION =========== */}
+        {activeSection === "ingredients" && (
+          <div className="fade-in-up space-y-4">
+            {/* Owned ingredients card */}
+            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
+              <div className="px-6 py-4 flex items-center gap-2"
+                style={{ background: "linear-gradient(135deg, #f0fdf4, #dcfce7)" }}>
+                <span className="text-xl">✅</span>
+                <h3 className="font-bold text-green-700">보유 재료 ({ownedIngredients.length}가지)</h3>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-2 gap-3">
+                  {ownedIngredients.map((ing) => (
+                    <div key={ing.name} className="flex items-center justify-between
+                      p-3 rounded-xl"
+                      style={{ background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+                      <span className="font-semibold text-sm text-gray-700">{ing.name}</span>
+                      <span className="text-sm font-bold" style={{ color: "#16a34a" }}>
+                        {ing.amount}{ing.unit}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Needed ingredients card */}
+            {neededIngredients.length > 0 && (
+              <div className="bg-white rounded-3xl shadow-md overflow-hidden">
+                <div className="px-6 py-4 flex items-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #fff7ed, #fed7aa)" }}>
+                  <span className="text-xl">🛍️</span>
+                  <h3 className="font-bold text-orange-700">추가 구매 필요 ({neededIngredients.length}가지)</h3>
+                </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    {neededIngredients.map((ing) => (
+                      <div key={ing.name} className="flex items-center justify-between
+                        p-3 rounded-xl"
+                        style={{ background: "#fff7ed", border: "1px solid #fed7aa" }}>
+                        <span className="font-semibold text-sm text-gray-700">{ing.name}</span>
+                        <span className="text-sm font-bold" style={{ color: "#ea580c" }}>
+                          {ing.amount}{ing.unit}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* All ingredients summary card */}
+            <div className="bg-white rounded-3xl shadow-md p-6">
+              <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
+                <span>📋</span> 전체 재료 목록
+              </h3>
+              <div className="space-y-2">
+                {recipe.ingredients.map((ing) => (
+                  <div key={ing.name}
+                    className="flex items-center justify-between py-2 border-b last:border-b-0"
+                    style={{ borderColor: "#f3f4f6" }}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{ing.isOwned ? "✅" : "🔲"}</span>
+                      <span className={`font-medium text-sm ${ing.isOwned ? "text-gray-700" : "text-orange-600"}`}>
+                        {ing.name}
+                      </span>
+                    </div>
+                    <span className="text-sm font-bold text-gray-600">
+                      {ing.amount} {ing.unit}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveSection("steps")}
+              className="w-full py-4 rounded-2xl text-white font-bold text-lg transition-all hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
+              조리법 보기 →
+            </button>
+          </div>
+        )}
+
+        {/* =========== STEPS SECTION =========== */}
+        {activeSection === "steps" && (
+          <div className="fade-in-up">
+            {/* Kick steps preview */}
+            {kickSteps.length > 0 && (
+              <div className="mb-6 p-4 rounded-2xl"
+                style={{ background: "#fff7ed", border: "2px solid #fed7aa" }}>
+                <p className="text-sm font-bold text-orange-600 mb-2">
+                  ⭐ 성공 포인트 ({kickSteps.length}개)
+                </p>
+                <div className="space-y-1">
+                  {kickSteps.map((step) => (
+                    <p key={step.number} className="text-sm text-gray-700">
+                      <span className="font-bold text-orange-500">단계 {step.number}.</span>{" "}
+                      {step.kickReason}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {recipe.steps.map((step) => (
+                <div
+                  key={step.number}
+                  className={`step-card bg-white rounded-3xl shadow-md overflow-hidden
+                    ${step.isKick ? "is-kick" : ""}`}
+                  style={step.isKick ? {} : { border: "1px solid #f3f4f6" }}
+                >
+                  <div className="p-6">
+                    <div className="flex items-start gap-4">
+                      {/* Step number + emoji */}
+                      <div className="flex-shrink-0">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl
+                          ${step.isKick
+                            ? "bg-orange-100"
+                            : "bg-gray-100"
+                          }`}>
+                          {step.emoji}
+                        </div>
+                        <div className="text-center mt-1">
+                          <span className={`text-xs font-bold ${step.isKick ? "text-orange-500" : "text-gray-400"}`}>
+                            {step.number}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h4 className={`font-extrabold text-base ${step.isKick ? "text-orange-700" : "text-gray-800"}`}>
+                            {step.title}
+                          </h4>
+                          {step.time && (
+                            <span className="text-xs px-2 py-0.5 rounded-full"
+                              style={{ background: "#f3f4f6", color: "#6b7280" }}>
+                              ⏱ {step.time}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 leading-relaxed">{step.description}</p>
+
+                        {/* Kick reason */}
+                        {step.isKick && step.kickReason && (
+                          <div className="mt-3 p-3 rounded-xl text-sm font-medium"
+                            style={{ background: "rgba(255, 107, 53, 0.08)", color: "#c2410c" }}>
+                            💡 <span className="font-bold">포인트:</span> {step.kickReason}
+                          </div>
+                        )}
+
+                        {/* Parallel task */}
+                        {step.parallel && (
+                          <div className="mt-2 p-2.5 rounded-xl text-xs flex items-start gap-2"
+                            style={{ background: "#f0fdf4", color: "#16a34a" }}>
+                            <span className="text-base">⚡</span>
+                            <div>
+                              <span className="font-bold">시간 절약:</span>{" "}
+                              {step.parallel}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Tip */}
+                        {step.tip && (
+                          <div className="mt-2 p-2.5 rounded-xl text-xs flex items-start gap-2"
+                            style={{ background: "#eff6ff", color: "#1d4ed8" }}>
+                            <span className="text-base">💡</span>
+                            <div>
+                              <span className="font-bold">팁:</span> {step.tip}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pro Tips */}
+            {recipe.proTips.length > 0 && (
+              <div className="mt-6 bg-white rounded-3xl shadow-md p-6">
+                <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
+                  <span>👨‍🍳</span> 셰프의 프로 팁
+                </h3>
+                <div className="space-y-3">
+                  {recipe.proTips.map((tip, i) => (
+                    <div key={i} className="flex items-start gap-3 text-sm">
+                      <span className="text-orange-400 font-bold">{i + 1}.</span>
+                      <span className="text-gray-600">{tip}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                setActiveSection("summary");
+                setTimeout(() => summaryRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+              }}
+              className="w-full mt-6 py-4 rounded-2xl text-white font-bold text-lg transition-all hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
+              최종 요약 보기 →
+            </button>
+          </div>
+        )}
+
+        {/* =========== SUMMARY SECTION =========== */}
+        {activeSection === "summary" && (
+          <div className="fade-in-up" ref={summaryRef}>
+            <SummaryCard recipe={recipe} />
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => router.push("/")}
+                className="flex-1 py-4 rounded-2xl font-bold text-base transition-all
+                  border-2 border-orange-300 text-orange-600 hover:bg-orange-50">
+                🏠 새 레시피 찾기
+              </button>
+              <button
+                onClick={() => router.back()}
+                className="flex-1 py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
+                ← 다른 레시피
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SummaryCard({ recipe }: { recipe: RecipeDetail }) {
+  return (
+    <div className="rounded-3xl overflow-hidden shadow-2xl"
+      style={{ background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)" }}>
+      {/* Top banner */}
+      <div className="px-6 py-5"
+        style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
+        <div className="flex items-center gap-3">
+          <span className="text-4xl">{recipe.emoji}</span>
+          <div>
+            <h2 className="text-xl font-extrabold text-white">{recipe.name}</h2>
+            <div className="flex gap-3 mt-1 text-sm text-white/80">
+              <span>⏱ {recipe.totalTime}</span>
+              <span>👤 {recipe.servings}인분</span>
+              <span>📊 {recipe.difficulty}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-5">
+        {/* Summary text */}
+        <div className="p-4 rounded-2xl" style={{ background: "rgba(255,255,255,0.07)" }}>
+          <p className="text-sm leading-relaxed text-white/90">{recipe.summaryText}</p>
+        </div>
+
+        {/* Key ingredients */}
+        <div>
+          <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-3">
+            주요 재료
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {recipe.ingredients.slice(0, 8).map((ing) => (
+              <span key={ing.name}
+                className="px-3 py-1.5 rounded-full text-xs font-semibold"
+                style={{
+                  background: ing.isOwned ? "rgba(74, 222, 128, 0.2)" : "rgba(251, 146, 60, 0.2)",
+                  color: ing.isOwned ? "#4ade80" : "#fb923c",
+                  border: `1px solid ${ing.isOwned ? "rgba(74, 222, 128, 0.3)" : "rgba(251, 146, 60, 0.3)"}`,
+                }}>
+                {ing.name} {ing.amount}{ing.unit}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Step-by-step condensed */}
+        <div>
+          <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-3">
+            조리 순서
+          </h3>
+          <div className="space-y-2">
+            {recipe.steps.map((step) => (
+              <div key={step.number} className="flex items-start gap-3">
+                <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+                  ${step.isKick
+                    ? "bg-orange-500 text-white"
+                    : "bg-white/10 text-white/60"
+                  }`}>
+                  {step.number}
+                </div>
+                <div className="flex-1">
+                  <span className={`text-sm font-semibold ${step.isKick ? "text-orange-400" : "text-white/80"}`}>
+                    {step.title}
+                  </span>
+                  {step.isKick && (
+                    <span className="ml-2 text-xs font-bold text-orange-400">⭐</span>
+                  )}
+                  {step.time && (
+                    <span className="ml-1 text-xs text-white/40">({step.time})</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Highlight */}
+        <div className="p-4 rounded-2xl"
+          style={{ background: "linear-gradient(135deg, rgba(255,107,53,0.2), rgba(255,200,87,0.2))",
+            border: "1px solid rgba(255,107,53,0.3)" }}>
+          <p className="text-xs font-bold text-orange-400 mb-1">⭐ 핵심 포인트</p>
+          <p className="text-sm text-white/90 font-medium">{recipe.highlight}</p>
+        </div>
+
+        {/* Pairings */}
+        {recipe.pairings.length > 0 && (
+          <div>
+            <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+              🤝 어울리는 음식
+            </h3>
+            <p className="text-sm text-white/70">{recipe.pairings.join(" · ")}</p>
+          </div>
+        )}
+
+        {/* Taste */}
+        <div className="text-center pt-2 pb-1">
+          <span className="text-2xl">😋</span>
+          <p className="text-sm text-white/60 mt-1">{recipe.taste}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function RecipePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-5xl mb-4">🍳</div>
+          <p className="text-lg font-medium text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    }>
+      <RecipeDetailContent />
+    </Suspense>
+  );
+}
