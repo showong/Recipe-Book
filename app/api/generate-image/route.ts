@@ -1,7 +1,7 @@
-import { GoogleGenAI } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
+const HF_MODEL = "Tongyi-MAI/Z-Image-Turbo";
+const HF_ENDPOINT = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,29 +58,24 @@ Format: Square 1:1 ratio, Instagram-ready. Fun, approachable, easy for anyone to
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
     }
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-image-preview",
-      contents: [prompt],
+    const response = await fetch(HF_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.HF_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ inputs: prompt }),
     });
 
-    const parts = response.candidates?.[0]?.content?.parts ?? [];
-
-    let imageBase64: string | undefined;
-    let mimeType = "image/png";
-
-    for (const part of parts) {
-      if (part.inlineData?.data) {
-        imageBase64 = part.inlineData.data;
-        mimeType = part.inlineData.mimeType ?? "image/png";
-        break;
-      }
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`HF API error ${response.status}: ${errText}`);
     }
 
-    if (!imageBase64) {
-      return NextResponse.json({ error: "이미지 생성에 실패했습니다." }, { status: 500 });
-    }
-
-    const dataUrl = `data:${mimeType};base64,${imageBase64}`;
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    const contentType = response.headers.get("content-type") ?? "image/jpeg";
+    const dataUrl = `data:${contentType};base64,${base64}`;
 
     return NextResponse.json({ imageUrl: dataUrl });
   } catch (error) {
