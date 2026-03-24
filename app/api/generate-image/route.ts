@@ -63,7 +63,7 @@ Format: Square 1:1 ratio, Instagram-ready. Fun, approachable, easy for anyone to
       contents: [prompt],
     });
 
-    const parts = response.parts ?? [];
+    const parts = response.candidates?.[0]?.content?.parts ?? [];
 
     let imageBase64: string | undefined;
     let mimeType = "image/png";
