@@ -83,10 +83,15 @@ function RecipesContent() {
         throw new Error(data.error || "상세 레시피 생성 실패");
       }
 
+      const heroImgKey = `heroImage_${recipe.id}`;
+      if (recipeImages[recipe.id]) {
+        sessionStorage.setItem(heroImgKey, recipeImages[recipe.id]);
+      }
+
       const encoded = encodeURIComponent(JSON.stringify({
         recipe: data.recipe,
         ingredients,
-        heroImage: recipeImages[recipe.id] || null,
+        heroImageKey: recipeImages[recipe.id] ? heroImgKey : null,
       }));
       router.push(`/recipe?data=${encoded}`);
     } catch (err) {

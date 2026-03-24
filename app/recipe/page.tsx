@@ -35,8 +35,14 @@ function RecipeDetailContent() {
       const parsed = JSON.parse(decodeURIComponent(data));
       setRecipe(parsed.recipe);
       setIngredients(parsed.ingredients || []);
-      // Hero image may have been pre-generated on the recipes page
-      if (parsed.heroImage) setHeroImage(parsed.heroImage);
+      // Hero image stored in sessionStorage to avoid oversized URL
+      if (parsed.heroImageKey) {
+        const stored = sessionStorage.getItem(parsed.heroImageKey);
+        if (stored) {
+          setHeroImage(stored);
+          sessionStorage.removeItem(parsed.heroImageKey);
+        }
+      }
 
       // Start generating ingredient layout image and summary image
       if (parsed.recipe?.name) {
