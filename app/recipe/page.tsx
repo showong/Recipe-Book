@@ -6,212 +6,6 @@ import { RecipeDetail, RecipeStep } from "@/types/recipe";
 import { Suspense } from "react";
 import Image from "next/image";
 
-// ─── Canvas helper ────────────────────────────────────────────────────────────
-
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let line = "";
-  for (const word of words) {
-    const test = line ? `${line} ${word}` : word;
-    if (ctx.measureText(test).width > maxWidth && line) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = test;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-function drawStepInstagramCard(
-  step: RecipeStep,
-  recipeName: string,
-  recipeEmoji: string,
-  totalSteps: number,
-): string {
-  const canvas = document.createElement("canvas");
-  const S = 1080;
-  canvas.width = S;
-  canvas.height = S;
-  const ctx = canvas.getContext("2d")!;
-  const FONT = "'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif";
-
-  // ── Background ──────────────────────────────────────────────────────────────
-  const bgGrad = ctx.createLinearGradient(0, 0, S, S);
-  bgGrad.addColorStop(0, "#fffbf5");
-  bgGrad.addColorStop(1, "#fff3e6");
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(0, 0, S, S);
-
-  // ── Top accent stripe ───────────────────────────────────────────────────────
-  const stripe = ctx.createLinearGradient(0, 0, S, 0);
-  stripe.addColorStop(0, "#ff6b35");
-  stripe.addColorStop(1, "#ffc857");
-  ctx.fillStyle = stripe;
-  ctx.fillRect(0, 0, S, 20);
-
-  // ── Header panel (cream) ────────────────────────────────────────────────────
-  const hdrGrad = ctx.createLinearGradient(0, 20, 0, 380);
-  hdrGrad.addColorStop(0, "#fff7ed");
-  hdrGrad.addColorStop(1, "#ffedd5");
-  ctx.fillStyle = hdrGrad;
-  ctx.fillRect(0, 20, S, 360);
-
-  // Recipe name (top-left)
-  ctx.font = `bold 38px ${FONT}`;
-  ctx.fillStyle = "#9a3412";
-  ctx.fillText(recipeName, 60, 88);
-
-  // Step badge pill (top-right)
-  const badgeLabel = `STEP ${step.number} / ${totalSteps}`;
-  ctx.font = `bold 36px ${FONT}`;
-  const bw = ctx.measureText(badgeLabel).width + 44;
-  const bx = S - bw - 48;
-  const pillGrad = ctx.createLinearGradient(bx, 0, bx + bw, 0);
-  pillGrad.addColorStop(0, "#ff6b35");
-  pillGrad.addColorStop(1, "#ffc857");
-  ctx.fillStyle = pillGrad;
-  roundRect(ctx, bx, 50, bw, 52, 26);
-  ctx.fill();
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(badgeLabel, bx + 22, 88);
-
-  // Big emoji (center of header)
-  ctx.font = `148px serif`;
-  ctx.textAlign = "center";
-  ctx.fillText(step.emoji || recipeEmoji, S / 2, 300);
-  ctx.textAlign = "left";
-
-  // Subtle divider
-  const div = ctx.createLinearGradient(60, 380, S - 60, 380);
-  div.addColorStop(0, "rgba(255,107,53,0)");
-  div.addColorStop(0.5, "rgba(255,107,53,0.35)");
-  div.addColorStop(1, "rgba(255,107,53,0)");
-  ctx.strokeStyle = div;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(60, 380);
-  ctx.lineTo(S - 60, 380);
-  ctx.stroke();
-
-  // ── Content panel (white) ───────────────────────────────────────────────────
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 380, S, S - 380);
-
-  let y = 460;
-
-  // Step title
-  ctx.font = `bold 66px ${FONT}`;
-  ctx.fillStyle = step.isKick ? "#c2410c" : "#111827";
-  const titleLines = wrapText(ctx, step.title, S - 120);
-  for (const line of titleLines.slice(0, 2)) {
-    ctx.fillText(line, 60, y);
-    y += 78;
-  }
-  y += 12;
-
-  // Description
-  ctx.font = `40px ${FONT}`;
-  ctx.fillStyle = "#4b5563";
-  const descLines = wrapText(ctx, step.description, S - 120);
-  for (const line of descLines.slice(0, 5)) {
-    ctx.fillText(line, 60, y);
-    y += 56;
-  }
-  y += 24;
-
-  // Meta pills: time + kick
-  ctx.font = `bold 34px ${FONT}`;
-  let mx = 60;
-  if (step.time) {
-    const timeLabel = `⏱ ${step.time}`;
-    const tw = ctx.measureText(timeLabel).width + 36;
-    ctx.fillStyle = "#f3f4f6";
-    roundRect(ctx, mx, y - 36, tw, 50, 25);
-    ctx.fill();
-    ctx.fillStyle = "#6b7280";
-    ctx.fillText(timeLabel, mx + 18, y + 4);
-    mx += tw + 16;
-  }
-  if (step.isKick) {
-    const kickLabel = "⭐ 핵심 단계";
-    const kw = ctx.measureText(kickLabel).width + 36;
-    const kg = ctx.createLinearGradient(mx, 0, mx + kw, 0);
-    kg.addColorStop(0, "#ff6b35");
-    kg.addColorStop(1, "#ffc857");
-    ctx.fillStyle = kg;
-    roundRect(ctx, mx, y - 36, kw, 50, 25);
-    ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(kickLabel, mx + 18, y + 4);
-  }
-  y += 36;
-
-  // Tip box
-  if (step.tip && y < 880) {
-    y += 24;
-    const tipLines = wrapText(ctx, `💡 팁: ${step.tip}`, S - 160);
-    const boxH = tipLines.slice(0, 2).length * 50 + 32;
-    ctx.fillStyle = "#eff6ff";
-    roundRect(ctx, 60, y, S - 120, boxH, 18);
-    ctx.fill();
-    ctx.font = `36px ${FONT}`;
-    ctx.fillStyle = "#1d4ed8";
-    let ty = y + 46;
-    for (const line of tipLines.slice(0, 2)) {
-      ctx.fillText(line, 84, ty);
-      ty += 50;
-    }
-  }
-
-  // Kick reason box
-  if (step.isKick && step.kickReason && y < 820) {
-    y += step.tip ? (wrapText(ctx, step.tip, S - 160).slice(0, 2).length * 50 + 64) : 24;
-    const krLines = wrapText(ctx, `💡 포인트: ${step.kickReason}`, S - 160);
-    const boxH = krLines.slice(0, 2).length * 50 + 32;
-    ctx.fillStyle = "rgba(255,107,53,0.08)";
-    roundRect(ctx, 60, y, S - 120, boxH, 18);
-    ctx.fill();
-    ctx.font = `36px ${FONT}`;
-    ctx.fillStyle = "#c2410c";
-    let ty = y + 46;
-    for (const line of krLines.slice(0, 2)) {
-      ctx.fillText(line, 84, ty);
-      ty += 50;
-    }
-  }
-
-  // ── Footer bar ──────────────────────────────────────────────────────────────
-  const ftGrad = ctx.createLinearGradient(0, 980, S, 1080);
-  ftGrad.addColorStop(0, "#ff6b35");
-  ftGrad.addColorStop(1, "#ffc857");
-  ctx.fillStyle = ftGrad;
-  ctx.fillRect(0, 980, S, 100);
-  ctx.font = `bold 34px ${FONT}`;
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.textAlign = "center";
-  ctx.fillText(`${recipeName} · 단계 ${step.number}`, S / 2, 1042);
-  ctx.textAlign = "left";
-
-  return canvas.toDataURL("image/png");
-}
-
 function RecipeDetailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -228,6 +22,8 @@ function RecipeDetailContent() {
   const [summaryImageLoading, setSummaryImageLoading] = useState(false);
   const [instagramImage, setInstagramImage] = useState<string | null>(null);
   const [instagramImageLoading, setInstagramImageLoading] = useState(false);
+  const [stepImages, setStepImages] = useState<Record<number, string>>({});
+  const [stepImagesLoading, setStepImagesLoading] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -272,6 +68,32 @@ function RecipeDetailContent() {
       // silently fail
     } finally {
       loadingSetter(false);
+    }
+  };
+
+  const generateStepInstagramImage = async (step: RecipeStep) => {
+    if (!recipe) return;
+    setStepImagesLoading((prev) => ({ ...prev, [step.number]: true }));
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipeName: recipe.name,
+          type: "step-instagram",
+          stepNumber: step.number,
+          stepTitle: step.title,
+          stepDescription: step.description,
+          stepTime: step.time,
+          totalSteps: recipe.steps.length,
+        }),
+      });
+      const data = await res.json();
+      if (data.imageUrl) setStepImages((prev) => ({ ...prev, [step.number]: data.imageUrl }));
+    } catch {
+      // silently fail
+    } finally {
+      setStepImagesLoading((prev) => ({ ...prev, [step.number]: false }));
     }
   };
 
@@ -584,26 +406,68 @@ function RecipeDetailContent() {
                     </div>
                   </div>
 
-                  {/* Instagram download button */}
-                  <div className="border-t px-4 py-3 flex justify-end"
-                    style={{ borderColor: step.isKick ? "rgba(255,107,53,0.15)" : "#f3f4f6" }}>
-                    <button
-                      onClick={() => {
-                        const dataUrl = drawStepInstagramCard(step, recipe.name, recipe.emoji, recipe.steps.length);
-                        const a = document.createElement("a");
-                        a.href = dataUrl;
-                        a.download = `${recipe.name}-step${step.number}.png`;
-                        a.click();
-                      }}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-80 active:scale-95"
-                      style={{
-                        background: step.isKick
-                          ? "linear-gradient(135deg, #ff6b35, #ffc857)"
-                          : "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)",
-                        color: "white",
-                      }}>
-                      📸 인스타 이미지 저장
-                    </button>
+                  {/* Instagram image section */}
+                  <div className="border-t" style={{ borderColor: step.isKick ? "rgba(255,107,53,0.15)" : "#f3f4f6" }}>
+                    {/* Generated image preview */}
+                    {stepImages[step.number] && (
+                      <div>
+                        <div className="relative w-full" style={{ aspectRatio: "1 / 1" }}>
+                          <Image
+                            src={stepImages[step.number]}
+                            alt={`${step.title} 인스타 이미지`}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                        <div className="px-4 py-3 flex gap-2">
+                          <button
+                            onClick={() => {
+                              const a = document.createElement("a");
+                              a.href = stepImages[step.number];
+                              a.download = `${recipe.name}-step${step.number}.png`;
+                              a.click();
+                            }}
+                            className="flex-1 py-2 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90"
+                            style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
+                            ⬇️ 이미지 저장
+                          </button>
+                          <button
+                            onClick={() => generateStepInstagramImage(step)}
+                            className="px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all hover:bg-gray-50"
+                            style={{ borderColor: "#fd1d1d", color: "#fd1d1d" }}>
+                            🔄 재생성
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Generate button / loading */}
+                    {!stepImages[step.number] && (
+                      <div className="px-4 py-3 flex justify-end">
+                        {stepImagesLoading[step.number] ? (
+                          <div className="flex items-center gap-2 text-xs text-gray-400 py-1">
+                            <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                            </svg>
+                            AI 이미지 생성 중...
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => generateStepInstagramImage(step)}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-80 active:scale-95"
+                            style={{
+                              background: step.isKick
+                                ? "linear-gradient(135deg, #ff6b35, #ffc857)"
+                                : "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)",
+                              color: "white",
+                            }}>
+                            📸 인스타 이미지 생성
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
