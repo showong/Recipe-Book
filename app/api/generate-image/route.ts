@@ -5,7 +5,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
 
 export async function POST(req: NextRequest) {
   try {
-    const { recipeName, type, stepTitle, ingredients, steps } = await req.json();
+    const { recipeName, type, stepTitle, stepDescription, stepNumber, stepTime, totalSteps, ingredients, steps } = await req.json();
 
     if (!recipeName) {
       return NextResponse.json({ error: "레시피 이름이 필요합니다." }, { status: 400 });
@@ -42,6 +42,18 @@ Cooking steps: ${stepList}.
 Vibrant, warm-toned professional food photography. Beautifully plated on a rustic wooden table.
 Shallow depth of field, bokeh background, natural window light from the side.
 Instagram-worthy composition with visual hierarchy. Magazine cover quality.`;
+    } else if (type === "step-instagram") {
+      prompt = `Webtoon-style illustrated cooking step image for Korean recipe "${recipeName}".
+Step ${stepNumber} of ${totalSteps}: "${stepTitle}".
+Cooking instruction: ${stepDescription}
+${stepTime ? `Time required: ${stepTime}` : ""}
+
+Art style: Cute Korean webtoon comic illustration. Clean outlines, bright pastel colors, friendly characters.
+Layout: 2-3 horizontal panels flowing left to right, showing the sequence of this one cooking action step by step.
+Show hands, ingredients, and cooking tools clearly. Use arrows and visual cues to guide the reader.
+Each panel is clearly separated. Background: clean white or soft pastel.
+No text overlay needed - visuals should tell the whole story.
+Format: Square 1:1 ratio, Instagram-ready. Fun, approachable, easy for anyone to follow.`;
     } else {
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
     }

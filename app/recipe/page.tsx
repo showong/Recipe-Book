@@ -22,6 +22,9 @@ function RecipeDetailContent() {
   const [summaryImageLoading, setSummaryImageLoading] = useState(false);
   const [instagramImage, setInstagramImage] = useState<string | null>(null);
   const [instagramImageLoading, setInstagramImageLoading] = useState(false);
+  const [stepImages, setStepImages] = useState<Record<number, string>>({});
+  const [stepImagesLoading, setStepImagesLoading] = useState(false);
+  const [stepImagesProgress, setStepImagesProgress] = useState(0);
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -67,6 +70,40 @@ function RecipeDetailContent() {
     } finally {
       loadingSetter(false);
     }
+  };
+
+  const generateStepImages = async () => {
+    if (!recipe || stepImagesLoading) return;
+    setStepImagesLoading(true);
+    setStepImagesProgress(0);
+    setStepImages({});
+    const total = recipe.steps.length;
+    for (let i = 0; i < total; i++) {
+      const step = recipe.steps[i];
+      try {
+        const res = await fetch("/api/generate-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            recipeName: recipe.name,
+            type: "step-instagram",
+            stepNumber: step.number,
+            stepTitle: step.title,
+            stepDescription: step.description,
+            stepTime: step.time,
+            totalSteps: total,
+          }),
+        });
+        const data = await res.json();
+        if (data.imageUrl) {
+          setStepImages((prev) => ({ ...prev, [step.number]: data.imageUrl }));
+        }
+      } catch {
+        // silently skip failed step
+      }
+      setStepImagesProgress(i + 1);
+    }
+    setStepImagesLoading(false);
   };
 
   const generateInstagramImage = async () => {
@@ -298,6 +335,50 @@ function RecipeDetailContent() {
         {/* =========== STEPS SECTION =========== */}
         {activeSection === "steps" && (
           <div className="fade-in-up">
+            {/* Step Instagram Image Generator */}
+            <div className="mb-6 rounded-2xl overflow-hidden shadow-md"
+              style={{ background: "linear-gradient(135deg, #1a1a2e, #16213e)" }}>
+              <div className="px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🎨</span>
+                  <div>
+                    <p className="text-white font-extrabold text-sm">단계별 웹툰 이미지</p>
+                    <p className="text-white/60 text-xs">조리 단계마다 인스타용 일러스트 자동 생성</p>
+                  </div>
+                </div>
+                {!stepImagesLoading && (
+                  <button
+                    onClick={generateStepImages}
+                    className="px-4 py-2 rounded-xl text-white font-bold text-xs transition-all hover:opacity-90 active:scale-95 whitespace-nowrap"
+                    style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
+                    {Object.keys(stepImages).length > 0 ? "🔄 재생성" : "✨ 생성하기"}
+                  </button>
+                )}
+              </div>
+              {stepImagesLoading && (
+                <div className="px-5 pb-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <svg className="spinner w-4 h-4 text-orange-400" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    <span className="text-white/70 text-xs">
+                      {stepImagesProgress}/{recipe.steps.length} 단계 생성 중...
+                    </span>
+                  </div>
+                  <div className="w-full bg-white/10 rounded-full h-1.5">
+                    <div
+                      className="h-1.5 rounded-full transition-all duration-500"
+                      style={{
+                        width: `${(stepImagesProgress / recipe.steps.length) * 100}%`,
+                        background: "linear-gradient(90deg, #ff6b35, #ffc857)",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Kick steps preview */}
             {kickSteps.length > 0 && (
               <div className="mb-6 p-4 rounded-2xl"
@@ -377,6 +458,44 @@ function RecipeDetailContent() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Step webtoon image */}
+                  {stepImages[step.number] && (
+                    <div className="border-t" style={{ borderColor: step.isKick ? "rgba(255,107,53,0.2)" : "#f3f4f6" }}>
+                      <div className="relative w-full" style={{ aspectRatio: "1 / 1" }}>
+                        <Image
+                          src={stepImages[step.number]}
+                          alt={`${step.title} 웹툰 일러스트`}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                      <div className="px-4 py-2 flex items-center justify-between"
+                        style={{ background: step.isKick ? "rgba(255,107,53,0.05)" : "#fafafa" }}>
+                        <span className="text-xs text-gray-400">단계 {step.number} · 웹툰 일러스트</span>
+                        <button
+                          onClick={() => {
+                            const a = document.createElement("a");
+                            a.href = stepImages[step.number];
+                            a.download = `${recipe.name}-step${step.number}.png`;
+                            a.click();
+                          }}
+                          className="text-xs font-semibold px-3 py-1 rounded-full transition-all hover:opacity-80"
+                          style={{ background: step.isKick ? "rgba(255,107,53,0.1)" : "#f3f4f6", color: step.isKick ? "#ea580c" : "#6b7280" }}>
+                          ⬇️ 저장
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {stepImagesLoading && !stepImages[step.number] && stepImagesProgress < step.number && (
+                    <div className="border-t px-4 py-4 flex items-center gap-2" style={{ borderColor: "#f3f4f6" }}>
+                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-gray-200 rounded-full animate-pulse" style={{ width: "40%" }} />
+                      </div>
+                      <span className="text-xs text-gray-300 whitespace-nowrap">대기 중</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
