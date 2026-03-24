@@ -29,8 +29,12 @@ function RecipesContent() {
       const loadedRecipes: RecipeSuggestion[] = parsed.recipes || [];
       setRecipes(loadedRecipes);
       setIngredients(parsed.ingredients || []);
-      // Start generating images for all recipe cards in parallel
-      loadedRecipes.forEach((r) => generateRecipeImage(r));
+      // Generate images sequentially to avoid API rate limits
+      (async () => {
+        for (const r of loadedRecipes) {
+          await generateRecipeImage(r);
+        }
+      })();
     } catch {
       router.push("/");
     } finally {
