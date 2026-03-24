@@ -47,10 +47,10 @@ Instagram-worthy composition with visual hierarchy. Magazine cover quality.`;
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-exp",
+      model: "gemini-2.5-flash-preview-image",
       contents: [{ parts: [{ text: prompt }] }],
       config: {
-        responseModalities: ["IMAGE", "TEXT"],
+        responseModalities: ["IMAGE"],
       },
     });
 
