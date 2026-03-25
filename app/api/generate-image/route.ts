@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const HF_MODEL = "Tongyi-MAI/Z-Image-Turbo";
-const HF_ENDPOINT = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}`;
+const GEMINI_MODEL = "gemini-2.5-flash-image";
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,24 +58,32 @@ Format: Square 1:1 ratio, Instagram-ready. Fun, approachable, easy for anyone to
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
     }
 
-    const response = await fetch(HF_ENDPOINT, {
+    const response = await fetch(`${GEMINI_ENDPOINT}?key=${process.env.GOOGLE_API_KEY}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.HF_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ inputs: prompt }),
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+      }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`HF API error ${response.status}: ${errText}`);
+      throw new Error(`Gemini API error ${response.status}: ${errText}`);
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
-    const contentType = response.headers.get("content-type") ?? "image/jpeg";
-    const dataUrl = `data:${contentType};base64,${base64}`;
+    const data = await response.json();
+    const parts = data?.candidates?.[0]?.content?.parts ?? [];
+    const imagePart = parts.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData);
+
+    if (!imagePart) {
+      throw new Error("Gemini API가 이미지를 반환하지 않았습니다.");
+    }
+
+    const { mimeType, data: base64 } = imagePart.inlineData;
+    const dataUrl = `data:${mimeType};base64,${base64}`;
 
     return NextResponse.json({ imageUrl: dataUrl });
   } catch (error) {
