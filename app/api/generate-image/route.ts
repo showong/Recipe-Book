@@ -3,6 +3,50 @@ import { NextRequest, NextResponse } from "next/server";
 const GEMINI_MODEL = "gemini-3.1-flash-image-preview";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
+// 단계별 인스타 이미지 전용 고정 디자인 시스템
+// 모든 step-instagram 이미지에 동일하게 적용해 시리즈 일관성을 확보한다
+const STEP_DESIGN_SYSTEM = `
+=== FIXED DESIGN SYSTEM (apply identically to every image in this series) ===
+
+CANVAS: Square 1:1 ratio, 1080×1080px equivalent.
+
+BACKGROUND: Solid flat color #FFF8F0 (warm cream). No gradients, no textures, no patterns.
+
+OUTER FRAME: 24px rounded rectangle border, color #FF6B35 (coral orange), inset 16px from canvas edge.
+
+LAYOUT — always exactly 3 equal-width vertical panels side by side, separated by 8px gaps filled with #FF6B35.
+  Each panel has a white (#FFFFFF) fill with 12px inner padding.
+
+ILLUSTRATION STYLE:
+  - Flat vector cartoon. Zero photo-realism.
+  - Outlines: 3px uniform black (#1A1A1A) strokes only. No shading, no gradients, no drop shadows.
+  - Color fills: only from this locked palette —
+      Coral    #FF6B35  (accents, hot surfaces, important items)
+      Mint     #4ECDC4  (water, liquids, bowls)
+      Lemon    #FFE66D  (ingredients, garnish, positive highlights)
+      Lavender #C7CEEA  (background items, secondary utensils)
+      Cream    #FFF8F0  (skin tone base)
+      Dark     #1A1A1A  (outlines, text)
+      White    #FFFFFF  (panel fill, eyes)
+
+CHARACTER: One recurring round-faced chibi cook (head = 55% of body height).
+  Always wears: white chef coat with two #FF6B35 buttons, same round black eyes (4px dot), rosy cheek circles (#FFB3BA).
+  Hands are simple rounded rectangles — no fingers drawn.
+
+STEP BADGE: Top-left of the entire canvas (over the frame border), circle diameter 64px,
+  fill #FF6B35, white bold number inside, black 2px stroke.
+
+PROGRESS BAR: Bottom edge of canvas, inside the frame.
+  Full-width bar, height 20px, background #FFE66D.
+  Filled portion = (stepNumber / totalSteps) * 100%, fill color #FF6B35.
+
+PANEL CONTENT RULE: Each panel shows exactly one sequential micro-action of the step.
+  Arrow icons (→) between panels are 24px, color #FF6B35.
+
+NO TEXT anywhere except the step number in the badge.
+=== END DESIGN SYSTEM ===
+`;
+
 export async function POST(req: NextRequest) {
   try {
     const { recipeName, type, stepTitle, stepDescription, stepNumber, stepTime, totalSteps, ingredients, steps } = await req.json();
@@ -43,17 +87,20 @@ Vibrant, warm-toned professional food photography. Beautifully plated on a rusti
 Shallow depth of field, bokeh background, natural window light from the side.
 Instagram-worthy composition with visual hierarchy. Magazine cover quality.`;
     } else if (type === "step-instagram") {
-      prompt = `Webtoon-style illustrated cooking step image for Korean recipe "${recipeName}".
-Step ${stepNumber} of ${totalSteps}: "${stepTitle}".
-Cooking instruction: ${stepDescription}
-${stepTime ? `Time required: ${stepTime}` : ""}
+      prompt = `Generate a cooking step illustration card for a recipe series.
+${STEP_DESIGN_SYSTEM}
+RECIPE: "${recipeName}"
+STEP: ${stepNumber} of ${totalSteps}
+STEP TITLE: "${stepTitle}"
+INSTRUCTION: ${stepDescription}
+${stepTime ? `TIME: ${stepTime}` : ""}
 
-Art style: Cute Korean webtoon comic illustration. Clean outlines, bright pastel colors, friendly characters.
-Layout: 2-3 horizontal panels flowing left to right, showing the sequence of this one cooking action step by step.
-Show hands, ingredients, and cooking tools clearly. Use arrows and visual cues to guide the reader.
-Each panel is clearly separated. Background: clean white or soft pastel.
-No text overlay needed - visuals should tell the whole story.
-Format: Square 1:1 ratio, Instagram-ready. Fun, approachable, easy for anyone to follow.`;
+TASK: Illustrate this single cooking step across exactly 3 sequential panels showing the progression of the action.
+The chibi cook character must appear in every panel performing the action.
+Show the specific ingredients and utensils described in the instruction using only the locked color palette.
+Fill the progress bar to ${stepNumber}/${totalSteps} of its width.
+Place the step number badge (${stepNumber}) at top-left.
+Strictly follow every rule in the FIXED DESIGN SYSTEM above — color codes, stroke widths, character design, and layout must match exactly.`;
     } else {
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
     }
