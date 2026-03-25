@@ -30,7 +30,11 @@ ILLUSTRATION STYLE:
       White    #FFFFFF  (panel fill, eyes)
 
 CHARACTER: One recurring round-faced chibi cook (head = 55% of body height).
-  Always wears: white chef coat with two #FF6B35 buttons, same round black eyes (4px dot), rosy cheek circles (#FFB3BA).
+  Always wears:
+    - Tall classic white toque blanche (chef hat) sitting on top of the head. Hat height = 60% of head height.
+      Hat body: white #FFFFFF rectangle with slight puff at top, 3px black outline. Never omit the hat.
+    - White chef coat with two #FF6B35 buttons.
+  Face: same round black eyes (4px dot), rosy cheek circles (#FFB3BA), small curved smile.
   Hands are simple rounded rectangles — no fingers drawn.
 
 STEP BADGE: Top-left of the entire canvas (over the frame border), circle diameter 64px,
@@ -43,7 +47,13 @@ PROGRESS BAR: Bottom edge of canvas, inside the frame.
 PANEL CONTENT RULE: Each panel shows exactly one sequential micro-action of the step.
   Arrow icons (→) between panels are 24px, color #FF6B35.
 
-NO TEXT anywhere except the step number in the badge.
+KOREAN TEXT LABELS (mandatory):
+  - Each panel must include a short Korean action label (2–6 characters) at the bottom of that panel.
+    Font: bold, rounded sans-serif, color #1A1A1A, font size ~18px equivalent.
+    Placed inside a #FFE66D lemon-yellow rounded pill badge at the bottom-center of the panel.
+  - Below the 3 panels (above the progress bar), display the full Korean step instruction as a single line.
+    Font: bold, color #1A1A1A, font size ~20px. Background: white rounded rectangle with #FF6B35 border 2px.
+  - All text must be in Korean (한국어). Do NOT use English, Chinese, or Japanese characters.
 === END DESIGN SYSTEM ===
 `;
 
@@ -96,11 +106,13 @@ INSTRUCTION: ${stepDescription}
 ${stepTime ? `TIME: ${stepTime}` : ""}
 
 TASK: Illustrate this single cooking step across exactly 3 sequential panels showing the progression of the action.
-The chibi cook character must appear in every panel performing the action.
-Show the specific ingredients and utensils described in the instruction using only the locked color palette.
-Fill the progress bar to ${stepNumber}/${totalSteps} of its width.
-Place the step number badge (${stepNumber}) at top-left.
-Strictly follow every rule in the FIXED DESIGN SYSTEM above — color codes, stroke widths, character design, and layout must match exactly.`;
+- The chibi cook character (with tall white toque blanche hat) must appear in every panel performing the action.
+- Show the specific ingredients and utensils described in the instruction using only the locked color palette.
+- Each panel must have a Korean action label in a #FFE66D pill badge at its bottom.
+- Below the panels, render the step instruction in Korean as a single line in a white box with coral border.
+- Fill the progress bar to ${stepNumber}/${totalSteps} of its width.
+- Place the step number badge (${stepNumber}) at top-left.
+- Strictly follow every rule in the FIXED DESIGN SYSTEM above — color codes, stroke widths, character design, hat, layout, and Korean text must all be present.`;
     } else {
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
     }
