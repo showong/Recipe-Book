@@ -75,9 +75,28 @@ export async function POST(req: NextRequest) {
 Overhead shot, natural lighting, minimal props, clean white background, restaurant quality presentation.
 Highly detailed, vibrant colors, mouth-watering. 4K quality.`;
     } else if (type === "ingredients") {
-      prompt = `Flat lay photography of fresh cooking ingredients for making Korean "${recipeName}".
-All ingredients neatly arranged on a white marble surface.
-Natural daylight, top-down view, professional food styling, clean and minimal.`;
+      const ingList = Array.isArray(ingredients)
+        ? ingredients.map((i: { name: string; amount: string; unit: string }) =>
+            `${i.name} ${i.amount}${i.unit}`).join(", ")
+        : "";
+      prompt = `Create a vertical 3:4 portrait Instagram flat-lay ingredients photo for Korean recipe "${recipeName}".
+
+CANVAS: 1080×1440px (3:4 portrait).
+BACKGROUND: Clean white marble surface, soft natural daylight from top-left.
+
+LAYOUT: Arrange each ingredient as a real, beautiful food item neatly spaced across the surface in a grid or organic flat-lay composition. Every ingredient must be clearly visible and identifiable.
+
+INGREDIENTS TO SHOW: ${ingList}
+
+LABELS (mandatory for every ingredient):
+  - Place a small rounded pill label directly below each ingredient item.
+  - Label background: white with a thin #FF6B35 border.
+  - Text line 1: Korean ingredient name, bold, #1A1A1A, 18px.
+  - Text line 2: quantity + unit (e.g. "200g", "2큰술"), #FF6B35, 16px.
+  - All text must be Korean (한국어).
+
+STYLE: Professional food photography. Warm, appetizing tones. Slight shadows under items for depth. Instagram-worthy composition. No props other than the ingredients and labels.`;
+
     } else if (type === "step") {
       prompt = `Step-by-step cooking illustration showing "${stepTitle}" for Korean recipe "${recipeName}".
 Close-up shot of hands cooking, natural kitchen setting, warm lighting.

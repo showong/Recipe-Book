@@ -48,7 +48,7 @@ function RecipeDetailContent() {
 
       // Start generating ingredient layout image and summary image
       if (parsed.recipe?.name) {
-        generateImage(parsed.recipe.name, "ingredients", setIngredientsImage, setIngredientsImageLoading);
+        generateIngredientsImage(parsed.recipe.name, parsed.recipe.ingredients ?? []);
         generateImage(parsed.recipe.name, "summary", setSummaryImage, setSummaryImageLoading);
       }
     } catch {
@@ -76,6 +76,27 @@ function RecipeDetailContent() {
       // silently fail
     } finally {
       loadingSetter(false);
+    }
+  };
+
+  const generateIngredientsImage = async (
+    recipeName: string,
+    ingredientList: { name: string; amount: string; unit: string }[],
+  ) => {
+    setIngredientsImage(null);
+    setIngredientsImageLoading(true);
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipeName, type: "ingredients", ingredients: ingredientList }),
+      });
+      const data = await res.json();
+      if (data.imageUrl) setIngredientsImage(data.imageUrl);
+    } catch {
+      // silently fail
+    } finally {
+      setIngredientsImageLoading(false);
     }
   };
 
@@ -130,6 +151,7 @@ function RecipeDetailContent() {
 
   const generateKickInstagramImage = async () => {
     if (!recipe) return;
+    setKickInstagramImage(null);
     setKickInstagramImageLoading(true);
     try {
       const res = await fetch("/api/generate-image", {
@@ -260,7 +282,8 @@ function RecipeDetailContent() {
                   </span>
                 )}
               </div>
-              <div className="relative w-full h-56 bg-gray-50">
+              <div className="relative w-full mx-auto bg-gray-50"
+                style={{ aspectRatio: "3 / 4", maxWidth: "360px" }}>
                 {ingredientsImage ? (
                   <Image src={ingredientsImage} alt="재료" fill className="object-cover" unoptimized />
                 ) : (
@@ -268,7 +291,7 @@ function RecipeDetailContent() {
                     {ingredientsImageLoading ? (
                       <div className="text-center">
                         <div className="text-4xl mb-2">🥕</div>
-                        <p className="text-sm text-gray-400">Imagen으로 재료 사진 생성 중...</p>
+                        <p className="text-sm text-gray-400">재료 사진 생성 중...</p>
                       </div>
                     ) : (
                       <span className="text-5xl opacity-30">📷</span>
@@ -276,9 +299,9 @@ function RecipeDetailContent() {
                   </div>
                 )}
               </div>
-              {ingredientsImage && (
-                <div className="px-4 py-3 flex justify-end"
-                  style={{ background: "linear-gradient(135deg, #f8fafc, #e2e8f0)" }}>
+              <div className="px-4 py-3 flex gap-2"
+                style={{ background: "linear-gradient(135deg, #f8fafc, #e2e8f0)" }}>
+                {ingredientsImage && (
                   <button
                     onClick={() => {
                       const a = document.createElement("a");
@@ -286,12 +309,24 @@ function RecipeDetailContent() {
                       a.download = `${recipe.name}-ingredients.png`;
                       a.click();
                     }}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
                     style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
                     ⬇️ 이미지 저장
                   </button>
-                </div>
-              )}
+                )}
+                <button
+                  onClick={() => generateIngredientsImage(recipe.name, recipe.ingredients)}
+                  disabled={ingredientsImageLoading}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all hover:bg-gray-100 disabled:opacity-40"
+                  style={{ borderColor: "#94a3b8", color: "#64748b" }}>
+                  {ingredientsImageLoading ? (
+                    <svg className="spinner w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                  ) : "🔄"} 재생성
+                </button>
+              </div>
             </div>
 
             {/* Owned ingredients card */}
@@ -540,7 +575,10 @@ function RecipeDetailContent() {
                             ⬇️ 이미지 저장
                           </button>
                           <button
-                            onClick={() => generateStepInstagramImage(step)}
+                            onClick={() => {
+                              setStepImages((prev) => { const n = { ...prev }; delete n[step.number]; return n; });
+                              generateStepInstagramImage(step);
+                            }}
                             className="px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all hover:bg-gray-50"
                             style={{ borderColor: "#fd1d1d", color: "#fd1d1d" }}>
                             🔄 재생성
@@ -624,6 +662,7 @@ function RecipeDetailContent() {
               instagramImage={instagramImage}
               instagramImageLoading={instagramImageLoading}
               onGenerate={generateInstagramImage}
+              onRegenerate={() => { setInstagramImage(null); generateInstagramImage(); }}
             />
 
             <div className="mt-6 flex gap-3">
@@ -769,11 +808,13 @@ function InstagramCard({
   instagramImage,
   instagramImageLoading,
   onGenerate,
+  onRegenerate,
 }: {
   recipe: RecipeDetail;
   instagramImage: string | null;
   instagramImageLoading: boolean;
   onGenerate: () => void;
+  onRegenerate: () => void;
 }) {
   const handleDownload = () => {
     if (!instagramImage) return;
@@ -841,7 +882,7 @@ function InstagramCard({
                     ⬇️ 이미지 저장
                   </button>
                   <button
-                    onClick={onGenerate}
+                    onClick={onRegenerate}
                     className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-gray-50"
                     style={{ borderColor: "#fd1d1d", color: "#fd1d1d" }}>
                     🔄 재생성
