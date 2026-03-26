@@ -59,7 +59,7 @@ KOREAN TEXT LABELS (mandatory):
 
 export async function POST(req: NextRequest) {
   try {
-    const { recipeName, type, stepTitle, stepDescription, stepNumber, stepTime, totalSteps, ingredients, steps } = await req.json();
+    const { recipeName, type, stepTitle, stepDescription, stepNumber, stepTime, totalSteps, ingredients, steps, kickSteps, highlight } = await req.json();
 
     if (!recipeName) {
       return NextResponse.json({ error: "레시피 이름이 필요합니다." }, { status: 400 });
@@ -96,6 +96,46 @@ Cooking steps: ${stepList}.
 Vibrant, warm-toned professional food photography. Beautifully plated on a rustic wooden table.
 Shallow depth of field, bokeh background, natural window light from the side.
 Instagram-worthy composition with visual hierarchy. Magazine cover quality.`;
+    } else if (type === "kick-instagram") {
+      const kickList = Array.isArray(kickSteps)
+        ? kickSteps.map((s: { number: number; title: string; kickReason: string }) =>
+            `• 단계 ${s.number} — ${s.title}: ${s.kickReason}`).join("\n")
+        : "";
+      prompt = `Create a vertical 3:4 Instagram infographic poster for the Korean recipe "${recipeName}".
+
+=== DESIGN SPEC ===
+CANVAS: 1080×1440px (3:4 portrait). Background: solid #FFF8F0 (warm cream).
+
+HEADER BLOCK (top 22% of canvas):
+  Gradient banner from #FF6B35 to #FFC857 (left→right).
+  Large centered Korean text: "성공 포인트" in white bold rounded font, 52px.
+  Below it, recipe name "${recipeName}" in white semi-bold, 32px.
+  Small star icons (⭐) flanking the title.
+
+KICK POINTS LIST (middle 60% of canvas):
+  Each kick point displayed as a card:
+    - Left accent bar: 8px wide, #FF6B35.
+    - Step number badge: circle, #FF6B35 fill, white bold number, 48px diameter.
+    - Title: Korean bold text, #1A1A1A, 26px.
+    - Reason text: Korean regular text, #555555, 22px, wrapped to fit card width.
+    - Card background: white #FFFFFF, rounded corners 16px, subtle drop shadow.
+    - 16px vertical gap between cards.
+  Show ALL of these kick points:
+${kickList}
+
+HIGHLIGHT STRIP (below kick points):
+  Rounded pill, background #FFE66D, 3px #FF6B35 border.
+  Text: "💡 핵심: ${highlight}" in Korean bold, #1A1A1A, 22px.
+
+FOOTER (bottom 8%):
+  Background #FF6B35. White text: "레시피북" centered, 24px bold.
+
+STYLE RULES:
+  - Flat design. No photorealism, no gradients on text.
+  - Outlines 2px #1A1A1A where used.
+  - All body text must be Korean (한국어). No English, Chinese, or Japanese.
+  - Keep generous white space inside each card.
+=== END SPEC ===`;
     } else if (type === "step-instagram") {
       prompt = `Generate a cooking step illustration card for a recipe series.
 ${STEP_DESIGN_SYSTEM}
