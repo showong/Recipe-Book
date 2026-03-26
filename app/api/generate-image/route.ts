@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 
 const GEMINI_MODEL = "gemini-3.1-flash-image-preview";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -29,13 +31,14 @@ ILLUSTRATION STYLE:
       Dark     #1A1A1A  (outlines, text)
       White    #FFFFFF  (panel fill, eyes)
 
-CHARACTER: One recurring round-faced chibi cook (head = 55% of body height).
-  Always wears:
-    - Tall classic white toque blanche (chef hat) sitting on top of the head. Hat height = 60% of head height.
-      Hat body: white #FFFFFF rectangle with slight puff at top, 3px black outline. Never omit the hat.
-    - White chef coat with two #FF6B35 buttons.
-  Face: same round black eyes (4px dot), rosy cheek circles (#FFB3BA), small curved smile.
-  Hands are simple rounded rectangles — no fingers drawn.
+CHARACTER: Use the exact bear chef from the reference image provided.
+  - Light golden-brown fluffy teddy bear with round face and large sparkling dark eyes.
+  - Always wears the tall white puffy toque blanche chef hat from the reference image.
+  - Always wears the beige/cream apron from the reference image.
+  - Rosy cheek circles, small dark nose, gentle smile — identical to the reference.
+  - Paw-shaped hands holding cooking utensils appropriate to the step.
+  - Reproduce the same warm, soft illustration style (slightly painterly, cozy kitchen feel).
+  - The character must look identical across every panel — same proportions, same colors, same hat.
 
 STEP BADGE: Top-left of the entire canvas (over the frame border), circle diameter 64px,
   fill #FF6B35, white bold number inside, black 2px stroke.
@@ -146,15 +149,31 @@ INSTRUCTION: ${stepDescription}
 ${stepTime ? `TIME: ${stepTime}` : ""}
 
 TASK: Illustrate this single cooking step across exactly 3 sequential panels showing the progression of the action.
-- The chibi cook character (with tall white toque blanche hat) must appear in every panel performing the action.
+- Draw the bear chef character EXACTLY as shown in the reference image (same face, same hat, same apron).
+- The bear must appear in every panel actively performing the cooking action.
 - Show the specific ingredients and utensils described in the instruction using only the locked color palette.
 - Each panel must have a Korean action label in a #FFE66D pill badge at its bottom.
 - Below the panels, render the step instruction in Korean as a single line in a white box with coral border.
 - Fill the progress bar to ${stepNumber}/${totalSteps} of its width.
 - Place the step number badge (${stepNumber}) at top-left.
-- Strictly follow every rule in the FIXED DESIGN SYSTEM above — color codes, stroke widths, character design, hat, layout, and Korean text must all be present.`;
+- Strictly follow every rule in the FIXED DESIGN SYSTEM above — color codes, layout, and Korean text must all be present.`;
     } else {
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
+    }
+
+    // step-instagram은 곰 캐릭터 참조 이미지를 함께 전달한다
+    let contents;
+    if (type === "step-instagram") {
+      const refImagePath = path.join(process.cwd(), "public", "chef-bear-reference.png");
+      const refImageBase64 = fs.readFileSync(refImagePath).toString("base64");
+      contents = [{
+        parts: [
+          { inlineData: { mimeType: "image/png", data: refImageBase64 } },
+          { text: prompt },
+        ],
+      }];
+    } else {
+      contents = [{ parts: [{ text: prompt }] }];
     }
 
     const response = await fetch(`${GEMINI_ENDPOINT}?key=${process.env.GOOGLE_API_KEY}`, {
@@ -163,7 +182,7 @@ TASK: Illustrate this single cooking step across exactly 3 sequential panels sho
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
+        contents,
         generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
       }),
     });
