@@ -5,64 +5,70 @@ import path from "path";
 const GEMINI_MODEL = "gemini-3.1-flash-image-preview";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-// 단계별 인스타 이미지 전용 고정 디자인 시스템
-// 모든 step-instagram 이미지에 동일하게 적용해 시리즈 일관성을 확보한다
-const STEP_DESIGN_SYSTEM = `
+// ─── 공통 디자인 시스템 (한국어 / 영어 공통 적용) ─────────────────────────────
+const STEP_DESIGN_BASE = `
 === FIXED DESIGN SYSTEM (apply identically to every image in this series) ===
 
 CANVAS: Square 1:1 ratio, 1080×1080px equivalent.
 
-BACKGROUND: Solid flat color #FFF8F0 (warm cream). No gradients, no textures, no patterns.
+BACKGROUND: Solid flat color #FFF8F0 (warm cream). No gradients, no textures.
 
-OUTER FRAME: 24px rounded rectangle border, color #FF6B35 (coral orange), inset 16px from canvas edge.
+OUTER FRAME: 24px rounded rectangle border, color #FF6B35 (coral orange), inset 16px from edge.
 
-LAYOUT — always exactly 3 equal-width vertical panels side by side, separated by 8px gaps filled with #FF6B35.
-  Each panel has a white (#FFFFFF) fill with 12px inner padding.
+LAYOUT — always exactly 3 equal-width vertical panels side by side, separated by 8px gaps in #FF6B35.
+  Each panel: white (#FFFFFF) fill, 12px inner padding.
 
 ILLUSTRATION STYLE:
-  - Flat vector cartoon. Zero photo-realism.
-  - Outlines: 3px uniform black (#1A1A1A) strokes only. No shading, no gradients, no drop shadows.
-  - Color fills: only from this locked palette —
-      Coral    #FF6B35  (accents, hot surfaces, important items)
-      Mint     #4ECDC4  (water, liquids, bowls)
-      Lemon    #FFE66D  (ingredients, garnish, positive highlights)
-      Lavender #C7CEEA  (background items, secondary utensils)
-      Cream    #FFF8F0  (skin tone base)
-      Dark     #1A1A1A  (outlines, text)
-      White    #FFFFFF  (panel fill, eyes)
+  - Flat vector cartoon. Zero photo-realism. No shading, no drop shadows.
+  - Outlines: 3px uniform #1A1A1A strokes only.
+  - Color palette (locked):
+      Coral    #FF6B35  · Mint  #4ECDC4  · Lemon  #FFE66D
+      Lavender #C7CEEA  · Cream #FFF8F0  · Dark   #1A1A1A  · White #FFFFFF
 
-CHARACTER: Use the exact bear chef from the reference image provided.
-  - Light golden-brown fluffy teddy bear with round face and large sparkling dark eyes.
-  - Always wears the tall white puffy toque blanche chef hat from the reference image.
-  - Always wears the beige/cream apron from the reference image.
-  - Rosy cheek circles, small dark nose, gentle smile — identical to the reference.
-  - Paw-shaped hands holding cooking utensils appropriate to the step.
-  - Reproduce the same warm, soft illustration style (slightly painterly, cozy kitchen feel).
-  - The character must look identical across every panel — same proportions, same colors, same hat.
+CHARACTER: Use the exact bear chef from the reference image.
+  - Light golden-brown fluffy teddy bear, large sparkling dark eyes.
+  - Tall white puffy toque blanche chef hat (from reference). NEVER omit the hat.
+  - Beige/cream apron (from reference). Rosy cheeks, small dark nose, gentle smile.
+  - Paw-shaped hands holding cooking utensils for each action.
+  - Identical look across every panel: same proportions, colors, hat.
 
-STEP BADGE: Top-left of the entire canvas (over the frame border), circle diameter 64px,
-  fill #FF6B35, white bold number inside, black 2px stroke.
+STEP BADGE: Top-left corner, circle 64px, fill #FF6B35, white bold number, 2px black stroke.
 
-PROGRESS BAR: Bottom edge of canvas, inside the frame.
-  Full-width bar, height 20px, background #FFE66D.
-  Filled portion = (stepNumber / totalSteps) * 100%, fill color #FF6B35.
+PROGRESS BAR: Bottom edge, inside frame. Height 20px, background #FFE66D.
+  Filled = (stepNumber / totalSteps × 100)%, fill #FF6B35.
 
-PANEL CONTENT RULE: Each panel shows exactly one sequential micro-action of the step.
-  Arrow icons (→) between panels are 24px, color #FF6B35.
-
-KOREAN TEXT LABELS (mandatory):
-  - Each panel must include a short Korean action label (2–6 characters) at the bottom of that panel.
-    Font: bold, rounded sans-serif, color #1A1A1A, font size ~18px equivalent.
-    Placed inside a #FFE66D lemon-yellow rounded pill badge at the bottom-center of the panel.
-  - Below the 3 panels (above the progress bar), display the full Korean step instruction as a single line.
-    Font: bold, color #1A1A1A, font size ~20px. Background: white rounded rectangle with #FF6B35 border 2px.
-  - All text must be in Korean (한국어). Do NOT use English, Chinese, or Japanese characters.
+PANEL CONTENT: Each panel = one sequential micro-action. Arrow (→) between panels, 24px, #FF6B35.
 === END DESIGN SYSTEM ===
+`;
+
+// 한국어 텍스트 레이블 규칙
+const KO_TEXT_RULE = `
+TEXT LABELS (Korean — mandatory):
+  - Each panel: short Korean action label (2–6자) in a #FFE66D pill badge at panel bottom-center.
+  - Below the 3 panels: full Korean step instruction in one line, white box with #FF6B35 border 2px.
+  - ALL text must be 한국어. No English, Chinese, or Japanese.
+`;
+
+// 영어 텍스트 레이블 규칙 (외국인 친화적)
+const EN_TEXT_RULE = `
+TEXT LABELS (English — mandatory):
+  - Each panel: short English action verb phrase (2–4 words) in a #FFE66D pill badge at panel bottom-center.
+    Use simple, clear verbs a cooking beginner understands (e.g. "Chop onions", "Stir gently", "Heat pan").
+  - Below the 3 panels: the step instruction rewritten in plain English (max 15 words), white box with #FF6B35 border 2px.
+    • Use everyday vocabulary, no jargon.
+    • Include quantities in BOTH metric and US units where applicable (e.g. "200g / 7oz", "1 tbsp / 15ml").
+  - ALL text must be English. No Korean, Chinese, or Japanese.
 `;
 
 export async function POST(req: NextRequest) {
   try {
-    const { recipeName, type, stepTitle, stepDescription, stepNumber, stepTime, totalSteps, ingredients, steps, kickSteps, highlight } = await req.json();
+    const {
+      recipeName, type, language,
+      stepTitle, stepDescription, stepNumber, stepTime, totalSteps,
+      ingredients, steps, kickSteps, highlight,
+    } = await req.json();
+
+    const isEn = language === "en";
 
     if (!recipeName) {
       return NextResponse.json({ error: "레시피 이름이 필요합니다." }, { status: 400 });
@@ -70,41 +76,71 @@ export async function POST(req: NextRequest) {
 
     let prompt = "";
 
+    // ── Recipe card ──────────────────────────────────────────────────────────
     if (type === "recipe-card") {
       prompt = `A beautiful, appetizing professional food photography of Korean dish "${recipeName}".
 Overhead shot, natural lighting, minimal props, clean white background, restaurant quality presentation.
 Highly detailed, vibrant colors, mouth-watering. 4K quality.`;
+
+    // ── Ingredients (1:1, 한/영 공통 구조) ────────────────────────────────────
     } else if (type === "ingredients") {
       const ingList = Array.isArray(ingredients)
         ? ingredients.map((i: { name: string; amount: string; unit: string }) =>
-            `${i.name} ${i.amount}${i.unit}`).join(", ")
+            isEn
+              ? `${i.name} — ${i.amount}${i.unit}`
+              : `${i.name} ${i.amount}${i.unit}`
+          ).join(", ")
         : "";
-      prompt = `Create a vertical 3:4 portrait Instagram flat-lay ingredients photo for Korean recipe "${recipeName}".
 
-CANVAS: 1080×1440px (3:4 portrait).
+      if (isEn) {
+        prompt = `Create a square 1:1 Instagram flat-lay ingredients photo for Korean recipe "${recipeName}" aimed at international home cooks.
+
+CANVAS: 1080×1080px square.
 BACKGROUND: Clean white marble surface, soft natural daylight from top-left.
 
-LAYOUT: Arrange each ingredient as a real, beautiful food item neatly spaced across the surface in a grid or organic flat-lay composition. Every ingredient must be clearly visible and identifiable.
+LAYOUT: Arrange each ingredient as a real, beautiful food item in a neat flat-lay grid. Every item clearly visible.
 
-INGREDIENTS TO SHOW: ${ingList}
+INGREDIENTS: ${ingList}
 
 LABELS (mandatory for every ingredient):
-  - Place a small rounded pill label directly below each ingredient item.
-  - Label background: white with a thin #FF6B35 border.
-  - Text line 1: Korean ingredient name, bold, #1A1A1A, 18px.
-  - Text line 2: quantity + unit (e.g. "200g", "2큰술"), #FF6B35, 16px.
+  - Rounded pill label directly below each item. White background, thin #FF6B35 border.
+  - Line 1: English ingredient name, bold, #1A1A1A, 18px. Use common English grocery store names.
+  - Line 2: quantity in BOTH metric and US units (e.g. "200g / 7oz", "2 tbsp / 30ml"), #FF6B35, 16px.
+  - All text in English. No Korean.
+
+STYLE: Professional food photography, warm tones, Instagram-worthy. Beginner-friendly layout.`;
+      } else {
+        prompt = `Create a square 1:1 Instagram flat-lay ingredients photo for Korean recipe "${recipeName}".
+
+CANVAS: 1080×1080px square.
+BACKGROUND: Clean white marble surface, soft natural daylight from top-left.
+
+LAYOUT: Arrange each ingredient as a real, beautiful food item in a neat flat-lay grid. Every item clearly visible.
+
+INGREDIENTS: ${ingList}
+
+LABELS (mandatory for every ingredient):
+  - Rounded pill label directly below each item. White background, thin #FF6B35 border.
+  - Line 1: Korean ingredient name (한국어), bold, #1A1A1A, 18px.
+  - Line 2: quantity + unit (예: "200g", "2큰술"), #FF6B35, 16px.
   - All text must be Korean (한국어).
 
-STYLE: Professional food photography. Warm, appetizing tones. Slight shadows under items for depth. Instagram-worthy composition. No props other than the ingredients and labels.`;
+STYLE: Professional food photography, warm appetizing tones, Instagram-worthy.`;
+      }
 
+    // ── Step (simple photo) ──────────────────────────────────────────────────
     } else if (type === "step") {
       prompt = `Step-by-step cooking illustration showing "${stepTitle}" for Korean recipe "${recipeName}".
 Close-up shot of hands cooking, natural kitchen setting, warm lighting.
 Realistic, detailed, instructional food photography style.`;
+
+    // ── Summary photo ────────────────────────────────────────────────────────
     } else if (type === "summary") {
       prompt = `Award-winning food photography of finished Korean dish "${recipeName}", beautifully plated.
 Dark moody background, dramatic side lighting, fine dining presentation.
 Steam rising, garnished, highly detailed. Magazine cover quality.`;
+
+    // ── Instagram food photo (legacy) ────────────────────────────────────────
     } else if (type === "instagram") {
       const ingredientList = Array.isArray(ingredients)
         ? ingredients.map((i: { name: string; amount: string; unit: string }) => `${i.name} ${i.amount}${i.unit}`).join(", ")
@@ -113,74 +149,102 @@ Steam rising, garnished, highly detailed. Magazine cover quality.`;
         ? steps.map((s: { number: number; title: string }) => `${s.number}. ${s.title}`).join(" → ")
         : "";
       prompt = `Vertical portrait Instagram food post photo of Korean dish "${recipeName}".
-Key ingredients: ${ingredientList}.
-Cooking steps: ${stepList}.
+Key ingredients: ${ingredientList}. Cooking steps: ${stepList}.
 Vibrant, warm-toned professional food photography. Beautifully plated on a rustic wooden table.
-Shallow depth of field, bokeh background, natural window light from the side.
-Instagram-worthy composition with visual hierarchy. Magazine cover quality.`;
+Shallow depth of field, bokeh background, natural window light. Instagram-worthy. Magazine quality.`;
+
+    // ── Kick / Success-points infographic (1:1) ───────────────────────────────
     } else if (type === "kick-instagram") {
       const kickList = Array.isArray(kickSteps)
         ? kickSteps.map((s: { number: number; title: string; kickReason: string }) =>
-            `• 단계 ${s.number} — ${s.title}: ${s.kickReason}`).join("\n")
+            isEn
+              ? `• Step ${s.number} — ${s.title}: ${s.kickReason}`
+              : `• 단계 ${s.number} — ${s.title}: ${s.kickReason}`
+          ).join("\n")
         : "";
-      prompt = `Create a vertical 3:4 Instagram infographic poster for the Korean recipe "${recipeName}".
+
+      if (isEn) {
+        prompt = `Create a square 1:1 Instagram infographic poster — "Success Tips" for the recipe "${recipeName}", designed for international home cooks.
 
 === DESIGN SPEC ===
-CANVAS: 1080×1440px (3:4 portrait). Background: solid #FFF8F0 (warm cream).
+CANVAS: 1080×1080px square. Background: solid #FFF8F0 (warm cream).
 
-HEADER BLOCK (top 22% of canvas):
-  Gradient banner from #FF6B35 to #FFC857 (left→right).
-  Large centered Korean text: "성공 포인트" in white bold rounded font, 52px.
-  Below it, recipe name "${recipeName}" in white semi-bold, 32px.
-  Small star icons (⭐) flanking the title.
+HEADER (top 20%):
+  Gradient banner #FF6B35 → #FFC857. Title: "✨ Success Tips" white bold 48px centered.
+  Subtitle: "${recipeName}" white semi-bold 28px.
 
-KICK POINTS LIST (middle 60% of canvas):
-  Each kick point displayed as a card:
-    - Left accent bar: 8px wide, #FF6B35.
-    - Step number badge: circle, #FF6B35 fill, white bold number, 48px diameter.
-    - Title: Korean bold text, #1A1A1A, 26px.
-    - Reason text: Korean regular text, #555555, 22px, wrapped to fit card width.
-    - Card background: white #FFFFFF, rounded corners 16px, subtle drop shadow.
-    - 16px vertical gap between cards.
-  Show ALL of these kick points:
+TIPS LIST (middle 62%):
+  Each tip as a card: left accent bar #FF6B35 8px, step number circle badge #FF6B35, white fill #FFFFFF, 12px rounded corners.
+  - Title: English bold #1A1A1A 24px. Use simple, encouraging cooking language.
+  - Body: English plain text #555555 20px — rewrite the tip so a beginner clearly understands WHY it matters.
+    Include measurements in metric + US units where relevant.
+  Cards:
 ${kickList}
 
-HIGHLIGHT STRIP (below kick points):
-  Rounded pill, background #FFE66D, 3px #FF6B35 border.
-  Text: "💡 핵심: ${highlight}" in Korean bold, #1A1A1A, 22px.
+HIGHLIGHT STRIP: pill badge #FFE66D border #FF6B35 3px.
+  Text: "💡 Key Point: ${highlight}" English bold #1A1A1A 20px.
 
-FOOTER (bottom 8%):
-  Background #FF6B35. White text: "레시피북" centered, 24px bold.
+FOOTER (bottom 8%): #FF6B35 background. White "Recipe Book" centered 22px bold.
 
-STYLE RULES:
-  - Flat design. No photorealism, no gradients on text.
-  - Outlines 2px #1A1A1A where used.
-  - All body text must be Korean (한국어). No English, Chinese, or Japanese.
-  - Keep generous white space inside each card.
+STYLE: Flat design, friendly, encouraging tone. All text in English. No Korean.
 === END SPEC ===`;
+      } else {
+        prompt = `Create a square 1:1 Instagram infographic poster — 성공 포인트 for the Korean recipe "${recipeName}".
+
+=== DESIGN SPEC ===
+CANVAS: 1080×1080px square. Background: solid #FFF8F0 (warm cream).
+
+HEADER (top 20%):
+  Gradient banner #FF6B35 → #FFC857. Title: "⭐ 성공 포인트" white bold 48px centered.
+  Subtitle: "${recipeName}" white semi-bold 28px.
+
+KICK POINTS LIST (middle 62%):
+  Each kick point as a card: left accent bar #FF6B35 8px, step number circle badge #FF6B35, white #FFFFFF fill, 12px rounded corners.
+  - Title: Korean bold #1A1A1A 24px.
+  - Body: Korean regular text #555555 20px, wrapped to card width.
+  Cards:
+${kickList}
+
+HIGHLIGHT STRIP: pill badge #FFE66D border #FF6B35 3px.
+  Text: "💡 핵심: ${highlight}" Korean bold #1A1A1A 20px.
+
+FOOTER (bottom 8%): #FF6B35. White "레시피북" centered 22px bold.
+
+STYLE: Flat design. All text Korean (한국어). No English.
+=== END SPEC ===`;
+      }
+
+    // ── Step-instagram (bear character, 한/영) ────────────────────────────────
     } else if (type === "step-instagram") {
+      const textRule = isEn ? EN_TEXT_RULE : KO_TEXT_RULE;
+      const langNote = isEn
+        ? `NOTE: This card is for INTERNATIONAL viewers. All text must be in clear, simple English. Quantities in metric + US units.`
+        : `NOTE: This card is for Korean viewers. All text must be in Korean (한국어).`;
+
       prompt = `Generate a cooking step illustration card for a recipe series.
-${STEP_DESIGN_SYSTEM}
+${STEP_DESIGN_BASE}
+${textRule}
+${langNote}
+
 RECIPE: "${recipeName}"
 STEP: ${stepNumber} of ${totalSteps}
 STEP TITLE: "${stepTitle}"
 INSTRUCTION: ${stepDescription}
 ${stepTime ? `TIME: ${stepTime}` : ""}
 
-TASK: Illustrate this single cooking step across exactly 3 sequential panels showing the progression of the action.
-- Draw the bear chef character EXACTLY as shown in the reference image (same face, same hat, same apron).
+TASK: Illustrate this single cooking step across exactly 3 sequential panels.
+- Draw the bear chef character EXACTLY as shown in the reference image (same face, hat, apron).
 - The bear must appear in every panel actively performing the cooking action.
-- Show the specific ingredients and utensils described in the instruction using only the locked color palette.
-- Each panel must have a Korean action label in a #FFE66D pill badge at its bottom.
-- Below the panels, render the step instruction in Korean as a single line in a white box with coral border.
-- Fill the progress bar to ${stepNumber}/${totalSteps} of its width.
-- Place the step number badge (${stepNumber}) at top-left.
-- Strictly follow every rule in the FIXED DESIGN SYSTEM above — color codes, layout, and Korean text must all be present.`;
+- Show specific ingredients and utensils using only the locked color palette.
+- Follow all TEXT LABEL rules above precisely.
+- Fill the progress bar to ${stepNumber}/${totalSteps}.
+- Place the step number badge (${stepNumber}) at top-left.`;
+
     } else {
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
     }
 
-    // step-instagram은 곰 캐릭터 참조 이미지를 함께 전달한다
+    // step-instagram은 곰 캐릭터 참조 이미지를 함께 전달
     let contents;
     if (type === "step-instagram") {
       const refImagePath = path.join(process.cwd(), "public", "chef-bear-reference.png");
@@ -197,9 +261,7 @@ TASK: Illustrate this single cooking step across exactly 3 sequential panels sho
 
     const response = await fetch(`${GEMINI_ENDPOINT}?key=${process.env.GOOGLE_API_KEY}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents,
         generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
@@ -220,9 +282,8 @@ TASK: Illustrate this single cooking step across exactly 3 sequential panels sho
     }
 
     const { mimeType, data: base64 } = imagePart.inlineData;
-    const dataUrl = `data:${mimeType};base64,${base64}`;
+    return NextResponse.json({ imageUrl: `data:${mimeType};base64,${base64}` });
 
-    return NextResponse.json({ imageUrl: dataUrl });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("Image generation error:", message);

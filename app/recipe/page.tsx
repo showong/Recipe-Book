@@ -17,15 +17,23 @@ function RecipeDetailContent() {
   // Images from Imagen
   const [heroImage, setHeroImage] = useState<string | null>(null);
   const [ingredientsImage, setIngredientsImage] = useState<string | null>(null);
+  const [ingredientsImageEn, setIngredientsImageEn] = useState<string | null>(null);
   const [summaryImage, setSummaryImage] = useState<string | null>(null);
   const [ingredientsImageLoading, setIngredientsImageLoading] = useState(false);
+  const [ingredientsImageEnLoading, setIngredientsImageEnLoading] = useState(false);
   const [summaryImageLoading, setSummaryImageLoading] = useState(false);
-  const [instagramImage, setInstagramImage] = useState<string | null>(null);
-  const [instagramImageLoading, setInstagramImageLoading] = useState(false);
   const [stepImages, setStepImages] = useState<Record<number, string>>({});
   const [stepImagesLoading, setStepImagesLoading] = useState<Record<number, boolean>>({});
+  const [stepImagesEn, setStepImagesEn] = useState<Record<number, string>>({});
+  const [stepImagesEnLoading, setStepImagesEnLoading] = useState<Record<number, boolean>>({});
   const [kickInstagramImage, setKickInstagramImage] = useState<string | null>(null);
   const [kickInstagramImageLoading, setKickInstagramImageLoading] = useState(false);
+  const [kickInstagramImageEn, setKickInstagramImageEn] = useState<string | null>(null);
+  const [kickInstagramImageEnLoading, setKickInstagramImageEnLoading] = useState(false);
+  // 인스타 게시글 텍스트
+  const [instagramPost, setInstagramPost] = useState<string | null>(null);
+  const [instagramPostLoading, setInstagramPostLoading] = useState(false);
+  const [postCopied, setPostCopied] = useState(false);
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -82,27 +90,42 @@ function RecipeDetailContent() {
   const generateIngredientsImage = async (
     recipeName: string,
     ingredientList: { name: string; amount: string; unit: string }[],
+    lang: "ko" | "en" = "ko",
   ) => {
-    setIngredientsImage(null);
-    setIngredientsImageLoading(true);
+    if (lang === "en") {
+      setIngredientsImageEn(null);
+      setIngredientsImageEnLoading(true);
+    } else {
+      setIngredientsImage(null);
+      setIngredientsImageLoading(true);
+    }
     try {
       const res = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipeName, type: "ingredients", ingredients: ingredientList }),
+        body: JSON.stringify({ recipeName, type: "ingredients", language: lang, ingredients: ingredientList }),
       });
       const data = await res.json();
-      if (data.imageUrl) setIngredientsImage(data.imageUrl);
+      if (data.imageUrl) {
+        if (lang === "en") setIngredientsImageEn(data.imageUrl);
+        else setIngredientsImage(data.imageUrl);
+      }
     } catch {
       // silently fail
     } finally {
-      setIngredientsImageLoading(false);
+      if (lang === "en") setIngredientsImageEnLoading(false);
+      else setIngredientsImageLoading(false);
     }
   };
 
-  const generateStepInstagramImage = async (step: RecipeStep) => {
+  const generateStepInstagramImage = async (step: RecipeStep, lang: "ko" | "en" = "ko") => {
     if (!recipe) return;
-    setStepImagesLoading((prev) => ({ ...prev, [step.number]: true }));
+    if (lang === "en") {
+      setStepImagesEn((prev) => { const n = { ...prev }; delete n[step.number]; return n; });
+      setStepImagesEnLoading((prev) => ({ ...prev, [step.number]: true }));
+    } else {
+      setStepImagesLoading((prev) => ({ ...prev, [step.number]: true }));
+    }
     try {
       const res = await fetch("/api/generate-image", {
         method: "POST",
@@ -110,6 +133,7 @@ function RecipeDetailContent() {
         body: JSON.stringify({
           recipeName: recipe.name,
           type: "step-instagram",
+          language: lang,
           stepNumber: step.number,
           stepTitle: step.title,
           stepDescription: step.description,
@@ -118,41 +142,46 @@ function RecipeDetailContent() {
         }),
       });
       const data = await res.json();
-      if (data.imageUrl) setStepImages((prev) => ({ ...prev, [step.number]: data.imageUrl }));
+      if (data.imageUrl) {
+        if (lang === "en") setStepImagesEn((prev) => ({ ...prev, [step.number]: data.imageUrl }));
+        else setStepImages((prev) => ({ ...prev, [step.number]: data.imageUrl }));
+      }
     } catch {
       // silently fail
     } finally {
-      setStepImagesLoading((prev) => ({ ...prev, [step.number]: false }));
+      if (lang === "en") setStepImagesEnLoading((prev) => ({ ...prev, [step.number]: false }));
+      else setStepImagesLoading((prev) => ({ ...prev, [step.number]: false }));
     }
   };
 
-  const generateInstagramImage = async () => {
+  const generateInstagramPost = async () => {
     if (!recipe) return;
-    setInstagramImageLoading(true);
+    setInstagramPost(null);
+    setInstagramPostLoading(true);
     try {
-      const res = await fetch("/api/generate-image", {
+      const res = await fetch("/api/generate-post", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipeName: recipe.name,
-          type: "instagram",
-          ingredients: recipe.ingredients,
-          steps: recipe.steps,
-        }),
+        body: JSON.stringify({ recipe }),
       });
       const data = await res.json();
-      if (data.imageUrl) setInstagramImage(data.imageUrl);
+      if (data.post) setInstagramPost(data.post);
     } catch {
       // silently fail
     } finally {
-      setInstagramImageLoading(false);
+      setInstagramPostLoading(false);
     }
   };
 
-  const generateKickInstagramImage = async () => {
+  const generateKickInstagramImage = async (lang: "ko" | "en" = "ko") => {
     if (!recipe) return;
-    setKickInstagramImage(null);
-    setKickInstagramImageLoading(true);
+    if (lang === "en") {
+      setKickInstagramImageEn(null);
+      setKickInstagramImageEnLoading(true);
+    } else {
+      setKickInstagramImage(null);
+      setKickInstagramImageLoading(true);
+    }
     try {
       const res = await fetch("/api/generate-image", {
         method: "POST",
@@ -160,6 +189,7 @@ function RecipeDetailContent() {
         body: JSON.stringify({
           recipeName: recipe.name,
           type: "kick-instagram",
+          language: lang,
           kickSteps: recipe.steps
             .filter((s) => s.isKick)
             .map((s) => ({ number: s.number, title: s.title, kickReason: s.kickReason })),
@@ -167,11 +197,15 @@ function RecipeDetailContent() {
         }),
       });
       const data = await res.json();
-      if (data.imageUrl) setKickInstagramImage(data.imageUrl);
+      if (data.imageUrl) {
+        if (lang === "en") setKickInstagramImageEn(data.imageUrl);
+        else setKickInstagramImage(data.imageUrl);
+      }
     } catch {
       // silently fail
     } finally {
-      setKickInstagramImageLoading(false);
+      if (lang === "en") setKickInstagramImageEnLoading(false);
+      else setKickInstagramImageLoading(false);
     }
   };
 
@@ -265,69 +299,64 @@ function RecipeDetailContent() {
         {/* =========== INGREDIENTS SECTION =========== */}
         {activeSection === "ingredients" && (
           <div className="fade-in-up space-y-4">
-            {/* Imagen: ingredient layout card */}
-            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
-              <div className="px-5 py-3 flex items-center justify-between"
-                style={{ background: "linear-gradient(135deg, #f8fafc, #e2e8f0)" }}>
-                <span className="text-sm font-bold text-gray-600 flex items-center gap-1.5">
-                  📸 Imagen 재료 사진
-                </span>
-                {ingredientsImageLoading && (
-                  <span className="text-xs text-gray-400 flex items-center gap-1">
-                    <svg className="spinner w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                    </svg>
-                    생성 중...
-                  </span>
-                )}
-              </div>
-              <div className="relative w-full mx-auto bg-gray-50"
-                style={{ aspectRatio: "3 / 4", maxWidth: "360px" }}>
-                {ingredientsImage ? (
-                  <Image src={ingredientsImage} alt="재료" fill className="object-cover" unoptimized />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-300">
-                    {ingredientsImageLoading ? (
-                      <div className="text-center">
-                        <div className="text-4xl mb-2">🥕</div>
-                        <p className="text-sm text-gray-400">재료 사진 생성 중...</p>
-                      </div>
-                    ) : (
-                      <span className="text-5xl opacity-30">📷</span>
+            {/* 재료 사진 카드 — 한국어 / 영어 */}
+            {(["ko", "en"] as const).map((lang) => {
+              const img = lang === "ko" ? ingredientsImage : ingredientsImageEn;
+              const loading = lang === "ko" ? ingredientsImageLoading : ingredientsImageEnLoading;
+              const label = lang === "ko" ? "🇰🇷 재료 사진 (한국어)" : "🌎 Ingredients Photo (English)";
+              return (
+                <div key={lang} className="bg-white rounded-3xl shadow-md overflow-hidden">
+                  <div className="px-5 py-3 flex items-center justify-between"
+                    style={{ background: "linear-gradient(135deg, #f8fafc, #e2e8f0)" }}>
+                    <span className="text-sm font-bold text-gray-600">{label}</span>
+                    {loading && (
+                      <span className="text-xs text-gray-400 flex items-center gap-1">
+                        <svg className="spinner w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        생성 중...
+                      </span>
                     )}
                   </div>
-                )}
-              </div>
-              <div className="px-4 py-3 flex gap-2"
-                style={{ background: "linear-gradient(135deg, #f8fafc, #e2e8f0)" }}>
-                {ingredientsImage && (
-                  <button
-                    onClick={() => {
-                      const a = document.createElement("a");
-                      a.href = ingredientsImage;
-                      a.download = `${recipe.name}-ingredients.png`;
-                      a.click();
-                    }}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
-                    style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
-                    ⬇️ 이미지 저장
-                  </button>
-                )}
-                <button
-                  onClick={() => generateIngredientsImage(recipe.name, recipe.ingredients)}
-                  disabled={ingredientsImageLoading}
-                  className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all hover:bg-gray-100 disabled:opacity-40"
-                  style={{ borderColor: "#94a3b8", color: "#64748b" }}>
-                  {ingredientsImageLoading ? (
-                    <svg className="spinner w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                    </svg>
-                  ) : "🔄"} 재생성
-                </button>
-              </div>
-            </div>
+                  <div className="relative w-full mx-auto bg-gray-50"
+                    style={{ aspectRatio: "1 / 1", maxWidth: "400px" }}>
+                    {img ? (
+                      <Image src={img} alt="재료" fill className="object-cover" unoptimized />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        {loading ? (
+                          <div className="text-center">
+                            <div className="text-4xl mb-2">🥕</div>
+                            <p className="text-sm text-gray-400">생성 중...</p>
+                          </div>
+                        ) : (
+                          <span className="text-5xl opacity-20">📷</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="px-4 py-3 flex gap-2"
+                    style={{ background: "linear-gradient(135deg, #f8fafc, #e2e8f0)" }}>
+                    {img && (
+                      <button
+                        onClick={() => { const a = document.createElement("a"); a.href = img; a.download = `${recipe.name}-ingredients-${lang}.png`; a.click(); }}
+                        className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
+                        style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
+                        ⬇️ 저장
+                      </button>
+                    )}
+                    <button
+                      onClick={() => generateIngredientsImage(recipe.name, recipe.ingredients, lang)}
+                      disabled={loading}
+                      className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold border-2 transition-all hover:bg-gray-100 disabled:opacity-40"
+                      style={{ borderColor: "#94a3b8", color: "#64748b" }}>
+                      {loading ? <svg className="spinner w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> : "🔄"} {img ? "재생성" : "생성"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
 
             {/* Owned ingredients card */}
             <div className="bg-white rounded-3xl shadow-md overflow-hidden">
@@ -428,61 +457,49 @@ function RecipeDetailContent() {
                   </div>
                 </div>
 
-                {/* Kick Instagram Image */}
-                {kickInstagramImage && (
-                  <div>
-                    <div className="relative w-full mx-auto overflow-hidden"
-                      style={{ aspectRatio: "3 / 4", maxWidth: "360px", margin: "0 auto" }}>
-                      <Image
-                        src={kickInstagramImage}
-                        alt="성공 포인트 인스타 이미지"
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
+                {/* 성공 포인트 인스타 이미지 — 한국어 / 영어 */}
+                {(["ko", "en"] as const).map((lang) => {
+                  const img = lang === "ko" ? kickInstagramImage : kickInstagramImageEn;
+                  const loading = lang === "ko" ? kickInstagramImageLoading : kickInstagramImageEnLoading;
+                  const btnLabel = lang === "ko" ? "🇰🇷 성공 포인트 이미지 생성" : "🌎 English Version";
+                  const dlName = `${recipe.name}-kick-${lang}.png`;
+                  return (
+                    <div key={lang}>
+                      {img && (
+                        <div>
+                          <div className="relative w-full mx-auto overflow-hidden"
+                            style={{ aspectRatio: "1 / 1", maxWidth: "400px", margin: "0 auto" }}>
+                            <Image src={img} alt="성공 포인트 이미지" fill className="object-cover" unoptimized />
+                          </div>
+                          <div className="px-4 py-2 flex gap-2" style={{ background: "#fff7ed" }}>
+                            <button onClick={() => { const a = document.createElement("a"); a.href = img; a.download = dlName; a.click(); }}
+                              className="flex-1 py-2 rounded-xl text-white text-xs font-bold hover:opacity-90"
+                              style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>⬇️ 저장</button>
+                            <button onClick={() => generateKickInstagramImage(lang)}
+                              className="px-4 py-2 rounded-xl text-xs font-bold border-2 hover:bg-orange-50"
+                              style={{ borderColor: "#ff6b35", color: "#ff6b35" }}>🔄 재생성</button>
+                          </div>
+                        </div>
+                      )}
+                      {!img && (
+                        <div className="px-4 py-2 flex justify-end" style={{ background: "#fff7ed" }}>
+                          {loading ? (
+                            <div className="flex items-center gap-2 text-xs text-gray-400 py-1">
+                              <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                              생성 중...
+                            </div>
+                          ) : (
+                            <button onClick={() => generateKickInstagramImage(lang)}
+                              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-80"
+                              style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
+                              📸 {btnLabel}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="px-4 py-3 flex gap-2" style={{ background: "#fff7ed" }}>
-                      <button
-                        onClick={() => {
-                          const a = document.createElement("a");
-                          a.href = kickInstagramImage;
-                          a.download = `${recipe.name}-kick-instagram.png`;
-                          a.click();
-                        }}
-                        className="flex-1 py-2 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90"
-                        style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
-                        ⬇️ 이미지 저장
-                      </button>
-                      <button
-                        onClick={generateKickInstagramImage}
-                        className="px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all hover:bg-orange-50"
-                        style={{ borderColor: "#ff6b35", color: "#ff6b35" }}>
-                        🔄 재생성
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {!kickInstagramImage && (
-                  <div className="px-4 py-3 flex justify-end" style={{ background: "#fff7ed" }}>
-                    {kickInstagramImageLoading ? (
-                      <div className="flex items-center gap-2 text-xs text-gray-400 py-1">
-                        <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                        AI 이미지 생성 중...
-                      </div>
-                    ) : (
-                      <button
-                        onClick={generateKickInstagramImage}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-80 active:scale-95 text-white"
-                        style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
-                        📸 성공 포인트 인스타 이미지 생성
-                      </button>
-                    )}
-                  </div>
-                )}
+                  );
+                })}
               </div>
             )}
 
@@ -548,71 +565,51 @@ function RecipeDetailContent() {
                     </div>
                   </div>
 
-                  {/* Instagram image section */}
+                  {/* 단계 이미지 — 한국어 / 영어 */}
                   <div className="border-t" style={{ borderColor: step.isKick ? "rgba(255,107,53,0.15)" : "#f3f4f6" }}>
-                    {/* Generated image preview */}
-                    {stepImages[step.number] && (
-                      <div>
-                        <div className="relative w-full" style={{ aspectRatio: "1 / 1" }}>
-                          <Image
-                            src={stepImages[step.number]}
-                            alt={`${step.title} 인스타 이미지`}
-                            fill
-                            className="object-cover"
-                            unoptimized
-                          />
+                    {(["ko", "en"] as const).map((lang) => {
+                      const img = lang === "ko" ? stepImages[step.number] : stepImagesEn[step.number];
+                      const loading = lang === "ko" ? stepImagesLoading[step.number] : stepImagesEnLoading[step.number];
+                      const gradientKo = step.isKick ? "linear-gradient(135deg,#ff6b35,#ffc857)" : "linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)";
+                      const gradientEn = "linear-gradient(135deg,#0ea5e9,#6366f1)";
+                      const gradient = lang === "ko" ? gradientKo : gradientEn;
+                      const btnText = lang === "ko" ? "🇰🇷 한국어 이미지" : "🌎 English Image";
+                      return (
+                        <div key={lang} className={lang === "en" ? "border-t border-dashed" : ""} style={{ borderColor: "#e5e7eb" }}>
+                          {img && (
+                            <div>
+                              <div className="relative w-full" style={{ aspectRatio: "1 / 1" }}>
+                                <Image src={img} alt={`${step.title} ${lang}`} fill className="object-cover" unoptimized />
+                              </div>
+                              <div className="px-4 py-2 flex gap-2">
+                                <button onClick={() => { const a = document.createElement("a"); a.href = img; a.download = `${recipe.name}-step${step.number}-${lang}.png`; a.click(); }}
+                                  className="flex-1 py-2 rounded-xl text-white text-xs font-bold hover:opacity-90"
+                                  style={{ background: gradient }}>⬇️ 저장</button>
+                                <button onClick={() => generateStepInstagramImage(step, lang)}
+                                  className="px-4 py-2 rounded-xl text-xs font-bold border-2 hover:bg-gray-50"
+                                  style={{ borderColor: lang === "ko" ? "#fd1d1d" : "#6366f1", color: lang === "ko" ? "#fd1d1d" : "#6366f1" }}>🔄</button>
+                              </div>
+                            </div>
+                          )}
+                          {!img && (
+                            <div className="px-4 py-2 flex justify-end">
+                              {loading ? (
+                                <div className="flex items-center gap-2 text-xs text-gray-400 py-1">
+                                  <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                  생성 중...
+                                </div>
+                              ) : (
+                                <button onClick={() => generateStepInstagramImage(step, lang)}
+                                  className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-white hover:opacity-80"
+                                  style={{ background: gradient }}>
+                                  📸 {btnText}
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <div className="px-4 py-3 flex gap-2">
-                          <button
-                            onClick={() => {
-                              const a = document.createElement("a");
-                              a.href = stepImages[step.number];
-                              a.download = `${recipe.name}-step${step.number}.png`;
-                              a.click();
-                            }}
-                            className="flex-1 py-2 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90"
-                            style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
-                            ⬇️ 이미지 저장
-                          </button>
-                          <button
-                            onClick={() => {
-                              setStepImages((prev) => { const n = { ...prev }; delete n[step.number]; return n; });
-                              generateStepInstagramImage(step);
-                            }}
-                            className="px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all hover:bg-gray-50"
-                            style={{ borderColor: "#fd1d1d", color: "#fd1d1d" }}>
-                            🔄 재생성
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Generate button / loading */}
-                    {!stepImages[step.number] && (
-                      <div className="px-4 py-3 flex justify-end">
-                        {stepImagesLoading[step.number] ? (
-                          <div className="flex items-center gap-2 text-xs text-gray-400 py-1">
-                            <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                            </svg>
-                            AI 이미지 생성 중...
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => generateStepInstagramImage(step)}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-80 active:scale-95"
-                            style={{
-                              background: step.isKick
-                                ? "linear-gradient(135deg, #ff6b35, #ffc857)"
-                                : "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)",
-                              color: "white",
-                            }}>
-                            📸 인스타 이미지 생성
-                          </button>
-                        )}
-                      </div>
-                    )}
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -656,13 +653,19 @@ function RecipeDetailContent() {
               summaryImageLoading={summaryImageLoading}
             />
 
-            {/* Instagram Card */}
-            <InstagramCard
-              recipe={recipe}
-              instagramImage={instagramImage}
-              instagramImageLoading={instagramImageLoading}
-              onGenerate={generateInstagramImage}
-              onRegenerate={() => { setInstagramImage(null); generateInstagramImage(); }}
+            {/* Instagram Post Text Card */}
+            <InstagramPostCard
+              recipeName={recipe.name}
+              post={instagramPost}
+              loading={instagramPostLoading}
+              copied={postCopied}
+              onGenerate={generateInstagramPost}
+              onCopy={async () => {
+                if (!instagramPost) return;
+                await navigator.clipboard.writeText(instagramPost);
+                setPostCopied(true);
+                setTimeout(() => setPostCopied(false), 2000);
+              }}
             />
 
             <div className="mt-6 flex gap-3">
@@ -803,91 +806,82 @@ function SummaryCard({
   );
 }
 
-function InstagramCard({
-  recipe,
-  instagramImage,
-  instagramImageLoading,
+function InstagramPostCard({
+  recipeName,
+  post,
+  loading,
+  copied,
   onGenerate,
-  onRegenerate,
+  onCopy,
 }: {
-  recipe: RecipeDetail;
-  instagramImage: string | null;
-  instagramImageLoading: boolean;
+  recipeName: string;
+  post: string | null;
+  loading: boolean;
+  copied: boolean;
   onGenerate: () => void;
-  onRegenerate: () => void;
+  onCopy: () => void;
 }) {
-  const handleDownload = () => {
-    if (!instagramImage) return;
-    const a = document.createElement("a");
-    a.href = instagramImage;
-    a.download = `${recipe.name}-instagram.png`;
-    a.click();
-  };
-
   return (
     <div className="mt-6 rounded-3xl overflow-hidden shadow-xl"
       style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
       <div className="p-px rounded-3xl">
         <div className="bg-white rounded-3xl overflow-hidden">
-          {/* Header */}
           <div className="px-5 py-4 flex items-center gap-3"
             style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
-            <span className="text-2xl">📸</span>
+            <span className="text-2xl">✍️</span>
             <div>
-              <p className="text-white font-extrabold text-sm">인스타용 이미지</p>
-              <p className="text-white/80 text-xs">3:4 비율 · 재료 & 단계 기반 생성</p>
+              <p className="text-white font-extrabold text-sm">인스타 게시글 생성</p>
+              <p className="text-white/80 text-xs">전체 레시피 포함 · 바로 복사해서 사용</p>
             </div>
           </div>
 
           <div className="p-5">
-            {!instagramImage && !instagramImageLoading && (
+            {!post && !loading && (
               <button
                 onClick={onGenerate}
                 className="w-full py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90 active:scale-95"
                 style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
-                ✨ 인스타용 이미지 생성하기
+                ✨ 인스타 게시글 생성하기
               </button>
             )}
 
-            {instagramImageLoading && (
+            {loading && (
               <div className="flex flex-col items-center gap-3 py-10">
                 <svg className="spinner w-8 h-8 text-pink-500" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                 </svg>
-                <p className="text-sm font-medium text-gray-500">인스타용 이미지 생성 중...</p>
-                <p className="text-xs text-gray-400">재료와 조리법을 분석하고 있어요</p>
+                <p className="text-sm font-medium text-gray-500">게시글 작성 중...</p>
+                <p className="text-xs text-gray-400">레시피를 분석하고 있어요</p>
               </div>
             )}
 
-            {instagramImage && (
-              <div className="space-y-4">
-                {/* 3:4 ratio image container */}
-                <div className="relative w-full mx-auto overflow-hidden rounded-2xl shadow-lg"
-                  style={{ aspectRatio: "3 / 4", maxWidth: "360px" }}>
-                  <Image
-                    src={instagramImage}
-                    alt={`${recipe.name} 인스타용`}
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-
+            {post && (
+              <div className="space-y-3">
+                <textarea
+                  readOnly
+                  value={post}
+                  rows={18}
+                  className="w-full text-sm text-gray-700 leading-relaxed p-4 rounded-2xl border resize-none focus:outline-none"
+                  style={{ borderColor: "#e5e7eb", background: "#fafafa", fontFamily: "inherit" }}
+                />
                 <div className="flex gap-3">
                   <button
-                    onClick={handleDownload}
-                    className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
-                    style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
-                    ⬇️ 이미지 저장
+                    onClick={onCopy}
+                    className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90 active:scale-95"
+                    style={{ background: copied ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
+                    {copied ? "✅ 복사됨!" : "📋 전체 복사"}
                   </button>
                   <button
-                    onClick={onRegenerate}
+                    onClick={onGenerate}
                     className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-gray-50"
                     style={{ borderColor: "#fd1d1d", color: "#fd1d1d" }}>
                     🔄 재생성
                   </button>
                 </div>
+                <p className="text-xs text-center text-gray-400">
+                  복사 후 인스타그램 앱에 바로 붙여넣기 하세요 · {recipeName}
+                </p>
               </div>
             )}
           </div>
