@@ -5,7 +5,8 @@ const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models
 
 export async function POST(req: NextRequest) {
   try {
-    const { recipe } = await req.json();
+    const { recipe, language } = await req.json();
+    const isEn = language === "en";
 
     if (!recipe?.name) {
       return NextResponse.json({ error: "레시피 정보가 필요합니다." }, { status: 400 });
@@ -25,7 +26,39 @@ export async function POST(req: NextRequest) {
       .map((t: string, i: number) => `  ${i + 1}. ${t}`)
       .join("\n");
 
-    const prompt = `당신은 인스타그램 음식 콘텐츠 전문 작가입니다.
+    const prompt = isEn
+      ? `You are an expert Instagram food content writer for an international audience.
+Write an engaging Instagram post in English based on the recipe below. Make it feel warm, approachable, and exciting for home cooks worldwide — not a literal translation, but naturally written English content.
+
+Recipe info:
+- Dish: ${recipe.name}
+- Description: ${recipe.description}
+- Total time: ${recipe.totalTime}
+- Servings: ${recipe.servings}
+- Difficulty: ${recipe.difficulty}
+- Taste: ${recipe.taste}
+- Key highlight: ${recipe.highlight}
+
+Ingredients:
+${ingLines}
+
+Steps:
+${stepLines}
+
+${proTipLines ? `Pro tips:\n${proTipLines}\n` : ""}
+Goes well with: ${(recipe.pairings ?? []).join(", ")}
+
+Writing rules:
+1. First line: catchy opening with emoji (e.g. "✨ Tonight, I'm the chef 🍳")
+2. Second paragraph: 2–3 lines introducing the dish (flavor, vibe, occasion)
+3. Ingredients section: "📋 Ingredients (serves ${recipe.servings})" header, then list with • bullets. Include metric + US units (e.g. 200g / 7oz, 2 tbsp).
+4. Steps section: "👨‍🍳 How to Make It" header, numbered steps. Mark key steps with ⭐.
+5. Tips section: "💡 Secret to Success" header, summarise the key highlight in 1–2 sentences.
+6. Closing: warm one-liner sign-off.
+7. Hashtags: 15–20 relevant hashtags mixing English food/cooking tags (last line).
+
+Output the post only. No explanation or commentary.`
+      : `당신은 인스타그램 음식 콘텐츠 전문 작가입니다.
 아래 레시피 정보를 바탕으로 인스타그램 게시글을 작성해주세요.
 
 레시피 정보:

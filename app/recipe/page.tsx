@@ -30,10 +30,13 @@ function RecipeDetailContent() {
   const [kickInstagramImageLoading, setKickInstagramImageLoading] = useState(false);
   const [kickInstagramImageEn, setKickInstagramImageEn] = useState<string | null>(null);
   const [kickInstagramImageEnLoading, setKickInstagramImageEnLoading] = useState(false);
-  // 인스타 게시글 텍스트
+  // 인스타 게시글 텍스트 (한국어 / 영어)
   const [instagramPost, setInstagramPost] = useState<string | null>(null);
   const [instagramPostLoading, setInstagramPostLoading] = useState(false);
   const [postCopied, setPostCopied] = useState(false);
+  const [instagramPostEn, setInstagramPostEn] = useState<string | null>(null);
+  const [instagramPostEnLoading, setInstagramPostEnLoading] = useState(false);
+  const [postEnCopied, setPostEnCopied] = useState(false);
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -154,22 +157,31 @@ function RecipeDetailContent() {
     }
   };
 
-  const generateInstagramPost = async () => {
+  const generateInstagramPost = async (lang: "ko" | "en" = "ko") => {
     if (!recipe) return;
-    setInstagramPost(null);
-    setInstagramPostLoading(true);
+    if (lang === "en") {
+      setInstagramPostEn(null);
+      setInstagramPostEnLoading(true);
+    } else {
+      setInstagramPost(null);
+      setInstagramPostLoading(true);
+    }
     try {
       const res = await fetch("/api/generate-post", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipe }),
+        body: JSON.stringify({ recipe, language: lang }),
       });
       const data = await res.json();
-      if (data.post) setInstagramPost(data.post);
+      if (data.post) {
+        if (lang === "en") setInstagramPostEn(data.post);
+        else setInstagramPost(data.post);
+      }
     } catch {
       // silently fail
     } finally {
-      setInstagramPostLoading(false);
+      if (lang === "en") setInstagramPostEnLoading(false);
+      else setInstagramPostLoading(false);
     }
   };
 
@@ -653,18 +665,35 @@ function RecipeDetailContent() {
               summaryImageLoading={summaryImageLoading}
             />
 
-            {/* Instagram Post Text Card */}
+            {/* 한국어 게시글 */}
             <InstagramPostCard
+              lang="ko"
               recipeName={recipe.name}
               post={instagramPost}
               loading={instagramPostLoading}
               copied={postCopied}
-              onGenerate={generateInstagramPost}
+              onGenerate={() => generateInstagramPost("ko")}
               onCopy={async () => {
                 if (!instagramPost) return;
                 await navigator.clipboard.writeText(instagramPost);
                 setPostCopied(true);
                 setTimeout(() => setPostCopied(false), 2000);
+              }}
+            />
+
+            {/* 영어 게시글 */}
+            <InstagramPostCard
+              lang="en"
+              recipeName={recipe.name}
+              post={instagramPostEn}
+              loading={instagramPostEnLoading}
+              copied={postEnCopied}
+              onGenerate={() => generateInstagramPost("en")}
+              onCopy={async () => {
+                if (!instagramPostEn) return;
+                await navigator.clipboard.writeText(instagramPostEn);
+                setPostEnCopied(true);
+                setTimeout(() => setPostEnCopied(false), 2000);
               }}
             />
 
@@ -807,6 +836,7 @@ function SummaryCard({
 }
 
 function InstagramPostCard({
+  lang,
   recipeName,
   post,
   loading,
@@ -814,6 +844,7 @@ function InstagramPostCard({
   onGenerate,
   onCopy,
 }: {
+  lang: "ko" | "en";
   recipeName: string;
   post: string | null;
   loading: boolean;
@@ -821,17 +852,35 @@ function InstagramPostCard({
   onGenerate: () => void;
   onCopy: () => void;
 }) {
+  const isEn = lang === "en";
+  const gradient = isEn
+    ? "linear-gradient(135deg, #0ea5e9, #6366f1)"
+    : "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)";
+  const title = isEn ? "🌎 English Instagram Post" : "🇰🇷 인스타 게시글 생성";
+  const subtitle = isEn
+    ? "Full recipe in English · Copy & paste ready"
+    : "전체 레시피 포함 · 바로 복사해서 사용";
+  const btnLabel = isEn ? "✨ Generate English Post" : "✨ 인스타 게시글 생성하기";
+  const loadingText = isEn ? "Writing post..." : "게시글 작성 중...";
+  const loadingSub = isEn ? "Adapting recipe for international readers" : "레시피를 분석하고 있어요";
+  const copyLabel = isEn ? "📋 Copy All" : "📋 전체 복사";
+  const copiedLabel = isEn ? "✅ Copied!" : "✅ 복사됨!";
+  const regenLabel = isEn ? "🔄 Regenerate" : "🔄 재생성";
+  const footerNote = isEn
+    ? `Paste directly into Instagram · ${recipeName}`
+    : `복사 후 인스타그램 앱에 바로 붙여넣기 하세요 · ${recipeName}`;
+
   return (
     <div className="mt-6 rounded-3xl overflow-hidden shadow-xl"
-      style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
+      style={{ background: gradient }}>
       <div className="p-px rounded-3xl">
         <div className="bg-white rounded-3xl overflow-hidden">
           <div className="px-5 py-4 flex items-center gap-3"
-            style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
+            style={{ background: gradient }}>
             <span className="text-2xl">✍️</span>
             <div>
-              <p className="text-white font-extrabold text-sm">인스타 게시글 생성</p>
-              <p className="text-white/80 text-xs">전체 레시피 포함 · 바로 복사해서 사용</p>
+              <p className="text-white font-extrabold text-sm">{title}</p>
+              <p className="text-white/80 text-xs">{subtitle}</p>
             </div>
           </div>
 
@@ -840,8 +889,8 @@ function InstagramPostCard({
               <button
                 onClick={onGenerate}
                 className="w-full py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90 active:scale-95"
-                style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
-                ✨ 인스타 게시글 생성하기
+                style={{ background: gradient }}>
+                {btnLabel}
               </button>
             )}
 
@@ -851,8 +900,8 @@ function InstagramPostCard({
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                 </svg>
-                <p className="text-sm font-medium text-gray-500">게시글 작성 중...</p>
-                <p className="text-xs text-gray-400">레시피를 분석하고 있어요</p>
+                <p className="text-sm font-medium text-gray-500">{loadingText}</p>
+                <p className="text-xs text-gray-400">{loadingSub}</p>
               </div>
             )}
 
@@ -869,19 +918,17 @@ function InstagramPostCard({
                   <button
                     onClick={onCopy}
                     className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90 active:scale-95"
-                    style={{ background: copied ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
-                    {copied ? "✅ 복사됨!" : "📋 전체 복사"}
+                    style={{ background: copied ? "linear-gradient(135deg,#16a34a,#15803d)" : gradient }}>
+                    {copied ? copiedLabel : copyLabel}
                   </button>
                   <button
                     onClick={onGenerate}
                     className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-gray-50"
-                    style={{ borderColor: "#fd1d1d", color: "#fd1d1d" }}>
-                    🔄 재생성
+                    style={{ borderColor: isEn ? "#6366f1" : "#fd1d1d", color: isEn ? "#6366f1" : "#fd1d1d" }}>
+                    {regenLabel}
                   </button>
                 </div>
-                <p className="text-xs text-center text-gray-400">
-                  복사 후 인스타그램 앱에 바로 붙여넣기 하세요 · {recipeName}
-                </p>
+                <p className="text-xs text-center text-gray-400">{footerNote}</p>
               </div>
             )}
           </div>
