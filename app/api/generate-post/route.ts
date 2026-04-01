@@ -50,12 +50,13 @@ Goes well with: ${(recipe.pairings ?? []).join(", ")}
 
 Writing rules:
 1. First line: catchy opening with emoji (e.g. "✨ Tonight, I'm the chef 🍳")
-2. Second paragraph: 2–3 lines introducing the dish (flavor, vibe, occasion)
-3. Ingredients section: "📋 Ingredients (serves ${recipe.servings})" header, then list with • bullets. Include metric + US units (e.g. 200g / 7oz, 2 tbsp).
-4. Steps section: "👨‍🍳 How to Make It" header, numbered steps. Mark key steps with ⭐.
-5. Tips section: "💡 Secret to Success" header, summarise the key highlight in 1–2 sentences.
-6. Closing: warm one-liner sign-off.
-7. Hashtags: 15–20 relevant hashtags mixing English food/cooking tags (last line).
+2. One short sentence introducing the dish (flavor/vibe).
+3. Ingredients: "📋 Ingredients (serves ${recipe.servings})" then • bullet list. Metric + US units (e.g. 200g/7oz).
+4. Steps: "👨‍🍳 Steps" then numbered list, ONE short sentence each. Mark key steps with ⭐.
+5. "💡 ${recipe.highlight}" — one sentence tip.
+6. Hashtags: 6–8 English tags only (last line).
+
+STRICT LIMIT: Total post must be under 500 characters. Cut mercilessly — no closings, no filler.
 
 Output the post only. No explanation or commentary.`
       : `당신은 인스타그램 음식 콘텐츠 전문 작가입니다.
