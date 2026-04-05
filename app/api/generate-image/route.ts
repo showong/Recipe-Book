@@ -66,6 +66,8 @@ export async function POST(req: NextRequest) {
       recipeName, type, language,
       stepTitle, stepDescription, stepNumber, stepTime, totalSteps,
       ingredients, steps, kickSteps, highlight,
+      uploadedImageBase64, uploadedImageMimeType,
+      cookingTime, servings, taste,
     } = await req.json();
 
     const isEn = language === "en";
@@ -240,11 +242,44 @@ TASK: Illustrate this single cooking step across exactly 3 sequential panels.
 - Fill the progress bar to ${stepNumber}/${totalSteps}.
 - Place the step number badge (${stepNumber}) at top-left.`;
 
+    // ── Reel thumbnail (9:16, 업로드된 음식 사진 기반) ─────────────────────────
+    } else if (type === "reel-thumbnail") {
+      prompt = `Create a vertical 9:16 Instagram Reels / TikTok thumbnail image for Korean food recipe "${recipeName}".
+
+=== DESIGN SPEC ===
+CANVAS: 1080×1920px vertical (9:16 ratio).
+
+BACKGROUND: Use the provided food photo as the primary visual — fill the entire canvas with it, applying a subtle warm cinematic vibe enhancement (slightly boosted saturation, soft shadow vignette at top and bottom).
+
+TOP OVERLAY (top 25% of canvas):
+  - Semi-transparent dark gradient from top: rgba(0,0,0,0.65) → transparent.
+  - Recipe emoji or a small decorative food icon top-center.
+  - Small text: "🍽 Recipe" in white, 28px semi-bold, centered, 8% from top.
+
+MAIN TITLE AREA (centered, vertically ~35–55% of canvas):
+  - Large bold Korean recipe name: "${recipeName}" in white, 72px ultra-bold, centered.
+  - Drop shadow: 0 4px 16px rgba(0,0,0,0.6).
+  - Decorative accent lines left and right of the title (horizontal, 3px, #FF6B35, 80px wide).
+
+BOTTOM INFO STRIP (bottom 30% of canvas):
+  - Semi-transparent dark gradient from bottom: transparent → rgba(0,0,0,0.72).
+  - Three stat pills in a row, centered, 20% from bottom:
+      ⏱ ${cookingTime ?? ""}   👤 ${servings ?? ""}인분   🌶 ${taste ?? ""}
+    Each pill: rounded, background rgba(255,107,53,0.85), white text 28px bold, 16px padding H.
+  - Below the pills (bottom 10%): a call-to-action banner "#FF6B35 gradient strip":
+      Text: "레시피 전체 보기 ▶" white bold 32px centered.
+
+OVERALL FEEL: Cinematic, appetizing, premium food media. Warm tones, high contrast text. Instagram-worthy.
+=== END SPEC ===
+
+Use the provided food photograph as the base image for this composition.`;
+
     } else {
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
     }
 
     // step-instagram은 곰 캐릭터 참조 이미지를 함께 전달
+    // reel-thumbnail은 업로드된 음식 사진을 함께 전달
     let contents;
     if (type === "step-instagram") {
       const refImagePath = path.join(process.cwd(), "public", "chef-bear-reference.png");
@@ -252,6 +287,13 @@ TASK: Illustrate this single cooking step across exactly 3 sequential panels.
       contents = [{
         parts: [
           { inlineData: { mimeType: "image/png", data: refImageBase64 } },
+          { text: prompt },
+        ],
+      }];
+    } else if (type === "reel-thumbnail" && uploadedImageBase64) {
+      contents = [{
+        parts: [
+          { inlineData: { mimeType: uploadedImageMimeType ?? "image/jpeg", data: uploadedImageBase64 } },
           { text: prompt },
         ],
       }];

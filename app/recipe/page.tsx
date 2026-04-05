@@ -11,8 +11,9 @@ function RecipeDetailContent() {
   const searchParams = useSearchParams();
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [ingredients, setIngredients] = useState<string[]>([]);
-  const [activeSection, setActiveSection] = useState<"ingredients" | "steps" | "summary">("ingredients");
+  const [activeSection, setActiveSection] = useState<"ingredients" | "steps" | "summary" | "reel">("ingredients");
   const summaryRef = useRef<HTMLDivElement>(null);
+  const reelRef = useRef<HTMLDivElement>(null);
 
   // Images from Imagen
   const [heroImage, setHeroImage] = useState<string | null>(null);
@@ -37,6 +38,10 @@ function RecipeDetailContent() {
   const [instagramPostEn, setInstagramPostEn] = useState<string | null>(null);
   const [instagramPostEnLoading, setInstagramPostEnLoading] = useState(false);
   const [postEnCopied, setPostEnCopied] = useState(false);
+  // 릴스 썸네일
+  const [reelUploadedImage, setReelUploadedImage] = useState<string | null>(null);
+  const [reelThumbnail, setReelThumbnail] = useState<string | null>(null);
+  const [reelThumbnailLoading, setReelThumbnailLoading] = useState(false);
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -221,6 +226,50 @@ function RecipeDetailContent() {
     }
   };
 
+  const generateReelThumbnail = async () => {
+    if (!recipe || !reelUploadedImage) return;
+    setReelThumbnailLoading(true);
+    setReelThumbnail(null);
+    try {
+      const matches = reelUploadedImage.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) return;
+      const mimeType = matches[1];
+      const base64Data = matches[2];
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipeName: recipe.name,
+          type: "reel-thumbnail",
+          uploadedImageBase64: base64Data,
+          uploadedImageMimeType: mimeType,
+          highlight: recipe.highlight,
+          cookingTime: recipe.totalTime,
+          servings: recipe.servings,
+          taste: recipe.taste,
+        }),
+      });
+      const data = await res.json();
+      if (data.imageUrl) setReelThumbnail(data.imageUrl);
+    } catch {
+      // silently fail
+    } finally {
+      setReelThumbnailLoading(false);
+    }
+  };
+
+  const handleReelImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setReelThumbnail(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result;
+      if (typeof result === "string") setReelUploadedImage(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   if (!recipe) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -287,11 +336,12 @@ function RecipeDetailContent() {
       <div className="max-w-3xl mx-auto px-4">
         {/* Section Tabs */}
         <div className="flex gap-2 mb-6 bg-white rounded-2xl p-1.5 shadow-sm">
-          {(["ingredients", "steps", "summary"] as const).map((section) => {
+          {(["ingredients", "steps", "summary", "reel"] as const).map((section) => {
             const labels: Record<string, string> = {
               ingredients: "🛒 재료",
               steps: "👨‍🍳 조리법",
               summary: "📋 요약",
+              reel: "🎬 릴스",
             };
             return (
               <button
@@ -697,7 +747,17 @@ function RecipeDetailContent() {
               }}
             />
 
-            <div className="mt-6 flex gap-3">
+            <button
+              onClick={() => {
+                setActiveSection("reel");
+                setTimeout(() => reelRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+              }}
+              className="w-full mt-6 py-4 rounded-2xl text-white font-bold text-lg transition-all hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
+              🎬 릴스 썸네일 만들기 →
+            </button>
+
+            <div className="mt-3 flex gap-3">
               <button
                 onClick={() => router.push("/")}
                 className="flex-1 py-4 rounded-2xl font-bold text-base transition-all
@@ -709,6 +769,151 @@ function RecipeDetailContent() {
                 className="flex-1 py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90"
                 style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
                 ← 다른 레시피
+              </button>
+            </div>
+          </div>
+        )}
+        {/* =========== REEL SECTION =========== */}
+        {activeSection === "reel" && (
+          <div className="fade-in-up space-y-5" ref={reelRef}>
+            {/* Header */}
+            <div className="rounded-3xl overflow-hidden shadow-xl"
+              style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
+              <div className="p-6 text-white text-center">
+                <div className="text-4xl mb-2">🎬</div>
+                <h2 className="text-xl font-extrabold mb-1">릴스 썸네일 생성</h2>
+                <p className="text-sm opacity-80">완성된 요리 사진을 업로드하면<br/>AI가 릴스용 썸네일을 만들어드려요</p>
+              </div>
+            </div>
+
+            {/* Upload area */}
+            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
+              <div className="px-5 py-4"
+                style={{ background: "linear-gradient(135deg, #faf5ff, #fdf2f8)" }}>
+                <p className="text-sm font-bold text-purple-700">📸 완성된 요리 사진 업로드</p>
+                <p className="text-xs text-gray-500 mt-0.5">JPG, PNG, WEBP 등 — 직접 찍은 사진을 올려주세요</p>
+              </div>
+              <div className="p-5">
+                <label
+                  htmlFor="reel-upload"
+                  className="flex flex-col items-center justify-center w-full rounded-2xl border-2 border-dashed cursor-pointer transition-all hover:bg-purple-50"
+                  style={{ borderColor: reelUploadedImage ? "#7c3aed" : "#d1d5db", minHeight: "160px" }}>
+                  {reelUploadedImage ? (
+                    <div className="relative w-full" style={{ aspectRatio: "4/3" }}>
+                      <Image
+                        src={reelUploadedImage}
+                        alt="업로드된 요리 사진"
+                        fill
+                        className="object-cover rounded-2xl"
+                        unoptimized
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-2xl opacity-0 hover:opacity-100 transition-opacity">
+                        <span className="text-white text-sm font-bold bg-black/50 px-3 py-1.5 rounded-full">📷 사진 변경</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 py-10 text-center px-4">
+                      <span className="text-5xl">📤</span>
+                      <p className="text-sm font-bold text-gray-600">여기를 눌러 사진 업로드</p>
+                      <p className="text-xs text-gray-400">완성된 {recipe.name} 사진을 선택해주세요</p>
+                    </div>
+                  )}
+                </label>
+                <input
+                  id="reel-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleReelImageUpload}
+                />
+                {reelUploadedImage && (
+                  <button
+                    onClick={generateReelThumbnail}
+                    disabled={reelThumbnailLoading}
+                    className="w-full mt-4 py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
+                    style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
+                    {reelThumbnailLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="spinner w-5 h-5" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        썸네일 생성 중...
+                      </span>
+                    ) : reelThumbnail ? "🔄 썸네일 재생성" : "✨ 릴스 썸네일 생성하기"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Generated thumbnail */}
+            {reelThumbnailLoading && (
+              <div className="bg-white rounded-3xl shadow-md p-10 flex flex-col items-center gap-4">
+                <svg className="spinner w-10 h-10 text-purple-500" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                <p className="text-sm font-semibold text-gray-500">AI가 릴스 썸네일을 만들고 있어요...</p>
+                <p className="text-xs text-gray-400">사진과 레시피 정보를 분석 중</p>
+              </div>
+            )}
+
+            {reelThumbnail && !reelThumbnailLoading && (
+              <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+                <div className="px-5 py-3 flex items-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
+                  <span className="text-white text-lg">🎬</span>
+                  <p className="text-white font-extrabold text-sm">완성된 릴스 썸네일</p>
+                  <span className="ml-auto text-white/70 text-xs">9:16 세로형</span>
+                </div>
+                <div className="relative w-full mx-auto bg-gray-900"
+                  style={{ aspectRatio: "9 / 16", maxWidth: "360px" }}>
+                  <Image
+                    src={reelThumbnail}
+                    alt="릴스 썸네일"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+                <div className="px-5 py-4 flex gap-3"
+                  style={{ background: "linear-gradient(135deg, #faf5ff, #fdf2f8)" }}>
+                  <button
+                    onClick={() => {
+                      const a = document.createElement("a");
+                      a.href = reelThumbnail;
+                      a.download = `${recipe.name}-reel-thumbnail.png`;
+                      a.click();
+                    }}
+                    className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
+                    style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
+                    ⬇️ 썸네일 저장
+                  </button>
+                  <button
+                    onClick={generateReelThumbnail}
+                    className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-purple-50"
+                    style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>
+                    🔄 재생성
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-2 flex gap-3">
+              <button
+                onClick={() => {
+                  setActiveSection("summary");
+                  setTimeout(() => summaryRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+                }}
+                className="flex-1 py-4 rounded-2xl font-bold text-base transition-all border-2"
+                style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>
+                ← 요약으로 돌아가기
+              </button>
+              <button
+                onClick={() => router.push("/")}
+                className="flex-1 py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
+                🏠 새 레시피
               </button>
             </div>
           </div>
