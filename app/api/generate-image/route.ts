@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       stepTitle, stepDescription, stepNumber, stepTime, totalSteps,
       ingredients, steps, kickSteps, highlight,
       uploadedImageBase64, uploadedImageMimeType,
-      cookingTime, servings, taste,
+      cookingTime, servings, taste, pairings,
     } = await req.json();
 
     const isEn = language === "en";
@@ -244,35 +244,51 @@ TASK: Illustrate this single cooking step across exactly 3 sequential panels.
 
     // ── Reel thumbnail (9:16, 업로드된 음식 사진 기반) ─────────────────────────
     } else if (type === "reel-thumbnail") {
-      prompt = `Create a vertical 9:16 Instagram Reels / TikTok thumbnail image for Korean food recipe "${recipeName}".
+      const pairingText = Array.isArray(pairings) && pairings.length > 0
+        ? pairings.slice(0, 2).join(" · ")
+        : "";
+      const hasLogo = (() => {
+        for (const ext of ["png", "jpg", "jpeg", "webp"]) {
+          const p = path.join(process.cwd(), "public", `oh_showong_logo.${ext}`);
+          if (fs.existsSync(p)) return true;
+        }
+        return false;
+      })();
 
-=== DESIGN SPEC ===
-CANVAS: 1080×1920px vertical (9:16 ratio).
+      prompt = `Create a 9:16 vertical Instagram Reels thumbnail for the Korean food recipe "${recipeName}".
 
-BACKGROUND: Use the provided food photo as the primary visual — fill the entire canvas with it, applying a subtle warm cinematic vibe enhancement (slightly boosted saturation, soft shadow vignette at top and bottom).
+=== CANVAS & BASE ===
+Size: 1080×1920px (9:16). Fill entirely with the provided food photo.
+Apply a cinematic grade: slightly boosted saturation, gentle dark vignette at all four edges (25% inward).
 
-TOP OVERLAY (top 25% of canvas):
-  - Semi-transparent dark gradient from top: rgba(0,0,0,0.65) → transparent.
-  - Recipe emoji or a small decorative food icon top-center.
-  - Small text: "🍽 Recipe" in white, 28px semi-bold, centered, 8% from top.
+=== BRAND MARK (top-left corner, 32px from each edge) ===
+${hasLogo
+  ? `Place the provided logo image here — 110px wide, preserve aspect ratio, white drop-shadow filter.`
+  : `Text: "@oh_showong" white bold 30px, pill background rgba(0,0,0,0.50), 8px 16px padding, 20px border-radius.`}
 
-MAIN TITLE AREA (centered, vertically ~35–55% of canvas):
-  - Large bold Korean recipe name: "${recipeName}" in white, 72px ultra-bold, centered.
-  - Drop shadow: 0 4px 16px rgba(0,0,0,0.6).
-  - Decorative accent lines left and right of the title (horizontal, 3px, #FF6B35, 80px wide).
+=== FOOD NAME (vertical center ~42% from top) ===
+"${recipeName}" — white, ultra-bold, 88px, centered, tight tracking.
+Two short horizontal accent lines (2px, white 50% opacity, 56px each) left and right of the title.
+Text shadow: 0 4px 24px rgba(0,0,0,0.70).
 
-BOTTOM INFO STRIP (bottom 30% of canvas):
-  - Semi-transparent dark gradient from bottom: transparent → rgba(0,0,0,0.72).
-  - Three stat pills in a row, centered, 20% from bottom:
-      ⏱ ${cookingTime ?? ""}   👤 ${servings ?? ""}인분   🌶 ${taste ?? ""}
-    Each pill: rounded, background rgba(255,107,53,0.85), white text 28px bold, 16px padding H.
-  - Below the pills (bottom 10%): a call-to-action banner "#FF6B35 gradient strip":
-      Text: "레시피 전체 보기 ▶" white bold 32px centered.
+=== CTA HOOK (immediately below food name, gap 20px) ===
+Pick the single most mouth-watering hook from the options below (max 14 Korean characters):
+  - Taste hook: based on "${taste ?? ""}"
+  - Pairing hook: based on "${pairingText}"
+  - Occasion hook: based on "${highlight ?? ""}"
+Examples of great hooks: "달콤 짭조름한 그 맛 🍯" / "와인이랑 완벽 페어링 🍷" / "주말 브런치로 딱 👌" / "홈파티 필수 메뉴 🎉"
+Style: rounded pill, background rgba(0,0,0,0.55), white bold 36px, horizontal padding 24px, vertical 10px.
 
-OVERALL FEEL: Cinematic, appetizing, premium food media. Warm tones, high contrast text. Instagram-worthy.
-=== END SPEC ===
+=== BOTTOM STRIP (bottom 7%) ===
+Full-width strip: gradient left #FF6B35 → right #ec4899, opacity 0.88.
+Text: "레시피 전체 보기 ▶" white ultra-bold 30px centered.
 
-Use the provided food photograph as the base image for this composition.`;
+=== RULES ===
+- MAX 3 text layers: brand + food name + 1 CTA hook. Nothing else.
+- Photo must dominate (80%+ visible). Overlays are minimal but impactful.
+- No cluttered info panels, no ingredient lists, no step numbers.
+- Cinematic, premium, appetite-inducing. Ready to post on Instagram Reels.
+=== END SPEC ===`;
 
     } else {
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
@@ -291,12 +307,20 @@ Use the provided food photograph as the base image for this composition.`;
         ],
       }];
     } else if (type === "reel-thumbnail" && uploadedImageBase64) {
-      contents = [{
-        parts: [
-          { inlineData: { mimeType: uploadedImageMimeType ?? "image/jpeg", data: uploadedImageBase64 } },
-          { text: prompt },
-        ],
-      }];
+      const parts: { inlineData?: { mimeType: string; data: string }; text?: string }[] = [
+        { inlineData: { mimeType: uploadedImageMimeType ?? "image/jpeg", data: uploadedImageBase64 } },
+      ];
+      // 로고 파일이 있으면 함께 전달
+      for (const ext of ["png", "jpg", "jpeg", "webp"]) {
+        const logoPath = path.join(process.cwd(), "public", `oh_showong_logo.${ext}`);
+        if (fs.existsSync(logoPath)) {
+          const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext}`;
+          parts.push({ inlineData: { mimeType: mime, data: fs.readFileSync(logoPath).toString("base64") } });
+          break;
+        }
+      }
+      parts.push({ text: prompt });
+      contents = [{ parts }];
     } else {
       contents = [{ parts: [{ text: prompt }] }];
     }
