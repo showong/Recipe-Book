@@ -259,34 +259,40 @@ TASK: Illustrate this single cooking step across exactly 3 sequential panels.
 
 === CANVAS & BASE ===
 Size: 1080×1920px (9:16). Fill entirely with the provided food photo.
-Apply a cinematic grade: slightly boosted saturation, gentle dark vignette at all four edges (25% inward).
+Apply a cinematic grade: slightly boosted saturation, gentle dark vignette at the very edges only.
 
 === BRAND MARK (top-left corner, 32px from each edge) ===
 ${hasLogo
   ? `Place the provided logo image here — 110px wide, preserve aspect ratio, white drop-shadow filter.`
-  : `Text: "@oh_showong" white bold 30px, pill background rgba(0,0,0,0.50), 8px 16px padding, 20px border-radius.`}
+  : `Text: "@oh_showong" white bold 28px, pill background rgba(0,0,0,0.45), 8px 16px padding, 20px border-radius.`}
 
-=== FOOD NAME (vertical center ~42% from top) ===
-"${recipeName}" — white, ultra-bold, 88px, centered, tight tracking.
-Two short horizontal accent lines (2px, white 50% opacity, 56px each) left and right of the title.
-Text shadow: 0 4px 24px rgba(0,0,0,0.70).
+=== CENTER ZONE (10% – 72% from top) ===
+COMPLETELY EMPTY. No text, no overlays, no shapes. The food photo is fully visible here.
 
-=== CTA HOOK (immediately below food name, gap 20px) ===
+=== BOTTOM OVERLAY (bottom 28%) ===
+A smooth gradient from fully transparent (at 72% from top) to rgba(0,0,0,0.78) at the very bottom.
+This darkened area is the only zone where text appears.
+
+=== FOOD NAME (bottom zone, center of the overlay ~18% from bottom) ===
+"${recipeName}" — white, ultra-bold, 80px, centered, tight tracking.
+Text shadow: 0 4px 20px rgba(0,0,0,0.80).
+
+=== CTA HOOK (just above the bottom strip, ~8% from bottom) ===
 Pick the single most mouth-watering hook from the options below (max 14 Korean characters):
   - Taste hook: based on "${taste ?? ""}"
   - Pairing hook: based on "${pairingText}"
   - Occasion hook: based on "${highlight ?? ""}"
 Examples of great hooks: "달콤 짭조름한 그 맛 🍯" / "와인이랑 완벽 페어링 🍷" / "주말 브런치로 딱 👌" / "홈파티 필수 메뉴 🎉"
-Style: rounded pill, background rgba(0,0,0,0.55), white bold 36px, horizontal padding 24px, vertical 10px.
+Style: rounded pill, background rgba(255,107,53,0.80), white bold 32px, horizontal padding 22px, vertical 8px.
 
 === BOTTOM STRIP (bottom 7%) ===
-Full-width strip: gradient left #FF6B35 → right #ec4899, opacity 0.88.
-Text: "레시피 전체 보기 ▶" white ultra-bold 30px centered.
+Full-width strip: gradient left #FF6B35 → right #ec4899, opacity 0.90.
+Text: "레시피 전체 보기 ▶" white ultra-bold 28px centered.
 
 === RULES ===
-- MAX 3 text layers: brand + food name + 1 CTA hook. Nothing else.
-- Photo must dominate (80%+ visible). Overlays are minimal but impactful.
-- No cluttered info panels, no ingredient lists, no step numbers.
+- CRITICAL: The center 62% of the canvas (from 10% to 72%) must have zero text or opaque overlays.
+- Only 3 text elements total: brand mark (top) + food name + CTA hook (both bottom zone only).
+- The food photo is the hero — text frames it, never covers it.
 - Cinematic, premium, appetite-inducing. Ready to post on Instagram Reels.
 === END SPEC ===`;
 
