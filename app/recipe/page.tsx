@@ -247,6 +247,7 @@ function RecipeDetailContent() {
           cookingTime: recipe.totalTime,
           servings: recipe.servings,
           taste: recipe.taste,
+          pairings: recipe.pairings,
         }),
       });
       const data = await res.json();
@@ -255,6 +256,50 @@ function RecipeDetailContent() {
       // silently fail
     } finally {
       setReelThumbnailLoading(false);
+    }
+  };
+
+  const downloadPackage = (lang: "ko" | "en") => {
+    if (!recipe) return;
+    const name = recipe.name;
+    const isEn = lang === "en";
+    const items: { url: string; filename: string }[] = [];
+
+    if (isEn) {
+      if (ingredientsImageEn) items.push({ url: ingredientsImageEn, filename: `${name}-ingredients-en.png` });
+      Object.entries(stepImagesEn).forEach(([num, url]) =>
+        items.push({ url: url as string, filename: `${name}-step${num}-en.png` })
+      );
+      if (kickInstagramImageEn) items.push({ url: kickInstagramImageEn, filename: `${name}-kick-en.png` });
+    } else {
+      if (ingredientsImage) items.push({ url: ingredientsImage, filename: `${name}-ingredients-ko.png` });
+      Object.entries(stepImages).forEach(([num, url]) =>
+        items.push({ url: url as string, filename: `${name}-step${num}-ko.png` })
+      );
+      if (kickInstagramImage) items.push({ url: kickInstagramImage, filename: `${name}-kick-ko.png` });
+    }
+    if (summaryImage) items.push({ url: summaryImage, filename: `${name}-summary.png` });
+
+    items.forEach(({ url, filename }, i) => {
+      setTimeout(() => {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+      }, i * 300);
+    });
+
+    const post = isEn ? instagramPostEn : instagramPost;
+    if (post) {
+      setTimeout(() => {
+        const blob = new Blob([post], { type: "text/plain;charset=utf-8" });
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = `${name}-instagram-post-${lang}.txt`;
+        a.click();
+        URL.revokeObjectURL(blobUrl);
+      }, items.length * 300);
     }
   };
 
@@ -898,6 +943,66 @@ function RecipeDetailContent() {
                 </div>
               </div>
             )}
+
+            {/* ── 콘텐츠 패키지 일괄 다운로드 ── */}
+            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
+              <div className="px-5 py-4"
+                style={{ background: "linear-gradient(135deg, #f0fdf4, #dcfce7)" }}>
+                <p className="text-sm font-bold text-green-700">📦 콘텐츠 패키지 다운로드</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  생성된 이미지 + 인스타 게시글을 언어별로 한 번에 받아보세요
+                </p>
+              </div>
+              <div className="p-5 space-y-3">
+                {/* 한국어 패키지 */}
+                {(() => {
+                  const koImages = [
+                    ingredientsImage, ...Object.values(stepImages), kickInstagramImage, summaryImage
+                  ].filter(Boolean);
+                  const koCount = koImages.length + (instagramPost ? 1 : 0);
+                  return (
+                    <button
+                      onClick={() => downloadPackage("ko")}
+                      disabled={koCount === 0}
+                      className="w-full flex items-center justify-between px-5 py-4 rounded-2xl text-white font-bold transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
+                      <span className="flex items-center gap-2 text-sm">
+                        🇰🇷 한국어 패키지 다운로드
+                      </span>
+                      <span className="text-xs font-semibold opacity-80 bg-white/20 px-2 py-0.5 rounded-full">
+                        이미지 {koImages.length}장{instagramPost ? " + 게시글" : ""}
+                      </span>
+                    </button>
+                  );
+                })()}
+
+                {/* 영어 패키지 */}
+                {(() => {
+                  const enImages = [
+                    ingredientsImageEn, ...Object.values(stepImagesEn), kickInstagramImageEn, summaryImage
+                  ].filter(Boolean);
+                  const enCount = enImages.length + (instagramPostEn ? 1 : 0);
+                  return (
+                    <button
+                      onClick={() => downloadPackage("en")}
+                      disabled={enCount === 0}
+                      className="w-full flex items-center justify-between px-5 py-4 rounded-2xl text-white font-bold transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
+                      <span className="flex items-center gap-2 text-sm">
+                        🌎 English Package Download
+                      </span>
+                      <span className="text-xs font-semibold opacity-80 bg-white/20 px-2 py-0.5 rounded-full">
+                        {enImages.length} images{instagramPostEn ? " + post" : ""}
+                      </span>
+                    </button>
+                  );
+                })()}
+
+                <p className="text-xs text-center text-gray-400">
+                  아직 생성되지 않은 이미지는 포함되지 않아요 · 먼저 각 섹션에서 생성해주세요
+                </p>
+              </div>
+            </div>
 
             <div className="mt-2 flex gap-3">
               <button
