@@ -42,6 +42,9 @@ function RecipeDetailContent() {
   const [reelUploadedImage, setReelUploadedImage] = useState<string | null>(null);
   const [reelThumbnail, setReelThumbnail] = useState<string | null>(null);
   const [reelThumbnailLoading, setReelThumbnailLoading] = useState(false);
+  // 게시글 커버 이미지 (3:4)
+  const [postCoverImage, setPostCoverImage] = useState<string | null>(null);
+  const [postCoverLoading, setPostCoverLoading] = useState(false);
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -256,6 +259,35 @@ function RecipeDetailContent() {
       // silently fail
     } finally {
       setReelThumbnailLoading(false);
+    }
+  };
+
+  const generatePostCover = async () => {
+    if (!recipe || !reelUploadedImage) return;
+    setPostCoverLoading(true);
+    setPostCoverImage(null);
+    try {
+      const matches = reelUploadedImage.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) return;
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipeName: recipe.name,
+          type: "post-cover",
+          uploadedImageBase64: matches[2],
+          uploadedImageMimeType: matches[1],
+          highlight: recipe.highlight,
+          taste: recipe.taste,
+          pairings: recipe.pairings,
+        }),
+      });
+      const data = await res.json();
+      if (data.imageUrl) setPostCoverImage(data.imageUrl);
+    } catch {
+      // silently fail
+    } finally {
+      setPostCoverLoading(false);
     }
   };
 
@@ -938,6 +970,93 @@ function RecipeDetailContent() {
                     onClick={generateReelThumbnail}
                     className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-purple-50"
                     style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>
+                    🔄 재생성
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── 게시글 커버 이미지 (3:4) ── */}
+            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
+              <div className="px-5 py-4 flex items-center gap-2"
+                style={{ background: "linear-gradient(135deg, #fff7ed, #fef3c7)" }}>
+                <span className="text-xl">🖼️</span>
+                <div>
+                  <p className="text-sm font-bold text-orange-700">게시글 커버 이미지 생성</p>
+                  <p className="text-xs text-gray-500">3:4 비율 · 피드 첫 장 · 호기심 유도</p>
+                </div>
+              </div>
+              <div className="p-5">
+                {!reelUploadedImage ? (
+                  <p className="text-sm text-center text-gray-400 py-4">
+                    위에서 요리 사진을 먼저 업로드해주세요
+                  </p>
+                ) : (
+                  <button
+                    onClick={generatePostCover}
+                    disabled={postCoverLoading}
+                    className="w-full py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
+                    style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}>
+                    {postCoverLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="spinner w-5 h-5" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        커버 이미지 생성 중...
+                      </span>
+                    ) : postCoverImage ? "🔄 커버 이미지 재생성" : "✨ 게시글 커버 이미지 생성하기"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {postCoverLoading && (
+              <div className="bg-white rounded-3xl shadow-md p-10 flex flex-col items-center gap-4">
+                <svg className="spinner w-10 h-10 text-orange-400" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                <p className="text-sm font-semibold text-gray-500">AI가 게시글 커버를 만들고 있어요...</p>
+                <p className="text-xs text-gray-400">호기심을 자극하는 첫 장 이미지 생성 중</p>
+              </div>
+            )}
+
+            {postCoverImage && !postCoverLoading && (
+              <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+                <div className="px-5 py-3 flex items-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}>
+                  <span className="text-white text-lg">🖼️</span>
+                  <p className="text-white font-extrabold text-sm">완성된 게시글 커버</p>
+                  <span className="ml-auto text-white/70 text-xs">3:4 피드형</span>
+                </div>
+                <div className="relative w-full mx-auto bg-gray-900"
+                  style={{ aspectRatio: "3 / 4", maxWidth: "360px" }}>
+                  <Image
+                    src={postCoverImage}
+                    alt="게시글 커버 이미지"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+                <div className="px-5 py-4 flex gap-3"
+                  style={{ background: "linear-gradient(135deg, #fff7ed, #fef3c7)" }}>
+                  <button
+                    onClick={() => {
+                      const a = document.createElement("a");
+                      a.href = postCoverImage;
+                      a.download = `${recipe.name}-post-cover.png`;
+                      a.click();
+                    }}
+                    className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
+                    style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}>
+                    ⬇️ 커버 저장
+                  </button>
+                  <button
+                    onClick={generatePostCover}
+                    className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-orange-50"
+                    style={{ borderColor: "#f59e0b", color: "#d97706" }}>
                     🔄 재생성
                   </button>
                 </div>

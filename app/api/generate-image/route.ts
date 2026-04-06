@@ -258,36 +258,104 @@ TASK: Illustrate this single cooking step across exactly 3 sequential panels.
       prompt = `Create a 9:16 vertical Instagram Reels thumbnail for the Korean food recipe "${recipeName}".
 
 === CANVAS & BASE ===
-Size: 1080×1920px (9:16). Fill entirely with the provided food photo.
-Apply a cinematic grade: slightly boosted saturation, gentle dark vignette at all four edges (25% inward).
+Size: 1080×1920px (9:16 ratio). Fill entirely with the provided food photo.
+Cinematic grade: slightly boosted saturation, subtle dark vignette at edges only.
 
-=== BRAND MARK (top-left corner, 32px from each edge) ===
+=== LAYER STACK (top → bottom, strictly in this order) ===
+
+① BRAND MARK — y: 40px from top, x: 40px from left
 ${hasLogo
-  ? `Place the provided logo image here — 110px wide, preserve aspect ratio, white drop-shadow filter.`
-  : `Text: "@oh_showong" white bold 30px, pill background rgba(0,0,0,0.50), 8px 16px padding, 20px border-radius.`}
+  ? `Logo image, 90px wide, preserved aspect ratio, white drop-shadow.`
+  : `"@oh_showong" white semi-bold 26px, pill rgba(0,0,0,0.50), padding 6px 14px, radius 16px.`}
 
-=== FOOD NAME (vertical center ~42% from top) ===
-"${recipeName}" — white, ultra-bold, 88px, centered, tight tracking.
-Two short horizontal accent lines (2px, white 50% opacity, 56px each) left and right of the title.
-Text shadow: 0 4px 24px rgba(0,0,0,0.70).
+② CLEAR ZONE — y: 8% to 65% from top (1150px tall area)
+  ▸ NOTHING here. Zero text. Zero overlays. Pure food photo.
 
-=== CTA HOOK (immediately below food name, gap 20px) ===
-Pick the single most mouth-watering hook from the options below (max 14 Korean characters):
-  - Taste hook: based on "${taste ?? ""}"
-  - Pairing hook: based on "${pairingText}"
-  - Occasion hook: based on "${highlight ?? ""}"
-Examples of great hooks: "달콤 짭조름한 그 맛 🍯" / "와인이랑 완벽 페어링 🍷" / "주말 브런치로 딱 👌" / "홈파티 필수 메뉴 🎉"
-Style: rounded pill, background rgba(0,0,0,0.55), white bold 36px, horizontal padding 24px, vertical 10px.
+③ BOTTOM GRADIENT OVERLAY — starts at y=65% from top, ends at bottom
+  Smooth gradient: rgba(0,0,0,0) at top → rgba(0,0,0,0.85) at bottom.
+  Width: full canvas.
 
-=== BOTTOM STRIP (bottom 7%) ===
-Full-width strip: gradient left #FF6B35 → right #ec4899, opacity 0.88.
-Text: "레시피 전체 보기 ▶" white ultra-bold 30px centered.
+④ FOOD NAME — centered horizontally, y-center at 71% from top (≈1363px from top)
+  "${recipeName}" white ultra-bold 84px, letter-spacing -1px.
+  Text shadow: 0 3px 18px rgba(0,0,0,0.90).
+
+⑤ CTA HOOK PILL — centered horizontally, y-center at 82% from top (≈1574px from top)
+  Pick the single most compelling hook (max 14 Korean chars + emoji):
+    - Taste: "${taste ?? ""}"  · Pairing: "${pairingText}"  · Occasion: "${highlight ?? ""}"
+  Great examples: "달콤 짭조름한 그 맛 🍯" / "와인이랑 완벽 페어링 🍷" / "주말 브런치로 딱 👌"
+  Style: pill, background rgba(255,107,53,0.88), white bold 34px, padding 10px 24px, radius 40px.
+
+⑥ BOTTOM CTA STRIP — y: bottom 8% (≈154px tall), full width
+  Background: gradient #FF6B35 left → #ec4899 right, opacity 0.92.
+  Text: "레시피 전체 보기 ▶" white ultra-bold 28px, vertically centered in strip.
+
+=== SPACING SUMMARY ===
+Food name center (71%) → CTA pill center (82%): 211px gap — clearly separated.
+CTA pill center (82%) → Strip top (92%): 192px gap — clearly separated.
+No element overlaps another.
 
 === RULES ===
-- MAX 3 text layers: brand + food name + 1 CTA hook. Nothing else.
-- Photo must dominate (80%+ visible). Overlays are minimal but impactful.
-- No cluttered info panels, no ingredient lists, no step numbers.
-- Cinematic, premium, appetite-inducing. Ready to post on Instagram Reels.
+- Layers ④⑤⑥ exist ONLY below 65% from top. Nothing above that line except ①.
+- Photo dominates the top 65% — it is the star of the image.
+- Exactly 4 visual elements: brand · food name · CTA pill · bottom strip.
+=== END SPEC ===`;
+
+    // ── Post cover (3:4, 업로드된 음식 사진 기반) ───────────────────────────────
+    } else if (type === "post-cover") {
+      const pairingText = Array.isArray(pairings) && pairings.length > 0
+        ? pairings.slice(0, 2).join(" · ")
+        : "";
+      const hasLogo = (() => {
+        for (const ext of ["png", "jpg", "jpeg", "webp"]) {
+          const p = path.join(process.cwd(), "public", `oh_showong_logo.${ext}`);
+          if (fs.existsSync(p)) return true;
+        }
+        return false;
+      })();
+
+      prompt = `Create a 3:4 vertical Instagram feed post cover image for the Korean food recipe "${recipeName}".
+
+=== CANVAS & BASE ===
+Size: 1080×1440px (3:4 ratio). Fill entirely with the provided food photo.
+Warm cinematic grade: slightly boosted saturation, subtle dark vignette at edges only.
+
+=== LAYER STACK (top → bottom, strictly in this order) ===
+
+① BRAND MARK — y: 36px from top, x: 36px from left
+${hasLogo
+  ? `Logo image, 88px wide, preserved aspect ratio, white drop-shadow.`
+  : `"@oh_showong" white semi-bold 24px, pill rgba(0,0,0,0.50), padding 6px 14px, radius 16px.`}
+
+② CLEAR ZONE — y: 8% to 63% from top (792px tall area)
+  ▸ NOTHING here. Zero text. Zero overlays. Pure food photo.
+
+③ BOTTOM GRADIENT OVERLAY — starts at y=63% from top, ends at bottom
+  Smooth gradient: rgba(0,0,0,0) at top → rgba(0,0,0,0.85) at bottom.
+  Width: full canvas.
+
+④ FOOD NAME — centered horizontally, y-center at 70% from top (≈1008px from top)
+  "${recipeName}" white ultra-bold 76px, letter-spacing -1px.
+  Text shadow: 0 3px 16px rgba(0,0,0,0.90).
+
+⑤ CURIOSITY HOOK PILL — centered horizontally, y-center at 81% from top (≈1166px from top)
+  A single short Korean phrase (max 16 chars) that makes the viewer want to swipe for the recipe:
+    - Taste: "${taste ?? ""}"  · Pairing: "${pairingText}"  · Occasion: "${highlight ?? ""}"
+  Great examples: "이 맛 알면 매일 만든다 👀" / "레시피 숨겨왔던 이유 있어 🤫" / "한 번 만들면 단골 메뉴 💯"
+  Style: pill, background rgba(255,107,53,0.88), white bold 30px, padding 10px 22px, radius 40px.
+
+⑥ BOTTOM CTA STRIP — y: bottom 9% (≈130px tall), full width
+  Background: gradient #FF6B35 left → #ec4899 right, opacity 0.92.
+  Text: "레시피 전체 보기 →" white ultra-bold 26px, vertically centered in strip.
+
+=== SPACING SUMMARY ===
+Food name center (70%) → Hook pill center (81%): 158px gap — clearly separated.
+Hook pill center (81%) → Strip top (91%): 144px gap — clearly separated.
+No element overlaps another.
+
+=== RULES ===
+- Layers ④⑤⑥ exist ONLY below 63% from top. Nothing above that line except ①.
+- Photo dominates the top 63% — scroll-stopping food shot, full clarity.
+- Exactly 4 visual elements: brand · food name · curiosity hook · bottom strip.
 === END SPEC ===`;
 
     } else {
@@ -295,7 +363,7 @@ Text: "레시피 전체 보기 ▶" white ultra-bold 30px centered.
     }
 
     // step-instagram은 곰 캐릭터 참조 이미지를 함께 전달
-    // reel-thumbnail은 업로드된 음식 사진을 함께 전달
+    // reel-thumbnail / post-cover는 업로드된 음식 사진을 함께 전달
     let contents;
     if (type === "step-instagram") {
       const refImagePath = path.join(process.cwd(), "public", "chef-bear-reference.png");
@@ -306,7 +374,7 @@ Text: "레시피 전체 보기 ▶" white ultra-bold 30px centered.
           { text: prompt },
         ],
       }];
-    } else if (type === "reel-thumbnail" && uploadedImageBase64) {
+    } else if ((type === "reel-thumbnail" || type === "post-cover") && uploadedImageBase64) {
       const parts: { inlineData?: { mimeType: string; data: string }; text?: string }[] = [
         { inlineData: { mimeType: uploadedImageMimeType ?? "image/jpeg", data: uploadedImageBase64 } },
       ];
