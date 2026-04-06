@@ -296,12 +296,66 @@ Text: "레시피 전체 보기 ▶" white ultra-bold 28px centered.
 - Cinematic, premium, appetite-inducing. Ready to post on Instagram Reels.
 === END SPEC ===`;
 
+    // ── Post cover (3:4, 업로드된 음식 사진 기반) ───────────────────────────────
+    } else if (type === "post-cover") {
+      const pairingText = Array.isArray(pairings) && pairings.length > 0
+        ? pairings.slice(0, 2).join(" · ")
+        : "";
+      const hasLogo = (() => {
+        for (const ext of ["png", "jpg", "jpeg", "webp"]) {
+          const p = path.join(process.cwd(), "public", `oh_showong_logo.${ext}`);
+          if (fs.existsSync(p)) return true;
+        }
+        return false;
+      })();
+
+      prompt = `Create a 3:4 vertical Instagram feed post cover image for the Korean food recipe "${recipeName}".
+
+=== CANVAS & BASE ===
+Size: 1080×1440px (3:4). Fill entirely with the provided food photo.
+Apply a warm cinematic grade: slightly boosted saturation, gentle dark vignette at edges only.
+
+=== BRAND MARK (top-left corner, 28px from each edge) ===
+${hasLogo
+  ? `Place the provided logo image here — 100px wide, preserve aspect ratio, white drop-shadow filter.`
+  : `Text: "@oh_showong" white bold 26px, pill background rgba(0,0,0,0.45), 8px 14px padding, 18px border-radius.`}
+
+=== CENTER ZONE (10% – 68% from top) ===
+COMPLETELY EMPTY. No text, no overlays, no shapes. Food photo fully visible.
+
+=== BOTTOM OVERLAY (bottom 32%) ===
+Smooth gradient: fully transparent at 68% from top → rgba(0,0,0,0.80) at bottom.
+
+=== FOOD NAME (bottom zone, ~20% from bottom) ===
+"${recipeName}" — white, ultra-bold, 72px, centered, tight tracking.
+Text shadow: 0 4px 20px rgba(0,0,0,0.85).
+
+=== CURIOSITY HOOK (just above bottom strip, ~9% from bottom) ===
+Write a single short Korean phrase (max 16 chars) that sparks curiosity and makes the viewer want to swipe/read more.
+Choose the most compelling angle from:
+  - Taste: "${taste ?? ""}"
+  - Pairing: "${pairingText}"
+  - Occasion / highlight: "${highlight ?? ""}"
+Examples: "이 맛 알면 매일 만든다 👀" / "레시피 숨겨왔던 이유 있어 🤫" / "한 번 만들면 단골 메뉴 💯"
+Style: rounded pill, background rgba(255,107,53,0.85), white bold 30px, horizontal padding 20px, vertical 8px.
+
+=== BOTTOM STRIP (bottom 7%) ===
+Full-width strip: gradient left #FF6B35 → right #ec4899, opacity 0.90.
+Text: "레시피 전체 보기 →" white ultra-bold 26px centered.
+
+=== RULES ===
+- CRITICAL: Center 10–68% of canvas must have zero text or opaque overlays.
+- Only 3 text elements: brand (top) + food name + curiosity hook (both bottom zone).
+- Feed post format — appetizing, scroll-stopping, makes viewer tap to see the full recipe.
+- Cinematic, premium, warm tones.
+=== END SPEC ===`;
+
     } else {
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
     }
 
     // step-instagram은 곰 캐릭터 참조 이미지를 함께 전달
-    // reel-thumbnail은 업로드된 음식 사진을 함께 전달
+    // reel-thumbnail / post-cover는 업로드된 음식 사진을 함께 전달
     let contents;
     if (type === "step-instagram") {
       const refImagePath = path.join(process.cwd(), "public", "chef-bear-reference.png");
@@ -312,7 +366,7 @@ Text: "레시피 전체 보기 ▶" white ultra-bold 28px centered.
           { text: prompt },
         ],
       }];
-    } else if (type === "reel-thumbnail" && uploadedImageBase64) {
+    } else if ((type === "reel-thumbnail" || type === "post-cover") && uploadedImageBase64) {
       const parts: { inlineData?: { mimeType: string; data: string }; text?: string }[] = [
         { inlineData: { mimeType: uploadedImageMimeType ?? "image/jpeg", data: uploadedImageBase64 } },
       ];
