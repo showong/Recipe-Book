@@ -262,6 +262,29 @@ function RecipeDetailContent() {
     }
   };
 
+  const cropImageToRatio = (dataUrl: string, targetW: number, targetH: number): Promise<string> =>
+    new Promise((resolve) => {
+      const img = document.createElement("img");
+      img.onload = () => {
+        const targetRatio = targetW / targetH;
+        const imgRatio = img.width / img.height;
+        let sx = 0, sy = 0, sw = img.width, sh = img.height;
+        if (imgRatio > targetRatio) {
+          sw = img.height * targetRatio;
+          sx = (img.width - sw) / 2;
+        } else if (imgRatio < targetRatio) {
+          sh = img.width / targetRatio;
+          sy = (img.height - sh) / 2;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = targetW;
+        canvas.height = targetH;
+        canvas.getContext("2d")!.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+        resolve(canvas.toDataURL("image/png"));
+      };
+      img.src = dataUrl;
+    });
+
   const generatePostCover = async () => {
     if (!recipe || !reelUploadedImage) return;
     setPostCoverLoading(true);
@@ -283,7 +306,10 @@ function RecipeDetailContent() {
         }),
       });
       const data = await res.json();
-      if (data.imageUrl) setPostCoverImage(data.imageUrl);
+      if (data.imageUrl) {
+        const cropped = await cropImageToRatio(data.imageUrl, 1080, 1440);
+        setPostCoverImage(cropped);
+      }
     } catch {
       // silently fail
     } finally {
