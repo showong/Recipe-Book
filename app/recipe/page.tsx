@@ -45,6 +45,7 @@ function RecipeDetailContent() {
   // 게시글 커버 이미지 (3:4)
   const [postCoverImage, setPostCoverImage] = useState<string | null>(null);
   const [postCoverLoading, setPostCoverLoading] = useState(false);
+  const [postCoverError, setPostCoverError] = useState<string | null>(null);
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -289,9 +290,10 @@ function RecipeDetailContent() {
     if (!recipe || !reelUploadedImage) return;
     setPostCoverLoading(true);
     setPostCoverImage(null);
+    setPostCoverError(null);
     try {
       const matches = reelUploadedImage.match(/^data:([^;]+);base64,(.+)$/);
-      if (!matches) return;
+      if (!matches) { setPostCoverError("이미지 형식 오류입니다."); return; }
       const res = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -309,9 +311,11 @@ function RecipeDetailContent() {
       if (data.imageUrl) {
         const cropped = await cropImageToRatio(data.imageUrl, 1080, 1440);
         setPostCoverImage(cropped);
+      } else {
+        setPostCoverError(data.error ?? "게시글 커버 생성에 실패했습니다.");
       }
-    } catch {
-      // silently fail
+    } catch (err) {
+      setPostCoverError(err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.");
     } finally {
       setPostCoverLoading(false);
     }
@@ -365,12 +369,26 @@ function RecipeDetailContent() {
     const file = e.target.files?.[0];
     if (!file) return;
     setReelThumbnail(null);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result;
-      if (typeof result === "string") setReelUploadedImage(result);
+    setPostCoverImage(null);
+    setPostCoverError(null);
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const MAX = 1024;
+      const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, w, h);
+      setReelUploadedImage(canvas.toDataURL("image/jpeg", 0.85));
     };
-    reader.readAsDataURL(file);
+    img.onerror = () => URL.revokeObjectURL(objectUrl);
+    img.src = objectUrl;
   };
 
   if (!recipe) {
@@ -1045,6 +1063,12 @@ function RecipeDetailContent() {
                 </svg>
                 <p className="text-sm font-semibold text-gray-500">AI가 게시글 커버를 만들고 있어요...</p>
                 <p className="text-xs text-gray-400">호기심을 자극하는 첫 장 이미지 생성 중</p>
+              </div>
+            )}
+
+            {postCoverError && !postCoverLoading && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4 text-sm text-red-600">
+                ⚠️ {postCoverError}
               </div>
             )}
 
