@@ -232,7 +232,7 @@ function RecipeDetailContent() {
 
   const cropImageToRatio = (dataUrl: string, targetW: number, targetH: number): Promise<string> =>
     new Promise((resolve) => {
-      const img = new Image();
+      const img = document.createElement("img");
       img.onerror = () => resolve(dataUrl);
       img.onload = () => {
         const targetRatio = targetW / targetH;
@@ -379,7 +379,7 @@ function RecipeDetailContent() {
     setPostCoverImage(null);
     setPostCoverError(null);
     const objectUrl = URL.createObjectURL(file);
-    const img = new Image();
+    const img = document.createElement("img");
     img.onload = () => {
       URL.revokeObjectURL(objectUrl);
       const MAX = 1024;
