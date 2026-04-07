@@ -87,7 +87,9 @@ ${proTipLines ? `프로 팁:\n${proTipLines}\n` : ""}
 4. 조리 순서 섹션: "👨‍🍳 만드는 법" 헤더 후 번호 순서 (성공 포인트 단계에 ⭐ 표시)
 5. 핵심 비법 섹션: "💡 성공 비법" 헤더 후 핵심 포인트 요약
 6. 마무리: 따뜻한 한 줄 마무리 멘트
-7. 해시태그: 관련 해시태그 15–20개 (한국어 + 영어 혼합, 마지막 줄)
+7. 해시태그: 관련 해시태그 10개 이내 (한국어 + 영어 혼합, 마지막 줄)
+
+엄격한 글자수 제한: 전체 게시글이 반드시 300자 이하여야 합니다. 초과 시 내용을 과감하게 줄이세요. 해시태그 포함 300자.
 
 게시글만 출력하세요. 설명이나 부연은 불필요합니다.`;
 
@@ -113,7 +115,9 @@ ${proTipLines ? `프로 팁:\n${proTipLines}\n` : ""}
       throw new Error("게시글 생성에 실패했습니다.");
     }
 
-    return NextResponse.json({ post: textPart.text });
+    const post = textPart.text as string;
+    const trimmed = !isEn && post.length > 300 ? post.slice(0, 300) : post;
+    return NextResponse.json({ post: trimmed });
 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
