@@ -89,7 +89,7 @@ ${proTipLines ? `프로 팁:\n${proTipLines}\n` : ""}
 6. 마무리: 따뜻한 한 줄 마무리 멘트
 7. 해시태그: 관련 해시태그 10개 이내 (한국어 + 영어 혼합, 마지막 줄)
 
-엄격한 글자수 제한: 전체 게시글이 반드시 300자 이하여야 합니다. 초과 시 내용을 과감하게 줄이세요. 해시태그 포함 300자.
+엄격한 글자수 제한: 전체 게시글이 반드시 500자 이하여야 합니다. 초과 시 내용을 과감하게 줄이세요. 해시태그 포함 500자.
 
 게시글만 출력하세요. 설명이나 부연은 불필요합니다.`;
 
@@ -116,7 +116,7 @@ ${proTipLines ? `프로 팁:\n${proTipLines}\n` : ""}
     }
 
     const post = textPart.text as string;
-    const trimmed = !isEn && post.length > 300 ? post.slice(0, 300) : post;
+    const trimmed = !isEn && post.length > 500 ? post.slice(0, 500) : post;
     return NextResponse.json({ post: trimmed });
 
   } catch (error) {
