@@ -230,27 +230,6 @@ function RecipeDetailContent() {
     }
   };
 
-  // 업로드 이미지를 최대 1024px로 압축 (API body 한도 초과 방지)
-  const compressUploadedImage = (dataUrl: string): Promise<string> =>
-    new Promise((resolve) => {
-      const img = new Image();
-      img.onerror = () => resolve(dataUrl);
-      img.onload = () => {
-        const MAX = 1024;
-        const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
-        const w = Math.round(img.naturalWidth * scale);
-        const h = Math.round(img.naturalHeight * scale);
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) { resolve(dataUrl); return; }
-        ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", 0.85));
-      };
-      img.src = dataUrl;
-    });
-
   const cropImageToRatio = (dataUrl: string, targetW: number, targetH: number): Promise<string> =>
     new Promise((resolve) => {
       const img = new Image();
@@ -321,7 +300,7 @@ function RecipeDetailContent() {
     setPostCoverError(null);
     try {
       const matches = reelUploadedImage.match(/^data:([^;]+);base64,(.+)$/);
-      if (!matches) { setPostCoverLoading(false); return; }
+      if (!matches) { setPostCoverError("이미지 형식 오류입니다."); return; }
       const res = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -399,15 +378,24 @@ function RecipeDetailContent() {
     setReelThumbnail(null);
     setPostCoverImage(null);
     setPostCoverError(null);
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const result = ev.target?.result;
-      if (typeof result === "string") {
-        const compressed = await compressUploadedImage(result);
-        setReelUploadedImage(compressed);
-      }
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const MAX = 1024;
+      const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, w, h);
+      setReelUploadedImage(canvas.toDataURL("image/jpeg", 0.85));
     };
-    reader.readAsDataURL(file);
+    img.onerror = () => URL.revokeObjectURL(objectUrl);
+    img.src = objectUrl;
   };
 
   if (!recipe) {
