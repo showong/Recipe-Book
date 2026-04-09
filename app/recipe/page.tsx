@@ -42,11 +42,11 @@ function RecipeDetailContent() {
   const [reelUploadedImage, setReelUploadedImage] = useState<string | null>(null);
   const [reelThumbnail, setReelThumbnail] = useState<string | null>(null);
   const [reelThumbnailLoading, setReelThumbnailLoading] = useState(false);
-  // 게시글 커버 이미지 (3:4)
+  // 게시글 커버 이미지 (1:1)
   const [postCoverImage, setPostCoverImage] = useState<string | null>(null);
   const [postCoverLoading, setPostCoverLoading] = useState(false);
   const [postCoverError, setPostCoverError] = useState<string | null>(null);
-  // 영문 게시글 커버 이미지 (3:4)
+  // 영문 게시글 커버 이미지 (1:1)
   const [postCoverEnImage, setPostCoverEnImage] = useState<string | null>(null);
   const [postCoverEnLoading, setPostCoverEnLoading] = useState(false);
   const [postCoverEnError, setPostCoverEnError] = useState<string | null>(null);
@@ -322,7 +322,7 @@ function RecipeDetailContent() {
       if (data.error) {
         setPostCoverError(data.error);
       } else if (data.imageUrl) {
-        const cropped = await cropImageToRatio(data.imageUrl, 1080, 1440);
+        const cropped = await cropImageToRatio(data.imageUrl, 1080, 1080);
         setPostCoverImage(cropped);
       }
     } catch (err) {
@@ -357,7 +357,7 @@ function RecipeDetailContent() {
       if (data.error) {
         setPostCoverEnError(data.error);
       } else if (data.imageUrl) {
-        const cropped = await cropImageToRatio(data.imageUrl, 1080, 1440);
+        const cropped = await cropImageToRatio(data.imageUrl, 1080, 1080);
         setPostCoverEnImage(cropped);
       }
     } catch (err) {
@@ -1068,14 +1068,14 @@ function RecipeDetailContent() {
               </div>
             )}
 
-            {/* ── 게시글 커버 이미지 (3:4) ── */}
+            {/* ── 게시글 커버 이미지 (1:1) ── */}
             <div className="bg-white rounded-3xl shadow-md overflow-hidden">
               <div className="px-5 py-4 flex items-center gap-2"
                 style={{ background: "linear-gradient(135deg, #fff7ed, #fef3c7)" }}>
                 <span className="text-xl">🖼️</span>
                 <div>
                   <p className="text-sm font-bold text-orange-700">게시글 커버 이미지 생성</p>
-                  <p className="text-xs text-gray-500">3:4 비율 · 피드 첫 장 · 호기심 유도</p>
+                  <p className="text-xs text-gray-500">1:1 정사각형 · 피드 첫 장 · 호기심 유도</p>
                 </div>
               </div>
               <div className="p-5">
@@ -1127,10 +1127,10 @@ function RecipeDetailContent() {
                   style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}>
                   <span className="text-white text-lg">🖼️</span>
                   <p className="text-white font-extrabold text-sm">완성된 게시글 커버</p>
-                  <span className="ml-auto text-white/70 text-xs">3:4 피드형</span>
+                  <span className="ml-auto text-white/70 text-xs">1:1 정사각형</span>
                 </div>
                 <div className="relative w-full mx-auto bg-gray-900"
-                  style={{ aspectRatio: "3 / 4", maxWidth: "360px" }}>
+                  style={{ aspectRatio: "1 / 1", maxWidth: "360px" }}>
                   <Image
                     src={postCoverImage}
                     alt="게시글 커버 이미지"
@@ -1162,14 +1162,14 @@ function RecipeDetailContent() {
               </div>
             )}
 
-            {/* ── 영문 게시글 커버 이미지 (3:4) ── */}
+            {/* ── 영문 게시글 커버 이미지 (1:1) ── */}
             <div className="bg-white rounded-3xl shadow-md overflow-hidden">
               <div className="px-5 py-4 flex items-center gap-2"
                 style={{ background: "linear-gradient(135deg, #eff6ff, #dbeafe)" }}>
                 <span className="text-xl">🌏</span>
                 <div>
                   <p className="text-sm font-bold text-blue-700">English Post Cover</p>
-                  <p className="text-xs text-gray-500">3:4 ratio · Feed first image · English</p>
+                  <p className="text-xs text-gray-500">1:1 square · Feed first image · English</p>
                 </div>
               </div>
               <div className="p-5">
@@ -1221,10 +1221,10 @@ function RecipeDetailContent() {
                   style={{ background: "linear-gradient(135deg, #3b82f6, #6366f1)" }}>
                   <span className="text-white text-lg">🌏</span>
                   <p className="text-white font-extrabold text-sm">English Post Cover</p>
-                  <span className="ml-auto text-white/70 text-xs">3:4 feed</span>
+                  <span className="ml-auto text-white/70 text-xs">1:1 square</span>
                 </div>
                 <div className="relative w-full mx-auto bg-gray-900"
-                  style={{ aspectRatio: "3 / 4", maxWidth: "360px" }}>
+                  style={{ aspectRatio: "1 / 1", maxWidth: "360px" }}>
                   <Image
                     src={postCoverEnImage}
                     alt="English post cover"

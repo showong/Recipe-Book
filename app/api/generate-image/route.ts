@@ -303,7 +303,7 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
 - NO cold/corporate vibes. Playful and energetic.
 === END ===`;
 
-    // ── Post cover (3:4, 업로드된 음식 사진 기반) ───────────────────────────────
+    // ── Post cover (1:1, 업로드된 음식 사진 기반) ───────────────────────────────
     } else if (type === "post-cover") {
       const pairingText = Array.isArray(pairings) && pairings.length > 0
         ? pairings.slice(0, 2).join(" · ")
@@ -328,7 +328,7 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
   - Image 1: a food photo → use as the full-bleed background
   - Image 2: the oh_showong brand logo (round badge with bear chef) → render it exactly as provided at the specified position
 
-Create a 3:4 vertical Instagram feed post cover image (1080×1440px).
+Create a 1:1 square Instagram feed post cover image (1080×1080px).
 
 === BACKGROUND ===
 Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%). Soft dark vignette at edges only.
@@ -336,42 +336,42 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
 === LAYER STACK ===
 
 ① oh_showong LOGO (Image 2)
-  Position: top-right corner, 24px from top, 24px from right.
-  Size: 120px diameter. Render the logo exactly as provided.
+  Position: top-right corner, 20px from top, 20px from right.
+  Size: 110px diameter. Render the logo exactly as provided.
 
 ② CONTEXT TAG — small pill badge above food name
   Text: "${situationTag}" (max 10 chars)
-  Style: rounded pill, background #FFE500, text #1A1A1A, bold, 30px.
-  Padding: 8px 20px. Centered horizontally.
-  Position: approx y=62% from top.
+  Style: rounded pill, background #FFE500, text #1A1A1A, bold, 28px.
+  Padding: 7px 18px. Centered horizontally.
+  Position: approx y=58% from top.
 
 ③ FOOD NAME — hero text, centered horizontally
   Text: "${recipeName}"
-  Position: y-center at 72% from top. Left/right margin 40px. Auto-wrap to 2 lines if needed.
+  Position: y-center at 68% from top. Left/right margin 40px. Auto-wrap to 2 lines if needed.
   FONT STYLE (critical): thick, rounded, bubbly Korean display font — warm and playful, like Korean YouTube thumbnail text. NOT corporate/geometric.
   Fill color: #FFE500 (bright warm yellow).
   Stroke: thick black (#1A1A1A) outline, 6px, uniform around every character.
-  Font size: 100px. Line-height: 115px.
+  Font size: 90px. Line-height: 104px.
   Drop shadow: 0 5px 14px rgba(0,0,0,0.70).
 
-④ TAGLINE — directly below ③, 10px gap
+④ TAGLINE — directly below ③, 8px gap
   Text: "@oh_showong"
-  Font: semi-bold, white, 30px, letter-spacing 2px, opacity 0.85.
+  Font: semi-bold, white, 28px, letter-spacing 2px, opacity 0.85.
   Stroke: thin black outline, 2px.
 
-⑤ BOTTOM STRIP — flush to bottom, full width, 175px tall
+⑤ BOTTOM STRIP — flush to bottom, full width, 150px tall
   Background: solid #FFE500 (warm yellow).
   Text: "레시피 저장하고 따라해봐요 🐻"
-  Font: extra-bold, #1A1A1A, 38px. Horizontally + vertically centered.
+  Font: extra-bold, #1A1A1A, 34px. Horizontally + vertically centered.
 
 === RULES ===
-- Top 55%: food photo only, ①logo only.
-- ②③④ grouped in lower-center (y=62%~80%).
+- Top 52%: food photo only, ①logo only.
+- ②③④ grouped in lower-center (y=58%~78%).
 - ⑤ flush to bottom edge.
 - Warm, friendly, cozy feel matching oh_showong brand.
 === END ===`;
 
-    // ── English post cover (3:4) ──────────────────────────────────────────────
+    // ── English post cover (1:1) ──────────────────────────────────────────────
     } else if (type === "post-cover-en") {
       const pairingText = Array.isArray(pairings) && pairings.length > 0
         ? pairings.slice(0, 2).join(" · ")
@@ -388,7 +388,7 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
   - Image 1: a food photo → use as the full-bleed background
   - Image 2: the oh_showong brand logo (round badge with bear chef) → render it exactly as provided at the specified position
 
-Create a 3:4 vertical Instagram feed post cover image (1080×1440px) with ENGLISH text.
+Create a 1:1 square Instagram feed post cover image (1080×1080px) with ENGLISH text.
 
 === BACKGROUND ===
 Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%). Soft dark vignette at edges only.
@@ -396,37 +396,37 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
 === LAYER STACK ===
 
 ① oh_showong LOGO (Image 2)
-  Position: top-right corner, 24px from top, 24px from right.
-  Size: 120px diameter. Render the logo exactly as provided.
+  Position: top-right corner, 20px from top, 20px from right.
+  Size: 110px diameter. Render the logo exactly as provided.
 
 ② CONTEXT TAG — small pill badge above food name
   Text: "${situationTagEn}" (max 5 English words)
-  Style: rounded pill, background #FFE500, text #1A1A1A, bold, 28px.
-  Padding: 8px 20px. Centered horizontally.
-  Position: approx y=62% from top.
+  Style: rounded pill, background #FFE500, text #1A1A1A, bold, 26px.
+  Padding: 7px 18px. Centered horizontally.
+  Position: approx y=58% from top.
 
 ③ FOOD NAME — hero text, centered horizontally
   Text: "${recipeName}"
-  Position: y-center at 72% from top. Left/right margin 40px. Auto-wrap to 2 lines if needed.
+  Position: y-center at 68% from top. Left/right margin 40px. Auto-wrap to 2 lines if needed.
   FONT STYLE (critical): thick, rounded, bubbly display font — warm and playful. NOT corporate/geometric.
   Fill color: #FFE500 (bright warm yellow).
   Stroke: thick black (#1A1A1A) outline, 6px, uniform around every character.
-  Font size: 90px. Line-height: 105px.
+  Font size: 82px. Line-height: 96px.
   Drop shadow: 0 5px 14px rgba(0,0,0,0.70).
 
-④ TAGLINE — directly below ③, 10px gap
+④ TAGLINE — directly below ③, 8px gap
   Text: "@oh_showong"
-  Font: semi-bold, white, 30px, letter-spacing 2px, opacity 0.85.
+  Font: semi-bold, white, 28px, letter-spacing 2px, opacity 0.85.
   Stroke: thin black outline, 2px.
 
-⑤ BOTTOM STRIP — flush to bottom, full width, 175px tall
+⑤ BOTTOM STRIP — flush to bottom, full width, 150px tall
   Background: solid #FFE500 (warm yellow).
   Text: "Save this recipe! 🐻"
-  Font: extra-bold, #1A1A1A, 38px. Horizontally + vertically centered.
+  Font: extra-bold, #1A1A1A, 34px. Horizontally + vertically centered.
 
 === RULES ===
-- Top 55%: food photo only, ①logo only.
-- ②③④ grouped in lower-center (y=62%~80%).
+- Top 52%: food photo only, ①logo only.
+- ②③④ grouped in lower-center (y=58%~78%).
 - ⑤ flush to bottom edge.
 - ALL text must be in ENGLISH. No Korean characters.
 - Warm, friendly, cozy feel matching oh_showong brand.
