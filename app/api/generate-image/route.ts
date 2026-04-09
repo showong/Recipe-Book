@@ -248,13 +248,6 @@ TASK: Illustrate this single cooking step across exactly 3 sequential panels.
         ? pairings.slice(0, 2).join(" · ")
         : "";
 
-      const situationTag = (() => {
-        if (highlight && highlight.length > 0) return highlight;
-        if (taste && taste.length > 0) return taste;
-        if (pairingText) return pairingText;
-        return "집밥으로 딱";
-      })();
-
       prompt = `You are given TWO images:
   - Image 1: a food photo → use as the full-bleed background
   - Image 2: the oh_showong brand logo (round badge with bear chef) → render it exactly as provided at the specified position
@@ -270,9 +263,20 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
   Position: top-right corner, 28px from top, 28px from right.
   Size: 130px diameter. Render the logo exactly as provided — do not alter colors or add effects.
 
-② CONTEXT TAG — a small pill badge just above the food name
-  Text: "${situationTag}" (short, max 10 chars)
+② CONTEXT TAG — a small yellow pill badge just above the food name
   Style: rounded pill, background #FFE500 (bright yellow), text color #1A1A1A (black), bold, 32px.
+
+  GENERATE the pill text yourself using these recipe signals:
+    - Taste: "${taste ?? ""}"
+    - Occasion/highlight: "${highlight ?? ""}"
+    - Pairings: "${pairingText}"
+    - Recipe name: "${recipeName}"
+  Rules for the pill text:
+    - Korean only. Max 9 characters (no spaces counted). NO emoji inside the pill.
+    - Must feel like a punchy hook that instantly grabs attention.
+    - Pick the single strongest angle: taste sensation, occasion fit, or social proof.
+    - Good examples: "이 맛 실화?" / "무조건 저장" / "자취생 필수" / "한입에 반함" / "술안주 최고" / "다이어트 OK" / "손님상에 딱"
+    - BAD (too generic): "맛있어요" / "집밥으로 딱" / "추천"
   Padding: 8px 22px. Centered horizontally.
   Position: approx y=62% from top.
 
@@ -317,13 +321,6 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
       })();
       void hasLogo; // used implicitly via logo image passed to Gemini
 
-      const situationTag = (() => {
-        if (highlight && highlight.length > 0) return highlight;
-        if (taste && taste.length > 0) return taste;
-        if (pairingText) return pairingText;
-        return "집밥으로 딱";
-      })();
-
       prompt = `You are given TWO images:
   - Image 1: a food photo → use as the full-bleed background
   - Image 2: the oh_showong brand logo (round badge with bear chef) → render it exactly as provided at the specified position
@@ -339,11 +336,22 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
   Position: top-right corner, 20px from top, 20px from right.
   Size: 110px diameter. Render the logo exactly as provided.
 
-② CONTEXT TAG — small pill badge above food name
-  Text: "${situationTag}" (max 10 chars)
+② CONTEXT TAG — small yellow pill badge above food name
   Style: rounded pill, background #FFE500, text #1A1A1A, bold, 28px.
   Padding: 7px 18px. Centered horizontally.
   Position: approx y=58% from top.
+
+  GENERATE the pill text yourself using these recipe signals:
+    - Taste: "${taste ?? ""}"
+    - Occasion/highlight: "${highlight ?? ""}"
+    - Pairings: "${pairingText}"
+    - Recipe name: "${recipeName}"
+  Rules for the pill text:
+    - Korean only. Max 9 characters (no spaces counted). NO emoji inside the pill.
+    - Must feel like a punchy hook that triggers immediate curiosity or desire.
+    - Pick the single strongest angle from: taste sensation, occasion fit, or social proof.
+    - Good examples: "이 맛 실화?" / "무조건 저장" / "자취생 필수" / "한입에 반함" / "술안주 최고" / "다이어트 OK" / "손님상에 딱"
+    - BAD (too generic): "맛있어요" / "집밥으로 딱" / "추천"
 
 ③ FOOD NAME — hero text, centered horizontally
   Text: "${recipeName}"
@@ -377,13 +385,6 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
         ? pairings.slice(0, 2).join(" · ")
         : "";
 
-      const situationTagEn = (() => {
-        if (highlight && highlight.length > 0) return highlight;
-        if (taste && taste.length > 0) return taste;
-        if (pairingText) return pairingText;
-        return "Perfect home meal";
-      })();
-
       prompt = `You are given TWO images:
   - Image 1: a food photo → use as the full-bleed background
   - Image 2: the oh_showong brand logo (round badge with bear chef) → render it exactly as provided at the specified position
@@ -399,11 +400,22 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
   Position: top-right corner, 20px from top, 20px from right.
   Size: 110px diameter. Render the logo exactly as provided.
 
-② CONTEXT TAG — small pill badge above food name
-  Text: "${situationTagEn}" (max 5 English words)
+② CONTEXT TAG — small yellow pill badge above food name
   Style: rounded pill, background #FFE500, text #1A1A1A, bold, 26px.
   Padding: 7px 18px. Centered horizontally.
   Position: approx y=58% from top.
+
+  GENERATE the pill text yourself using these recipe signals:
+    - Taste: "${taste ?? ""}"
+    - Occasion/highlight: "${highlight ?? ""}"
+    - Pairings: "${pairingText}"
+    - Recipe name: "${recipeName}"
+  Rules for the pill text:
+    - English only. Max 4 words. NO emoji inside the pill.
+    - Must feel like a punchy hook that triggers immediate curiosity or desire.
+    - Pick the single strongest angle: taste sensation, occasion, or social proof.
+    - Good examples: "You'll make this daily" / "Must try!" / "Perfect date night" / "Insanely good" / "Great for meal prep" / "Under 20 mins"
+    - BAD (too generic): "Delicious" / "Home cooking" / "Try this"
 
 ③ FOOD NAME — hero text, centered horizontally
   Text: "${recipeName}"
