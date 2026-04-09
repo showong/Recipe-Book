@@ -255,15 +255,6 @@ TASK: Illustrate this single cooking step across exactly 3 sequential panels.
         return false;
       })();
 
-      // Pick a punchy hook prefix based on taste/highlight
-      const hookPrefix = (() => {
-        if (taste && taste.length > 0) return taste;
-        if (highlight && highlight.length > 0) return highlight;
-        return "맛보장";
-      })();
-      // English subtitle: romanize or translate recipeName simply
-      const enSubtitle = (highlight ?? pairingText ?? recipeName).toUpperCase();
-
       prompt = `Create a 9:16 vertical Instagram Reels thumbnail for the Korean food recipe "${recipeName}".
 You must EXACTLY replicate the layout from this reference description — this is a strict spec, not a suggestion.
 
@@ -273,22 +264,22 @@ Apply subtle +10% saturation boost and very soft vignette only at the extreme ed
 
 === LAYER STACK — render every layer in this exact order ===
 
-① TOP GRADIENT OVERLAY — y: 0 to 38% from top (0–730px)
-  Gradient: rgba(0,0,0,0.72) at very top → rgba(0,0,0,0) at y=38%.
-  Width: full canvas. This makes top text readable against any photo.
+① TOP GRADIENT OVERLAY — y: 0 to 36% from top (0–691px)
+  Gradient: rgba(0,0,0,0.72) at very top → rgba(0,0,0,0) at y=36%.
+  Width: full canvas.
 
-② KOREAN TITLE — centered horizontally, y-start at 48px from top
-  Text: "${hookPrefix}! ${recipeName}"
-  - Auto-wrap to 2 lines if longer than 18 chars. Max 2 lines.
-  - Font: ultra-bold, white, 96px, letter-spacing -2px.
-  - Line-height: 108px.
+② FOOD NAME — centered horizontally, y-start at 52px from top
+  Text: "${recipeName}" only. Nothing else.
+  - Auto-wrap to 2 lines max if name is long. Keep as 1 line if short.
+  - Font: ultra-bold, white, 100px, letter-spacing -2px, line-height 112px.
   - Text shadow: 0 4px 20px rgba(0,0,0,0.95).
-  - Horizontally centered, left/right margin 48px.
+  - Left/right margin 48px.
 
-③ ENGLISH SUBTITLE — centered horizontally, immediately below ② with 14px gap
-  Text: "${enSubtitle}"
-  - Font: semi-bold, white, 36px, letter-spacing 3px (wide tracking).
-  - Opacity: 0.88.
+③ SITUATIONAL TAGLINE — centered horizontally, 16px below ②
+  Write a SHORT Korean phrase (max 12 chars, NO emoji) that describes when/why to eat this dish.
+  Use context: taste="${taste ?? ""}", occasion="${highlight ?? ""}", pairing="${pairingText}".
+  Examples: "주말 브런치로 딱" / "혼밥에 최고" / "손님상에 딱" / "다이어트 중에도 OK"
+  - Font: medium weight, white, 40px, letter-spacing 1px, opacity 0.90.
   - Text shadow: 0 2px 10px rgba(0,0,0,0.80).
 
 ④ CLEAR ZONE — y: 36% to 68% from top (≈691px to ≈1306px)
@@ -336,14 +327,6 @@ Apply subtle +10% saturation boost and very soft vignette only at the extreme ed
         return false;
       })();
 
-      // Same visual language as reel thumbnail but 3:4 ratio
-      const postHookPrefix = (() => {
-        if (taste && taste.length > 0) return taste;
-        if (highlight && highlight.length > 0) return highlight;
-        return "맛보장";
-      })();
-      const postEnSubtitle = (highlight ?? pairingText ?? recipeName).toUpperCase();
-
       prompt = `Create a 3:4 vertical Instagram feed post cover image for the Korean food recipe "${recipeName}".
 EXACT layout spec — follow every detail precisely.
 
@@ -353,21 +336,23 @@ Apply subtle +10% saturation boost and very soft vignette at extreme edges only.
 
 === LAYER STACK — render in this exact order ===
 
-① TOP GRADIENT OVERLAY — y: 0 to 38% from top (0–547px)
-  Gradient: rgba(0,0,0,0.72) at very top → rgba(0,0,0,0) at y=38%.
+① TOP GRADIENT OVERLAY — y: 0 to 36% from top (0–518px)
+  Gradient: rgba(0,0,0,0.72) at very top → rgba(0,0,0,0) at y=36%.
   Full width.
 
-② KOREAN TITLE — centered horizontally, y-start at 44px from top
-  Text: "${postHookPrefix}! ${recipeName}"
-  - Auto-wrap to 2 lines if longer than 18 chars. Max 2 lines.
-  - Font: ultra-bold, white, 88px, letter-spacing -2px, line-height 100px.
+② FOOD NAME — centered horizontally, y-start at 48px from top
+  Text: "${recipeName}" only. Nothing else.
+  - Auto-wrap to 2 lines max if name is long. Keep as 1 line if short.
+  - Font: ultra-bold, white, 90px, letter-spacing -2px, line-height 102px.
   - Text shadow: 0 4px 20px rgba(0,0,0,0.95).
   - Left/right margin 44px.
 
-③ ENGLISH SUBTITLE — centered, immediately below ② with 12px gap
-  Text: "${postEnSubtitle}"
-  Font: semi-bold, white, 32px, letter-spacing 3px, opacity 0.88.
-  Text shadow: 0 2px 10px rgba(0,0,0,0.80).
+③ SITUATIONAL TAGLINE — centered horizontally, 14px below ②
+  Write a SHORT Korean phrase (max 12 chars, NO emoji) describing when/why to eat this dish.
+  Use context: taste="${taste ?? ""}", occasion="${highlight ?? ""}", pairing="${pairingText}".
+  Examples: "주말 브런치로 딱" / "혼밥에 최고" / "손님상에 딱" / "다이어트 중에도 OK"
+  - Font: medium weight, white, 36px, letter-spacing 1px, opacity 0.90.
+  - Text shadow: 0 2px 10px rgba(0,0,0,0.80).
 
 ④ CLEAR ZONE — y: 36% to 68% from top (≈518px to ≈979px)
   ▸ NOTHING here. No overlays, no text, no shapes. Pure food photo only.
