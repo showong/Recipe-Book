@@ -292,7 +292,7 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
 
 ⑤ BOTTOM STRIP — flush to bottom, full width, 200px tall
   Background: solid #FFE500 (warm yellow).
-  Text: "레시피 전체보기 ▶"
+  Text: "지금 바로 도전! 🐻"
   Font: extra-bold, #1A1A1A, 44px. Horizontally + vertically centered.
 
 === RULES ===
@@ -361,7 +361,7 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
 
 ⑤ BOTTOM STRIP — flush to bottom, full width, 150px tall
   Background: solid #FFE500 (warm yellow).
-  Text: "레시피 저장하고 따라해봐요 🐻"
+  Text: "저장 필수! 🐻"
   Font: extra-bold, #1A1A1A, 34px. Horizontally + vertically centered.
 
 === RULES ===
@@ -421,7 +421,7 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
 
 ⑤ BOTTOM STRIP — flush to bottom, full width, 150px tall
   Background: solid #FFE500 (warm yellow).
-  Text: "Save this recipe! 🐻"
+  Text: "Save now! 🐻"
   Font: extra-bold, #1A1A1A, 34px. Horizontally + vertically centered.
 
 === RULES ===
