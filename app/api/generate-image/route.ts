@@ -255,49 +255,72 @@ TASK: Illustrate this single cooking step across exactly 3 sequential panels.
         return false;
       })();
 
+      // Pick a punchy hook prefix based on taste/highlight
+      const hookPrefix = (() => {
+        if (taste && taste.length > 0) return taste;
+        if (highlight && highlight.length > 0) return highlight;
+        return "맛보장";
+      })();
+      // English subtitle: romanize or translate recipeName simply
+      const enSubtitle = (highlight ?? pairingText ?? recipeName).toUpperCase();
+
       prompt = `Create a 9:16 vertical Instagram Reels thumbnail for the Korean food recipe "${recipeName}".
+You must EXACTLY replicate the layout from this reference description — this is a strict spec, not a suggestion.
 
 === CANVAS & BASE ===
-Size: 1080×1920px (9:16 ratio). Fill entirely with the provided food photo.
-Cinematic grade: slightly boosted saturation, subtle dark vignette at edges only.
+Size: 1080×1920px (9:16 ratio). Fill ENTIRE canvas with the provided food photo (scale/crop to fill).
+Apply subtle +10% saturation boost and very soft vignette only at the extreme edges.
 
-=== LAYER STACK (top → bottom, strictly in this order) ===
+=== LAYER STACK — render every layer in this exact order ===
 
-① BRAND MARK — y: 40px from top, x: 40px from left
-${hasLogo
-  ? `Logo image, 90px wide, preserved aspect ratio, white drop-shadow.`
-  : `"@oh_showong" white semi-bold 26px, pill rgba(0,0,0,0.50), padding 6px 14px, radius 16px.`}
+① TOP GRADIENT OVERLAY — y: 0 to 38% from top (0–730px)
+  Gradient: rgba(0,0,0,0.72) at very top → rgba(0,0,0,0) at y=38%.
+  Width: full canvas. This makes top text readable against any photo.
 
-② CLEAR ZONE — y: 8% to 65% from top (1150px tall area)
-  ▸ NOTHING here. Zero text. Zero overlays. Pure food photo.
+② KOREAN TITLE — centered horizontally, y-start at 48px from top
+  Text: "${hookPrefix}! ${recipeName}"
+  - Auto-wrap to 2 lines if longer than 18 chars. Max 2 lines.
+  - Font: ultra-bold, white, 96px, letter-spacing -2px.
+  - Line-height: 108px.
+  - Text shadow: 0 4px 20px rgba(0,0,0,0.95).
+  - Horizontally centered, left/right margin 48px.
 
-③ BOTTOM GRADIENT OVERLAY — starts at y=65% from top, ends at bottom
-  Smooth gradient: rgba(0,0,0,0) at top → rgba(0,0,0,0.85) at bottom.
-  Width: full canvas.
+③ ENGLISH SUBTITLE — centered horizontally, immediately below ② with 14px gap
+  Text: "${enSubtitle}"
+  - Font: semi-bold, white, 36px, letter-spacing 3px (wide tracking).
+  - Opacity: 0.88.
+  - Text shadow: 0 2px 10px rgba(0,0,0,0.80).
 
-④ FOOD NAME — centered horizontally, y-center at 71% from top (≈1363px from top)
-  "${recipeName}" white ultra-bold 84px, letter-spacing -1px.
-  Text shadow: 0 3px 18px rgba(0,0,0,0.90).
+④ CLEAR ZONE — y: 36% to 68% from top (≈691px to ≈1306px)
+  ▸ ABSOLUTELY NOTHING here. No text, no overlay, no shapes. Pure food photo only.
 
-⑤ CTA HOOK PILL — centered horizontally, y-center at 82% from top (≈1574px from top)
-  Pick the single most compelling hook (max 14 Korean chars + emoji):
+⑤ CTA BADGE — centered horizontally, y-center at 74% from top (≈1421px)
+  Shape: rounded rectangle, radius 20px.
+  Background: rgba(101, 67, 33, 0.82) — warm dark brown, semi-transparent.
+  Padding: 18px 40px. Min-width: 520px.
+  Content (2 lines, centered):
+    Line 1: one short punchy Korean phrase + food emoji  (max 10 chars, e.g. "한 그릇 뚝딱! 🍳")
+    Line 2: "레시피 + 마지막 꿀팁! 🔑"
+  Font: bold, white, 44px per line, line-height 60px.
+  Text shadow: 0 2px 8px rgba(0,0,0,0.60).
+
+  Choose Line 1 content from:
     - Taste: "${taste ?? ""}"  · Pairing: "${pairingText}"  · Occasion: "${highlight ?? ""}"
-  Great examples: "달콤 짭조름한 그 맛 🍯" / "와인이랑 완벽 페어링 🍷" / "주말 브런치로 딱 👌"
-  Style: pill, background rgba(255,107,53,0.88), white bold 34px, padding 10px 24px, radius 40px.
+  Examples: "한 그릇 뚝딱! 🍳" / "자취생 필수! 🏠" / "손님 초대 메뉴 🎉" / "10분이면 완성! ⏱"
 
-⑥ BOTTOM CTA STRIP — y: bottom 8% (≈154px tall), full width
-  Background: gradient #FF6B35 left → #ec4899 right, opacity 0.92.
-  Text: "레시피 전체 보기 ▶" white ultra-bold 28px, vertically centered in strip.
+⑥ BOTTOM STRIP — y: bottom 13% (≈250px tall), full width
+  Background: solid #F5C518 (warm golden yellow).
+  Text: "영상 끝까지 시청 필수! (비밀 재료 공개)"
+  Font: extra-bold, #1A1A1A (near-black), 42px, horizontally and vertically centered in strip.
+  NO emoji in this strip. High contrast dark text on yellow.
 
-=== SPACING SUMMARY ===
-Food name center (71%) → CTA pill center (82%): 211px gap — clearly separated.
-CTA pill center (82%) → Strip top (92%): 192px gap — clearly separated.
-No element overlaps another.
-
-=== RULES ===
-- Layers ④⑤⑥ exist ONLY below 65% from top. Nothing above that line except ①.
-- Photo dominates the top 65% — it is the star of the image.
-- Exactly 4 visual elements: brand · food name · CTA pill · bottom strip.
+=== CRITICAL RULES ===
+- ② and ③ occupy only the top zone (above 36%). Food photo must be the dominant visual.
+- ④ clear zone: absolutely zero elements. This is the hero food shot area.
+- ⑤ badge sits comfortably above the bottom strip with at least 60px breathing room.
+- ⑥ strip is the very last element, flush to the bottom edge.
+- Color of bottom strip is YELLOW (#F5C518), NOT orange, NOT pink.
+- Text in ⑥ is DARK (#1A1A1A), NOT white.
 === END SPEC ===`;
 
     // ── Post cover (3:4, 업로드된 음식 사진 기반) ───────────────────────────────
@@ -313,49 +336,67 @@ No element overlaps another.
         return false;
       })();
 
+      // Same visual language as reel thumbnail but 3:4 ratio
+      const postHookPrefix = (() => {
+        if (taste && taste.length > 0) return taste;
+        if (highlight && highlight.length > 0) return highlight;
+        return "맛보장";
+      })();
+      const postEnSubtitle = (highlight ?? pairingText ?? recipeName).toUpperCase();
+
       prompt = `Create a 3:4 vertical Instagram feed post cover image for the Korean food recipe "${recipeName}".
+EXACT layout spec — follow every detail precisely.
 
 === CANVAS & BASE ===
-Size: 1080×1440px (3:4 ratio). Fill entirely with the provided food photo.
-Warm cinematic grade: slightly boosted saturation, subtle dark vignette at edges only.
+Size: 1080×1440px (3:4 ratio). Fill ENTIRE canvas with the provided food photo.
+Apply subtle +10% saturation boost and very soft vignette at extreme edges only.
 
-=== LAYER STACK (top → bottom, strictly in this order) ===
+=== LAYER STACK — render in this exact order ===
 
-① BRAND MARK — y: 36px from top, x: 36px from left
-${hasLogo
-  ? `Logo image, 88px wide, preserved aspect ratio, white drop-shadow.`
-  : `"@oh_showong" white semi-bold 24px, pill rgba(0,0,0,0.50), padding 6px 14px, radius 16px.`}
+① TOP GRADIENT OVERLAY — y: 0 to 38% from top (0–547px)
+  Gradient: rgba(0,0,0,0.72) at very top → rgba(0,0,0,0) at y=38%.
+  Full width.
 
-② CLEAR ZONE — y: 8% to 63% from top (792px tall area)
-  ▸ NOTHING here. Zero text. Zero overlays. Pure food photo.
+② KOREAN TITLE — centered horizontally, y-start at 44px from top
+  Text: "${postHookPrefix}! ${recipeName}"
+  - Auto-wrap to 2 lines if longer than 18 chars. Max 2 lines.
+  - Font: ultra-bold, white, 88px, letter-spacing -2px, line-height 100px.
+  - Text shadow: 0 4px 20px rgba(0,0,0,0.95).
+  - Left/right margin 44px.
 
-③ BOTTOM GRADIENT OVERLAY — starts at y=63% from top, ends at bottom
-  Smooth gradient: rgba(0,0,0,0) at top → rgba(0,0,0,0.85) at bottom.
-  Width: full canvas.
+③ ENGLISH SUBTITLE — centered, immediately below ② with 12px gap
+  Text: "${postEnSubtitle}"
+  Font: semi-bold, white, 32px, letter-spacing 3px, opacity 0.88.
+  Text shadow: 0 2px 10px rgba(0,0,0,0.80).
 
-④ FOOD NAME — centered horizontally, y-center at 70% from top (≈1008px from top)
-  "${recipeName}" white ultra-bold 76px, letter-spacing -1px.
-  Text shadow: 0 3px 16px rgba(0,0,0,0.90).
+④ CLEAR ZONE — y: 36% to 68% from top (≈518px to ≈979px)
+  ▸ NOTHING here. No overlays, no text, no shapes. Pure food photo only.
 
-⑤ CURIOSITY HOOK PILL — centered horizontally, y-center at 81% from top (≈1166px from top)
-  A single short Korean phrase (max 16 chars) that makes the viewer want to swipe for the recipe:
+⑤ CTA BADGE — centered horizontally, y-center at 76% from top (≈1094px)
+  Shape: rounded rectangle, radius 18px.
+  Background: rgba(101, 67, 33, 0.82) — warm dark brown, semi-transparent.
+  Padding: 16px 36px. Min-width: 480px.
+  Content (2 lines, centered):
+    Line 1: punchy Korean hook phrase + emoji (max 10 chars, e.g. "이 맛 알면 매일 만든다 👀")
+    Line 2: "레시피 + 꿀팁 지금 공개! 🔑"
+  Font: bold, white, 40px per line, line-height 56px.
+  Text shadow: 0 2px 8px rgba(0,0,0,0.60).
+
+  Line 1 options based on:
     - Taste: "${taste ?? ""}"  · Pairing: "${pairingText}"  · Occasion: "${highlight ?? ""}"
-  Great examples: "이 맛 알면 매일 만든다 👀" / "레시피 숨겨왔던 이유 있어 🤫" / "한 번 만들면 단골 메뉴 💯"
-  Style: pill, background rgba(255,107,53,0.88), white bold 30px, padding 10px 22px, radius 40px.
+  Examples: "이 맛 알면 매일 만든다 👀" / "레시피 숨겨왔던 이유 있어 🤫" / "한 번 만들면 단골 🏆"
 
-⑥ BOTTOM CTA STRIP — y: bottom 9% (≈130px tall), full width
-  Background: gradient #FF6B35 left → #ec4899 right, opacity 0.92.
-  Text: "레시피 전체 보기 →" white ultra-bold 26px, vertically centered in strip.
+⑥ BOTTOM STRIP — y: bottom 13% (≈187px tall), full width
+  Background: solid #F5C518 (warm golden yellow).
+  Text: "게시글 저장하고 레시피 따라해봐요!"
+  Font: extra-bold, #1A1A1A (near-black), 38px, horizontally and vertically centered.
+  NO emoji. Dark text on yellow — high contrast.
 
-=== SPACING SUMMARY ===
-Food name center (70%) → Hook pill center (81%): 158px gap — clearly separated.
-Hook pill center (81%) → Strip top (91%): 144px gap — clearly separated.
-No element overlaps another.
-
-=== RULES ===
-- Layers ④⑤⑥ exist ONLY below 63% from top. Nothing above that line except ①.
-- Photo dominates the top 63% — scroll-stopping food shot, full clarity.
-- Exactly 4 visual elements: brand · food name · curiosity hook · bottom strip.
+=== CRITICAL RULES ===
+- Top text zone (②③) only above 36%. Never extend into the food photo zone.
+- ④ clear zone: zero elements. Food photo is the visual hero.
+- ⑤ badge has at least 50px gap above ⑥ strip.
+- ⑥ strip: YELLOW background (#F5C518), DARK text (#1A1A1A). Not orange, not white text.
 === END SPEC ===`;
 
     } else {
