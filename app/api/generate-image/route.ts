@@ -371,12 +371,73 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
 - Warm, friendly, cozy feel matching oh_showong brand.
 === END ===`;
 
+    // ── English post cover (3:4) ──────────────────────────────────────────────
+    } else if (type === "post-cover-en") {
+      const pairingText = Array.isArray(pairings) && pairings.length > 0
+        ? pairings.slice(0, 2).join(" · ")
+        : "";
+
+      const situationTagEn = (() => {
+        if (highlight && highlight.length > 0) return highlight;
+        if (taste && taste.length > 0) return taste;
+        if (pairingText) return pairingText;
+        return "Perfect home meal";
+      })();
+
+      prompt = `You are given TWO images:
+  - Image 1: a food photo → use as the full-bleed background
+  - Image 2: the oh_showong brand logo (round badge with bear chef) → render it exactly as provided at the specified position
+
+Create a 3:4 vertical Instagram feed post cover image (1080×1440px) with ENGLISH text.
+
+=== BACKGROUND ===
+Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%). Soft dark vignette at edges only.
+
+=== LAYER STACK ===
+
+① oh_showong LOGO (Image 2)
+  Position: top-right corner, 24px from top, 24px from right.
+  Size: 120px diameter. Render the logo exactly as provided.
+
+② CONTEXT TAG — small pill badge above food name
+  Text: "${situationTagEn}" (max 5 English words)
+  Style: rounded pill, background #FFE500, text #1A1A1A, bold, 28px.
+  Padding: 8px 20px. Centered horizontally.
+  Position: approx y=62% from top.
+
+③ FOOD NAME — hero text, centered horizontally
+  Text: "${recipeName}"
+  Position: y-center at 72% from top. Left/right margin 40px. Auto-wrap to 2 lines if needed.
+  FONT STYLE (critical): thick, rounded, bubbly display font — warm and playful. NOT corporate/geometric.
+  Fill color: #FFE500 (bright warm yellow).
+  Stroke: thick black (#1A1A1A) outline, 6px, uniform around every character.
+  Font size: 90px. Line-height: 105px.
+  Drop shadow: 0 5px 14px rgba(0,0,0,0.70).
+
+④ TAGLINE — directly below ③, 10px gap
+  Text: "@oh_showong"
+  Font: semi-bold, white, 30px, letter-spacing 2px, opacity 0.85.
+  Stroke: thin black outline, 2px.
+
+⑤ BOTTOM STRIP — flush to bottom, full width, 175px tall
+  Background: solid #FFE500 (warm yellow).
+  Text: "Save this recipe! 🐻"
+  Font: extra-bold, #1A1A1A, 38px. Horizontally + vertically centered.
+
+=== RULES ===
+- Top 55%: food photo only, ①logo only.
+- ②③④ grouped in lower-center (y=62%~80%).
+- ⑤ flush to bottom edge.
+- ALL text must be in ENGLISH. No Korean characters.
+- Warm, friendly, cozy feel matching oh_showong brand.
+=== END ===`;
+
     } else {
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
     }
 
     // step-instagram은 곰 캐릭터 참조 이미지를 함께 전달
-    // reel-thumbnail / post-cover는 업로드된 음식 사진을 함께 전달
+    // reel-thumbnail / post-cover / post-cover-en은 업로드된 음식 사진을 함께 전달
     let contents;
     if (type === "step-instagram") {
       const refImagePath = path.join(process.cwd(), "public", "chef-bear-reference.png");
@@ -387,7 +448,7 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
           { text: prompt },
         ],
       }];
-    } else if ((type === "reel-thumbnail" || type === "post-cover") && uploadedImageBase64) {
+    } else if ((type === "reel-thumbnail" || type === "post-cover" || type === "post-cover-en") && uploadedImageBase64) {
       const parts: { inlineData?: { mimeType: string; data: string }; text?: string }[] = [
         { inlineData: { mimeType: uploadedImageMimeType ?? "image/jpeg", data: uploadedImageBase64 } },
       ];

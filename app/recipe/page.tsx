@@ -46,6 +46,10 @@ function RecipeDetailContent() {
   const [postCoverImage, setPostCoverImage] = useState<string | null>(null);
   const [postCoverLoading, setPostCoverLoading] = useState(false);
   const [postCoverError, setPostCoverError] = useState<string | null>(null);
+  // 영문 게시글 커버 이미지 (3:4)
+  const [postCoverEnImage, setPostCoverEnImage] = useState<string | null>(null);
+  const [postCoverEnLoading, setPostCoverEnLoading] = useState(false);
+  const [postCoverEnError, setPostCoverEnError] = useState<string | null>(null);
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -328,6 +332,41 @@ function RecipeDetailContent() {
     }
   };
 
+  const generatePostCoverEn = async () => {
+    if (!recipe || !reelUploadedImage) return;
+    setPostCoverEnLoading(true);
+    setPostCoverEnImage(null);
+    setPostCoverEnError(null);
+    try {
+      const matches = reelUploadedImage.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) { setPostCoverEnError("이미지 형식 오류입니다."); return; }
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipeName: recipe.name,
+          type: "post-cover-en",
+          uploadedImageBase64: matches[2],
+          uploadedImageMimeType: matches[1],
+          highlight: recipe.highlight,
+          taste: recipe.taste,
+          pairings: recipe.pairings,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setPostCoverEnError(data.error);
+      } else if (data.imageUrl) {
+        const cropped = await cropImageToRatio(data.imageUrl, 1080, 1440);
+        setPostCoverEnImage(cropped);
+      }
+    } catch (err) {
+      setPostCoverEnError(err instanceof Error ? err.message : "이미지 생성에 실패했습니다.");
+    } finally {
+      setPostCoverEnLoading(false);
+    }
+  };
+
   const downloadPackage = (lang: "ko" | "en") => {
     if (!recipe) return;
     const name = recipe.name;
@@ -378,6 +417,8 @@ function RecipeDetailContent() {
     setReelThumbnail(null);
     setPostCoverImage(null);
     setPostCoverError(null);
+    setPostCoverEnImage(null);
+    setPostCoverEnError(null);
     const objectUrl = URL.createObjectURL(file);
     const img = document.createElement("img");
     img.onload = () => {
@@ -1116,6 +1157,100 @@ function RecipeDetailContent() {
                     className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-orange-50"
                     style={{ borderColor: "#f59e0b", color: "#d97706" }}>
                     🔄 재생성
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── 영문 게시글 커버 이미지 (3:4) ── */}
+            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
+              <div className="px-5 py-4 flex items-center gap-2"
+                style={{ background: "linear-gradient(135deg, #eff6ff, #dbeafe)" }}>
+                <span className="text-xl">🌏</span>
+                <div>
+                  <p className="text-sm font-bold text-blue-700">English Post Cover</p>
+                  <p className="text-xs text-gray-500">3:4 ratio · Feed first image · English</p>
+                </div>
+              </div>
+              <div className="p-5">
+                {!reelUploadedImage ? (
+                  <p className="text-sm text-center text-gray-400 py-4">
+                    위에서 요리 사진을 먼저 업로드해주세요
+                  </p>
+                ) : (
+                  <button
+                    onClick={generatePostCoverEn}
+                    disabled={postCoverEnLoading}
+                    className="w-full py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
+                    style={{ background: "linear-gradient(135deg, #3b82f6, #6366f1)" }}>
+                    {postCoverEnLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="spinner w-5 h-5" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        Generating English cover...
+                      </span>
+                    ) : postCoverEnImage ? "🔄 Regenerate" : "✨ Generate English Post Cover"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {postCoverEnLoading && (
+              <div className="bg-white rounded-3xl shadow-md p-10 flex flex-col items-center gap-4">
+                <svg className="spinner w-10 h-10 text-blue-400" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                <p className="text-sm font-semibold text-gray-500">AI is generating English cover...</p>
+                <p className="text-xs text-gray-400">Creating an English feed post cover image</p>
+              </div>
+            )}
+
+            {postCoverEnError && !postCoverEnLoading && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4">
+                <p className="text-sm font-bold text-red-600 mb-1">⚠️ Generation failed</p>
+                <p className="text-xs text-red-500">{postCoverEnError}</p>
+              </div>
+            )}
+
+            {postCoverEnImage && !postCoverEnLoading && (
+              <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+                <div className="px-5 py-3 flex items-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #3b82f6, #6366f1)" }}>
+                  <span className="text-white text-lg">🌏</span>
+                  <p className="text-white font-extrabold text-sm">English Post Cover</p>
+                  <span className="ml-auto text-white/70 text-xs">3:4 feed</span>
+                </div>
+                <div className="relative w-full mx-auto bg-gray-900"
+                  style={{ aspectRatio: "3 / 4", maxWidth: "360px" }}>
+                  <Image
+                    src={postCoverEnImage}
+                    alt="English post cover"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+                <div className="px-5 py-4 flex gap-3"
+                  style={{ background: "linear-gradient(135deg, #eff6ff, #dbeafe)" }}>
+                  <button
+                    onClick={() => {
+                      const a = document.createElement("a");
+                      a.href = postCoverEnImage;
+                      a.download = `${recipe.name}-post-cover-en.png`;
+                      a.click();
+                    }}
+                    className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
+                    style={{ background: "linear-gradient(135deg, #3b82f6, #6366f1)" }}>
+                    ⬇️ Save Cover
+                  </button>
+                  <button
+                    onClick={generatePostCoverEn}
+                    className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-blue-50"
+                    style={{ borderColor: "#3b82f6", color: "#2563eb" }}>
+                    🔄 Regenerate
                   </button>
                 </div>
               </div>
