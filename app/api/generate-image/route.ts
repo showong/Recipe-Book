@@ -247,72 +247,61 @@ TASK: Illustrate this single cooking step across exactly 3 sequential panels.
       const pairingText = Array.isArray(pairings) && pairings.length > 0
         ? pairings.slice(0, 2).join(" · ")
         : "";
-      const hasLogo = (() => {
-        for (const ext of ["png", "jpg", "jpeg", "webp"]) {
-          const p = path.join(process.cwd(), "public", `oh_showong_logo.${ext}`);
-          if (fs.existsSync(p)) return true;
-        }
-        return false;
+
+      const situationTag = (() => {
+        if (highlight && highlight.length > 0) return highlight;
+        if (taste && taste.length > 0) return taste;
+        if (pairingText) return pairingText;
+        return "집밥으로 딱";
       })();
 
-      prompt = `Create a 9:16 vertical Instagram Reels thumbnail for the Korean food recipe "${recipeName}".
-You must EXACTLY replicate the layout from this reference description — this is a strict spec, not a suggestion.
+      prompt = `You are given TWO images:
+  - Image 1: a food photo → use as the full-bleed background
+  - Image 2: the oh_showong brand logo (round badge with bear chef) → render it exactly as provided at the specified position
 
-=== CANVAS & BASE ===
-Size: 1080×1920px (9:16 ratio). Fill ENTIRE canvas with the provided food photo (scale/crop to fill).
-Apply subtle +10% saturation boost and very soft vignette only at the extreme edges.
+Create a 9:16 vertical Instagram Reels thumbnail (1080×1920px).
 
-=== LAYER STACK — render every layer in this exact order ===
+=== BACKGROUND ===
+Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%). Soft dark vignette at edges only. The food must be clearly visible and appetizing.
 
-① TOP GRADIENT OVERLAY — y: 0 to 36% from top (0–691px)
-  Gradient: rgba(0,0,0,0.72) at very top → rgba(0,0,0,0) at y=36%.
-  Width: full canvas.
+=== LAYER STACK ===
 
-② FOOD NAME — centered horizontally, y-start at 52px from top
-  Text: "${recipeName}" only. Nothing else.
-  - Auto-wrap to 2 lines max if name is long. Keep as 1 line if short.
-  - Font: ultra-bold, white, 100px, letter-spacing -2px, line-height 112px.
-  - Text shadow: 0 4px 20px rgba(0,0,0,0.95).
-  - Left/right margin 48px.
+① oh_showong LOGO (Image 2)
+  Position: top-right corner, 28px from top, 28px from right.
+  Size: 130px diameter. Render the logo exactly as provided — do not alter colors or add effects.
 
-③ SITUATIONAL TAGLINE — centered horizontally, 16px below ②
-  Write a SHORT Korean phrase (max 12 chars, NO emoji) that describes when/why to eat this dish.
-  Use context: taste="${taste ?? ""}", occasion="${highlight ?? ""}", pairing="${pairingText}".
-  Examples: "주말 브런치로 딱" / "혼밥에 최고" / "손님상에 딱" / "다이어트 중에도 OK"
-  - Font: medium weight, white, 40px, letter-spacing 1px, opacity 0.90.
-  - Text shadow: 0 2px 10px rgba(0,0,0,0.80).
+② CONTEXT TAG — a small pill badge just above the food name
+  Text: "${situationTag}" (short, max 10 chars)
+  Style: rounded pill, background #FFE500 (bright yellow), text color #1A1A1A (black), bold, 32px.
+  Padding: 8px 22px. Centered horizontally.
+  Position: approx y=62% from top.
 
-④ CLEAR ZONE — y: 36% to 68% from top (≈691px to ≈1306px)
-  ▸ ABSOLUTELY NOTHING here. No text, no overlay, no shapes. Pure food photo only.
+③ FOOD NAME — the hero text, centered horizontally
+  Text: "${recipeName}"
+  Position: y-center at 72% from top. Left/right margin 40px. Auto-wrap to 2 lines if needed.
+  FONT STYLE (critical): thick, rounded, bubbly Korean display font — warm and playful, like Korean YouTube thumbnail text. NOT a corporate or geometric font.
+  Fill color: #FFE500 (bright warm yellow).
+  Stroke: thick black (#1A1A1A) outline, 7px, uniform around every character.
+  Font size: 110px. Line-height: 125px.
+  Drop shadow: 0 6px 16px rgba(0,0,0,0.70).
 
-⑤ CTA BADGE — centered horizontally, y-center at 74% from top (≈1421px)
-  Shape: rounded rectangle, radius 20px.
-  Background: rgba(101, 67, 33, 0.82) — warm dark brown, semi-transparent.
-  Padding: 18px 40px. Min-width: 520px.
-  Content (2 lines, centered):
-    Line 1: one short punchy Korean phrase + food emoji  (max 10 chars, e.g. "한 그릇 뚝딱! 🍳")
-    Line 2: "레시피 + 마지막 꿀팁! 🔑"
-  Font: bold, white, 44px per line, line-height 60px.
-  Text shadow: 0 2px 8px rgba(0,0,0,0.60).
+④ TAGLINE — one short line directly below ③, 12px gap
+  Text: "@oh_showong"
+  Font: semi-bold, white, 34px, letter-spacing 2px, opacity 0.85.
+  Stroke: thin black outline, 2px.
 
-  Choose Line 1 content from:
-    - Taste: "${taste ?? ""}"  · Pairing: "${pairingText}"  · Occasion: "${highlight ?? ""}"
-  Examples: "한 그릇 뚝딱! 🍳" / "자취생 필수! 🏠" / "손님 초대 메뉴 🎉" / "10분이면 완성! ⏱"
+⑤ BOTTOM STRIP — flush to bottom, full width, 200px tall
+  Background: solid #FFE500 (warm yellow).
+  Text: "레시피 전체보기 ▶"
+  Font: extra-bold, #1A1A1A, 44px. Horizontally + vertically centered.
 
-⑥ BOTTOM STRIP — y: bottom 13% (≈250px tall), full width
-  Background: solid #F5C518 (warm golden yellow).
-  Text: "영상 끝까지 시청 필수! (비밀 재료 공개)"
-  Font: extra-bold, #1A1A1A (near-black), 42px, horizontally and vertically centered in strip.
-  NO emoji in this strip. High contrast dark text on yellow.
-
-=== CRITICAL RULES ===
-- ② and ③ occupy only the top zone (above 36%). Food photo must be the dominant visual.
-- ④ clear zone: absolutely zero elements. This is the hero food shot area.
-- ⑤ badge sits comfortably above the bottom strip with at least 60px breathing room.
-- ⑥ strip is the very last element, flush to the bottom edge.
-- Color of bottom strip is YELLOW (#F5C518), NOT orange, NOT pink.
-- Text in ⑥ is DARK (#1A1A1A), NOT white.
-=== END SPEC ===`;
+=== RULES ===
+- Top 55% of canvas: food photo dominates. ①logo only. No other elements above y=60%.
+- ②③④ are grouped together in the lower-center area (y=62%~80%).
+- ⑤ strip is at the very bottom, flush edge.
+- The overall feel: warm, friendly, approachable — matching the oh_showong brand (cozy home cooking).
+- NO cold/corporate vibes. Playful and energetic.
+=== END ===`;
 
     // ── Post cover (3:4, 업로드된 음식 사진 기반) ───────────────────────────────
     } else if (type === "post-cover") {
@@ -326,63 +315,61 @@ Apply subtle +10% saturation boost and very soft vignette only at the extreme ed
         }
         return false;
       })();
+      void hasLogo; // used implicitly via logo image passed to Gemini
 
-      prompt = `Create a 3:4 vertical Instagram feed post cover image for the Korean food recipe "${recipeName}".
-EXACT layout spec — follow every detail precisely.
+      const situationTag = (() => {
+        if (highlight && highlight.length > 0) return highlight;
+        if (taste && taste.length > 0) return taste;
+        if (pairingText) return pairingText;
+        return "집밥으로 딱";
+      })();
 
-=== CANVAS & BASE ===
-Size: 1080×1440px (3:4 ratio). Fill ENTIRE canvas with the provided food photo.
-Apply subtle +10% saturation boost and very soft vignette at extreme edges only.
+      prompt = `You are given TWO images:
+  - Image 1: a food photo → use as the full-bleed background
+  - Image 2: the oh_showong brand logo (round badge with bear chef) → render it exactly as provided at the specified position
 
-=== LAYER STACK — render in this exact order ===
+Create a 3:4 vertical Instagram feed post cover image (1080×1440px).
 
-① TOP GRADIENT OVERLAY — y: 0 to 36% from top (0–518px)
-  Gradient: rgba(0,0,0,0.72) at very top → rgba(0,0,0,0) at y=36%.
-  Full width.
+=== BACKGROUND ===
+Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%). Soft dark vignette at edges only.
 
-② FOOD NAME — centered horizontally, y-start at 48px from top
-  Text: "${recipeName}" only. Nothing else.
-  - Auto-wrap to 2 lines max if name is long. Keep as 1 line if short.
-  - Font: ultra-bold, white, 90px, letter-spacing -2px, line-height 102px.
-  - Text shadow: 0 4px 20px rgba(0,0,0,0.95).
-  - Left/right margin 44px.
+=== LAYER STACK ===
 
-③ SITUATIONAL TAGLINE — centered horizontally, 14px below ②
-  Write a SHORT Korean phrase (max 12 chars, NO emoji) describing when/why to eat this dish.
-  Use context: taste="${taste ?? ""}", occasion="${highlight ?? ""}", pairing="${pairingText}".
-  Examples: "주말 브런치로 딱" / "혼밥에 최고" / "손님상에 딱" / "다이어트 중에도 OK"
-  - Font: medium weight, white, 36px, letter-spacing 1px, opacity 0.90.
-  - Text shadow: 0 2px 10px rgba(0,0,0,0.80).
+① oh_showong LOGO (Image 2)
+  Position: top-right corner, 24px from top, 24px from right.
+  Size: 120px diameter. Render the logo exactly as provided.
 
-④ CLEAR ZONE — y: 36% to 68% from top (≈518px to ≈979px)
-  ▸ NOTHING here. No overlays, no text, no shapes. Pure food photo only.
+② CONTEXT TAG — small pill badge above food name
+  Text: "${situationTag}" (max 10 chars)
+  Style: rounded pill, background #FFE500, text #1A1A1A, bold, 30px.
+  Padding: 8px 20px. Centered horizontally.
+  Position: approx y=62% from top.
 
-⑤ CTA BADGE — centered horizontally, y-center at 76% from top (≈1094px)
-  Shape: rounded rectangle, radius 18px.
-  Background: rgba(101, 67, 33, 0.82) — warm dark brown, semi-transparent.
-  Padding: 16px 36px. Min-width: 480px.
-  Content (2 lines, centered):
-    Line 1: punchy Korean hook phrase + emoji (max 10 chars, e.g. "이 맛 알면 매일 만든다 👀")
-    Line 2: "레시피 + 꿀팁 지금 공개! 🔑"
-  Font: bold, white, 40px per line, line-height 56px.
-  Text shadow: 0 2px 8px rgba(0,0,0,0.60).
+③ FOOD NAME — hero text, centered horizontally
+  Text: "${recipeName}"
+  Position: y-center at 72% from top. Left/right margin 40px. Auto-wrap to 2 lines if needed.
+  FONT STYLE (critical): thick, rounded, bubbly Korean display font — warm and playful, like Korean YouTube thumbnail text. NOT corporate/geometric.
+  Fill color: #FFE500 (bright warm yellow).
+  Stroke: thick black (#1A1A1A) outline, 6px, uniform around every character.
+  Font size: 100px. Line-height: 115px.
+  Drop shadow: 0 5px 14px rgba(0,0,0,0.70).
 
-  Line 1 options based on:
-    - Taste: "${taste ?? ""}"  · Pairing: "${pairingText}"  · Occasion: "${highlight ?? ""}"
-  Examples: "이 맛 알면 매일 만든다 👀" / "레시피 숨겨왔던 이유 있어 🤫" / "한 번 만들면 단골 🏆"
+④ TAGLINE — directly below ③, 10px gap
+  Text: "@oh_showong"
+  Font: semi-bold, white, 30px, letter-spacing 2px, opacity 0.85.
+  Stroke: thin black outline, 2px.
 
-⑥ BOTTOM STRIP — y: bottom 13% (≈187px tall), full width
-  Background: solid #F5C518 (warm golden yellow).
-  Text: "게시글 저장하고 레시피 따라해봐요!"
-  Font: extra-bold, #1A1A1A (near-black), 38px, horizontally and vertically centered.
-  NO emoji. Dark text on yellow — high contrast.
+⑤ BOTTOM STRIP — flush to bottom, full width, 175px tall
+  Background: solid #FFE500 (warm yellow).
+  Text: "레시피 저장하고 따라해봐요 🐻"
+  Font: extra-bold, #1A1A1A, 38px. Horizontally + vertically centered.
 
-=== CRITICAL RULES ===
-- Top text zone (②③) only above 36%. Never extend into the food photo zone.
-- ④ clear zone: zero elements. Food photo is the visual hero.
-- ⑤ badge has at least 50px gap above ⑥ strip.
-- ⑥ strip: YELLOW background (#F5C518), DARK text (#1A1A1A). Not orange, not white text.
-=== END SPEC ===`;
+=== RULES ===
+- Top 55%: food photo only, ①logo only.
+- ②③④ grouped in lower-center (y=62%~80%).
+- ⑤ flush to bottom edge.
+- Warm, friendly, cozy feel matching oh_showong brand.
+=== END ===`;
 
     } else {
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
