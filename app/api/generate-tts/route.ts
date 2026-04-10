@@ -56,7 +56,13 @@ export async function POST(req: NextRequest) {
     // ── 바이너리 오디오 직접 반환 ─────────────────────────────────────────────
     if (contentType.includes("audio/")) {
       const buffer = await ttsRes.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      const bytes = new Uint8Array(buffer);
+      let binary = "";
+      const CHUNK = 8192;
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        binary += String.fromCharCode(...bytes.slice(i, i + CHUNK));
+      }
+      const base64 = btoa(binary);
       const mimeType = contentType.split(";")[0].trim();
       return NextResponse.json({ audioUrl: `data:${mimeType};base64,${base64}` });
     }
