@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        "X-API-KEY": apiKey,
       },
       body: JSON.stringify({
         actor_id: VOICE_ID,
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
       await sleep(POLL_MS);
 
       const pollRes = await fetch(speakUrl, {
-        headers: { Authorization: `Bearer ${apiKey}` },
+        headers: { "X-API-KEY": apiKey },
       });
 
       if (!pollRes.ok) {
