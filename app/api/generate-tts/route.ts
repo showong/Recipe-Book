@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const VOICE_ID     = "tc_611c3f692fac944dff493a04";
+const VOICE_ID     = "tc_606c6c155e38f609c6789d2b";
 const TTS_ENDPOINT = "https://api.typecast.ai/v1/text-to-speech";
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_URL   = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
