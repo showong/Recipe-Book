@@ -255,7 +255,7 @@ TASK: Illustrate this single cooking step across exactly 3 sequential panels.
 Create a 9:16 vertical Instagram Reels thumbnail (1080×1920px).
 
 === BACKGROUND ===
-Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%). Soft dark vignette at edges only. The food must be clearly visible and appetizing.
+Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%). Soft dark vignette at edges only. The food must be clearly visible and appetizing — especially the center zone.
 
 === LAYER STACK ===
 
@@ -263,8 +263,29 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
   Position: top-right corner, 28px from top, 28px from right.
   Size: 130px diameter. Render the logo exactly as provided — do not alter colors or add effects.
 
-② CONTEXT TAG — a small yellow pill badge just above the food name
-  Style: rounded pill, background #FFE500 (bright yellow), text color #1A1A1A (black), bold, 32px.
+② BRAND HANDLE — top-left, vertically aligned with the logo
+  Text: "@oh_showong"
+  Position: top-left, 42px from top, 28px from left.
+  Font: semi-bold, white, 30px, letter-spacing 1.5px, opacity 0.90.
+  Stroke: thin black outline, 2px.
+
+③ BOTTOM DARK OVERLAY — covers bottom 28% of canvas (y=72% to bottom)
+  Full-width gradient: fully transparent at y=72% → rgba(0,0,0,0.78) at y=82% and below.
+  This guarantees text legibility regardless of food photo content.
+
+④ FOOD NAME — hero text inside the dark overlay zone
+  Text: "${recipeName}"
+  Position: y-center at 80% from top. Left/right margin 44px. Auto-wrap to 2 lines if needed.
+  FONT STYLE (critical): thick, rounded, bubbly Korean display font — warm and playful, like Korean YouTube thumbnail text. NOT a corporate or geometric font.
+  Fill color: #FFE500 (bright warm yellow).
+  Stroke: thick black (#1A1A1A) outline, 7px, uniform around every character.
+  Font size: 110px. Line-height: 125px.
+  Drop shadow: 0 6px 16px rgba(0,0,0,0.60).
+
+⑤ CTA HOOK PILL — just above the bottom strip
+  Style: rounded pill, background #FFE500 (bright yellow), text color #1A1A1A (black), bold, 30px.
+  Padding: 8px 22px. Centered horizontally.
+  Position: y-center at 91% from top.
 
   GENERATE the pill text yourself using these recipe signals:
     - Taste: "${taste ?? ""}"
@@ -277,32 +298,16 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
     - Pick the single strongest angle: taste sensation, occasion fit, or social proof.
     - Good examples: "이 맛 실화?" / "무조건 저장" / "자취생 필수" / "한입에 반함" / "술안주 최고" / "다이어트 OK" / "손님상에 딱"
     - BAD (too generic): "맛있어요" / "집밥으로 딱" / "추천"
-  Padding: 8px 22px. Centered horizontally.
-  Position: approx y=62% from top.
 
-③ FOOD NAME — the hero text, centered horizontally
-  Text: "${recipeName}"
-  Position: y-center at 72% from top. Left/right margin 40px. Auto-wrap to 2 lines if needed.
-  FONT STYLE (critical): thick, rounded, bubbly Korean display font — warm and playful, like Korean YouTube thumbnail text. NOT a corporate or geometric font.
-  Fill color: #FFE500 (bright warm yellow).
-  Stroke: thick black (#1A1A1A) outline, 7px, uniform around every character.
-  Font size: 110px. Line-height: 125px.
-  Drop shadow: 0 6px 16px rgba(0,0,0,0.70).
-
-④ TAGLINE — one short line directly below ③, 12px gap
-  Text: "@oh_showong"
-  Font: semi-bold, white, 34px, letter-spacing 2px, opacity 0.85.
-  Stroke: thin black outline, 2px.
-
-⑤ BOTTOM STRIP — flush to bottom, full width, 200px tall
+⑥ BOTTOM STRIP — flush to bottom, full width, 130px tall
   Background: solid #FFE500 (warm yellow).
-  Text: "지금 바로 도전! 🐻"
-  Font: extra-bold, #1A1A1A, 44px. Horizontally + vertically centered.
+  Text: "레시피 전체 보기 ▶"
+  Font: extra-bold, #1A1A1A, 40px. Horizontally + vertically centered.
 
-=== RULES ===
-- Top 55% of canvas: food photo dominates. ①logo only. No other elements above y=60%.
-- ②③④ are grouped together in the lower-center area (y=62%~80%).
-- ⑤ strip is at the very bottom, flush edge.
+=== CRITICAL LAYOUT RULES ===
+- CENTER ZONE (y=10% to y=72%): COMPLETELY FREE of all text, overlays, and UI elements. Only the food photo background is visible here. Absolutely no exceptions.
+- TOP ZONE (y=0% to y=8%): ①logo (top-right) and ②handle (top-left) only.
+- BOTTOM ZONE (y=72% to y=100%): ③overlay + ④food name + ⑤CTA pill + ⑥strip only.
 - The overall feel: warm, friendly, approachable — matching the oh_showong brand (cozy home cooking).
 - NO cold/corporate vibes. Playful and energetic.
 === END ===`;
