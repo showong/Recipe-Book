@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const VOICE_ID = "tc_606c6c684085209e5555abb0";
-const TTS_ENDPOINT = "https://typecast.ai/api/speak";
-const POLL_MAX = 40;
-const POLL_MS  = 1000;
+const VOICE_ID    = "tc_606c6c684085209e5555abb0";
+const TTS_ENDPOINT = "https://typecast.ai/api/text-to-speech";
+const POLL_MAX    = 40;
+const POLL_MS     = 1000;
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Step 1: TTS 작업 요청 ──────────────────────────────────────────────
+    // ── Step 1: TTS 작업 생성 ────────────────────────────────────────────────
     const createRes = await fetch(TTS_ENDPOINT, {
       method: "POST",
       headers: {
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         "X-API-KEY": apiKey,
       },
       body: JSON.stringify({
-        actor_id: VOICE_ID,
+        voice_id: VOICE_ID,
         text,
         lang: "auto",
         xapi_hd: true,
@@ -41,9 +41,9 @@ export async function POST(req: NextRequest) {
     });
 
     const createText = await createRes.text();
+    console.log("[TTS] create status:", createRes.status, createText.slice(0, 400));
 
     if (!createRes.ok) {
-      console.error("[TTS] create failed", createRes.status, createText);
       return NextResponse.json(
         { error: `Typecast ${createRes.status}: ${createText}` },
         { status: 502 }
@@ -54,18 +54,22 @@ export async function POST(req: NextRequest) {
     try {
       createData = JSON.parse(createText);
     } catch {
-      console.error("[TTS] create response not JSON:", createText);
       return NextResponse.json(
         { error: `응답 파싱 실패: ${createText.slice(0, 200)}` },
         { status: 502 }
       );
     }
 
-    console.log("[TTS] create response:", JSON.stringify(createData));
+    // ── Step 2: 즉시 완료 여부 확인 (일부 API는 동기 반환) ────────────────────
+    const immediate = createData?.result as Record<string, unknown> | undefined;
+    if (immediate?.audio_download_url) {
+      console.log("[TTS] immediate audio_download_url");
+      return NextResponse.json({ audioUrl: immediate.audio_download_url });
+    }
 
-    // speak_v2_url 위치는 API 버전에 따라 다를 수 있음
-    const resultObj = createData?.result as Record<string, unknown> | undefined;
-    const speakUrl = (resultObj?.speak_v2_url ?? createData?.speak_v2_url) as string | undefined;
+    // ── Step 3: 비동기 → 폴링 ────────────────────────────────────────────────
+    const resultObj = (createData?.result ?? createData) as Record<string, unknown>;
+    const speakUrl  = (resultObj?.speak_v2_url ?? createData?.speak_v2_url) as string | undefined;
 
     if (!speakUrl) {
       return NextResponse.json(
@@ -74,7 +78,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Step 2: 폴링 ────────────────────────────────────────────────────────
     for (let i = 0; i < POLL_MAX; i++) {
       await sleep(POLL_MS);
 
@@ -83,7 +86,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (!pollRes.ok) {
-        console.warn("[TTS] poll non-ok:", pollRes.status);
+        console.warn("[TTS] poll", i + 1, pollRes.status);
         continue;
       }
 
@@ -106,7 +109,7 @@ export async function POST(req: NextRequest) {
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[TTS] unexpected error:", msg);
+    console.error("[TTS] error:", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
