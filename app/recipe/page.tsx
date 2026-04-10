@@ -420,8 +420,8 @@ function RecipeDetailContent() {
     setTtsLoading((p) => ({ ...p, [num]: true }));
     setTtsErrors((p) => ({ ...p, [num]: "" }));
     try {
-      // 제목 제외 — 설명 + 포인트만 Gemini 구어체 변환 후 TTS로 전달
-      const text = `${step.description}${step.kickReason ? ` 포인트: ${step.kickReason}` : ""}${step.tip ? ` 팁: ${step.tip}` : ""}`;
+      // 순수 조리 설명만 구어체 변환 — 팁·포인트 등 부수 내용 제외
+      const text = step.description;
       const res = await fetch("/api/generate-tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1318,6 +1318,44 @@ function RecipeDetailContent() {
                     className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-blue-50"
                     style={{ borderColor: "#3b82f6", color: "#2563eb" }}>
                     🔄 Regenerate
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── 음성 파일 일괄 다운로드 ── */}
+            {Object.keys(ttsAudioUrls).length > 0 && (
+              <div className="bg-white rounded-3xl shadow-md overflow-hidden">
+                <div className="px-5 py-4 flex items-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)" }}>
+                  <span className="text-xl">🎙️</span>
+                  <div>
+                    <p className="text-sm font-bold text-sky-700">음성 파일 일괄 다운로드</p>
+                    <p className="text-xs text-gray-500">
+                      생성된 단계별 MP3 파일을 한 번에 저장하세요
+                    </p>
+                  </div>
+                  <span className="ml-auto text-xs font-semibold text-sky-600 bg-sky-100 px-2.5 py-1 rounded-full">
+                    {Object.keys(ttsAudioUrls).length}개
+                  </span>
+                </div>
+                <div className="p-5">
+                  <button
+                    onClick={() => {
+                      Object.entries(ttsAudioUrls)
+                        .sort(([a], [b]) => Number(a) - Number(b))
+                        .forEach(([num, url], idx) => {
+                          setTimeout(() => {
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `${recipe.name}-step${num}-voice.mp3`;
+                            a.click();
+                          }, idx * 400);
+                        });
+                    }}
+                    className="w-full py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90 active:scale-95"
+                    style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
+                    ⬇️ 음성 파일 전체 다운로드 ({Object.keys(ttsAudioUrls).length}개)
                   </button>
                 </div>
               </div>
