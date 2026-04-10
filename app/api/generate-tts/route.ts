@@ -64,9 +64,8 @@ export async function POST(req: NextRequest) {
     console.log("[TTS] create response:", JSON.stringify(createData));
 
     // speak_v2_url 위치는 API 버전에 따라 다를 수 있음
-    const speakUrl: string | undefined =
-      (createData?.result as Record<string, unknown>)?.speak_v2_url as string |
-      createData?.speak_v2_url as string;
+    const resultObj = createData?.result as Record<string, unknown> | undefined;
+    const speakUrl = (resultObj?.speak_v2_url ?? createData?.speak_v2_url) as string | undefined;
 
     if (!speakUrl) {
       return NextResponse.json(
