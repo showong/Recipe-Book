@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const VOICE_ID     = "tc_606c6c684085209e5555abb0";
+const VOICE_ID     = "tc_611c3f692fac944dff493a04";
 // v1 엔드포인트 — 동기 응답, 바이너리 오디오 직접 반환
 const TTS_ENDPOINT = "https://api.typecast.ai/v1/text-to-speech";
 
