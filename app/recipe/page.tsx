@@ -420,7 +420,8 @@ function RecipeDetailContent() {
     setTtsLoading((p) => ({ ...p, [num]: true }));
     setTtsErrors((p) => ({ ...p, [num]: "" }));
     try {
-      const text = `${step.title}. ${step.description}${step.kickReason ? ` 포인트: ${step.kickReason}` : ""}`;
+      // 제목 제외 — 설명 + 포인트만 Gemini 구어체 변환 후 TTS로 전달
+      const text = `${step.description}${step.kickReason ? ` 포인트: ${step.kickReason}` : ""}${step.tip ? ` 팁: ${step.tip}` : ""}`;
       const res = await fetch("/api/generate-tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
