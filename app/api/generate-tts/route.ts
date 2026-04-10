@@ -28,19 +28,21 @@ ${raw}
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
+      generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
     }),
   });
 
   if (!res.ok) {
     console.warn("[TTS] Gemini 변환 실패, 원문 사용:", res.status);
-    return raw; // 실패 시 원문 그대로 사용
+    return raw;
   }
 
   const data = await res.json();
-  const converted = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-  console.log("[TTS] 구어체 변환:", converted?.slice(0, 100));
-  return converted ?? raw;
+  // parts가 여러 개일 수 있으므로 전체 합산
+  const parts: { text?: string }[] = data?.candidates?.[0]?.content?.parts ?? [];
+  const converted = parts.map((p) => p.text ?? "").join("").trim();
+  console.log("[TTS] 구어체 변환 완료 (길이:", converted.length, "):", converted.slice(0, 80));
+  return converted || raw;
 }
 
 export async function POST(req: NextRequest) {
