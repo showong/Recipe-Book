@@ -42,6 +42,10 @@ function RecipeDetailContent() {
   const [reelUploadedImage, setReelUploadedImage] = useState<string | null>(null);
   const [reelThumbnail, setReelThumbnail] = useState<string | null>(null);
   const [reelThumbnailLoading, setReelThumbnailLoading] = useState(false);
+  // TTS
+  const [ttsLoading, setTtsLoading] = useState(false);
+  const [ttsAudioUrl, setTtsAudioUrl] = useState<string | null>(null);
+  const [ttsError, setTtsError] = useState<string | null>(null);
   // 게시글 커버 이미지 (1:1)
   const [postCoverImage, setPostCoverImage] = useState<string | null>(null);
   const [postCoverLoading, setPostCoverLoading] = useState(false);
@@ -411,6 +415,40 @@ function RecipeDetailContent() {
     }
   };
 
+  const generateTts = async () => {
+    if (!recipe) return;
+    setTtsLoading(true);
+    setTtsAudioUrl(null);
+    setTtsError(null);
+    try {
+      // 레시피 이름 + 전체 조리 단계를 자연스러운 낭독 텍스트로 조합
+      const scriptLines = [
+        `${recipe.name} 레시피입니다.`,
+        ...recipe.steps.map(
+          (s) => `${s.number}단계, ${s.title}. ${s.description}${s.kickReason ? ` 포인트: ${s.kickReason}` : ""}`
+        ),
+        "이상으로 레시피를 모두 안내해 드렸습니다.",
+      ];
+      const text = scriptLines.join(" ");
+
+      const res = await fetch("/api/generate-tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setTtsError(data.error);
+      } else {
+        setTtsAudioUrl(data.audioUrl);
+      }
+    } catch (err) {
+      setTtsError(err instanceof Error ? err.message : "음성 생성에 실패했습니다.");
+    } finally {
+      setTtsLoading(false);
+    }
+  };
+
   const handleReelImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -670,6 +708,67 @@ function RecipeDetailContent() {
         {/* =========== STEPS SECTION =========== */}
         {activeSection === "steps" && (
           <div className="fade-in-up">
+
+            {/* TTS 음성 안내 */}
+            <div className="mb-5 bg-white rounded-3xl shadow-md overflow-hidden">
+              <div className="px-5 py-4 flex items-center gap-3"
+                style={{ background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)" }}>
+                <span className="text-2xl">🎙️</span>
+                <div>
+                  <p className="text-sm font-bold text-sky-700">조리법 음성 안내</p>
+                  <p className="text-xs text-gray-500">AI 성우가 전체 레시피를 읽어드려요</p>
+                </div>
+              </div>
+              <div className="p-5 space-y-3">
+                <button
+                  onClick={generateTts}
+                  disabled={ttsLoading}
+                  className="w-full py-3.5 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90 disabled:opacity-50 active:scale-95 flex items-center justify-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
+                  {ttsLoading ? (
+                    <>
+                      <svg className="spinner w-5 h-5" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                      음성 생성 중... (최대 30초)
+                    </>
+                  ) : ttsAudioUrl ? "🔄 음성 재생성" : "🎙️ 음성 안내 생성하기"}
+                </button>
+
+                {ttsError && (
+                  <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3">
+                    <p className="text-sm font-bold text-red-600 mb-0.5">⚠️ 음성 생성 실패</p>
+                    <p className="text-xs text-red-500">{ttsError}</p>
+                  </div>
+                )}
+
+                {ttsAudioUrl && !ttsLoading && (
+                  <div className="rounded-2xl overflow-hidden"
+                    style={{ background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)", border: "1px solid #bae6fd" }}>
+                    <div className="px-4 pt-3 pb-1">
+                      <p className="text-xs font-bold text-sky-700 mb-2">▶ 재생</p>
+                      <audio
+                        controls
+                        src={ttsAudioUrl}
+                        className="w-full"
+                        style={{ height: "40px" }}
+                      />
+                    </div>
+                    <div className="px-4 pb-3 pt-2">
+                      <a
+                        href={ttsAudioUrl}
+                        download={`${recipe.name}-recipe-voice.mp3`}
+                        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-white text-sm font-bold"
+                        style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
+                        ⬇️ 음성 파일 저장
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Kick steps preview */}
             {kickSteps.length > 0 && (
               <div className="mb-6 rounded-2xl overflow-hidden"
