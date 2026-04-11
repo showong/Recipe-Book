@@ -21,7 +21,29 @@ async function callGemini(prompt: string, googleApiKey: string, maxTokens = 80):
   return parts.map((p) => p.text ?? "").join("").trim();
 }
 
-// ── 레시피 단계 텍스트 → 자연스럽게 압축된 구어체 변환 ──────────────────────
+// ── 구어체 텍스트 → 절반 이하로 압축 ────────────────────────────────────────
+async function compressSpeechText(converted: string, googleApiKey: string): Promise<string> {
+  const targetLen = Math.floor(converted.length / 2);
+  const prompt = `다음 한국어 구어체 문장을 절반 이하 길이로 압축해 주세요.
+
+압축 규칙:
+1. 목표 길이: ${targetLen}자 이하 (현재 ${converted.length}자의 절반)
+2. 핵심 동작과 핵심 재료/수치만 남기고 나머지 생략
+3. 구어체 어미 유지 (예: "~해요", "~하면 돼요")
+4. 완전한 문장 형태 유지 — 단어 하나·조각 표현 금지
+5. 한국어 텍스트만 출력 (설명 없이)
+
+원문:
+${converted}
+
+압축된 텍스트:`;
+
+  const result = await callGemini(prompt, googleApiKey, 128);
+  console.log("[TTS] 압축 완료 (길이:", result.length, "/목표:", targetLen, "):", result);
+  return result || converted;
+}
+
+// ── 레시피 단계 텍스트 → 구어체 변환 → 압축 ────────────────────────────────
 async function toSpeechText(raw: string, googleApiKey: string): Promise<string> {
   const prompt = `다음 요리 레시피 조리 단계를 TTS 음성 낭독에 적합하도록 변환해 주세요.
 
@@ -40,9 +62,13 @@ ${raw}
 
 변환된 구어체:`;
 
-  const result = await callGemini(prompt, googleApiKey, 256);
-  console.log("[TTS] 구어체 변환 (길이:", result.length, "):", result.slice(0, 150));
-  return result || raw;
+  const converted = await callGemini(prompt, googleApiKey, 256);
+  console.log("[TTS] 구어체 변환 (길이:", converted.length, "):", converted.slice(0, 150));
+  if (!converted) return raw;
+
+  // Step 2: 변환된 구어체를 절반 이하로 압축
+  const compressed = await compressSpeechText(converted, googleApiKey);
+  return compressed || converted;
 }
 
 // ── 레시피 정보 → 3초 훅 멘트 생성 ──────────────────────────────────────────
