@@ -45,6 +45,10 @@ function RecipeDetailContent() {
   const [reelThumbnailLoading, setReelThumbnailLoading] = useState(false);
   const [reelVideoThumbnailUrl, setReelVideoThumbnailUrl] = useState<string | null>(null);
   const [reelVideoConverting, setReelVideoConverting] = useState(false);
+  // 훅 멘트 TTS
+  const [hookMentLoading, setHookMentLoading] = useState(false);
+  const [hookMentAudioUrl, setHookMentAudioUrl] = useState<string | null>(null);
+  const [hookMentError, setHookMentError] = useState<string | null>(null);
   // TTS (스텝별)
   const [ttsLoading, setTtsLoading] = useState<Record<number, boolean>>({});
   const [ttsAudioUrls, setTtsAudioUrls] = useState<Record<number, string>>({});
@@ -334,6 +338,38 @@ function RecipeDetailContent() {
       img.onerror = () => reject(new Error("이미지 로드 실패"));
       img.src = imageDataUrl;
     });
+
+  const generateHookMent = async () => {
+    if (!recipe) return;
+    setHookMentLoading(true);
+    setHookMentAudioUrl(null);
+    setHookMentError(null);
+    try {
+      const kickPoints = recipe.steps
+        .filter((s) => s.isKick && s.kickReason)
+        .map((s) => s.kickReason)
+        .join(" / ");
+      const res = await fetch("/api/generate-tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "hook",
+          recipeName: recipe.name,
+          highlight: recipe.highlight,
+          taste: recipe.taste,
+          kickPoints,
+          pairings: (recipe.pairings ?? []).slice(0, 2).join(", "),
+        }),
+      });
+      const data = await res.json();
+      if (data.error) setHookMentError(data.error);
+      else if (data.audioUrl) setHookMentAudioUrl(data.audioUrl);
+    } catch (err) {
+      setHookMentError(err instanceof Error ? err.message : "훅 멘트 생성 실패");
+    } finally {
+      setHookMentLoading(false);
+    }
+  };
 
   const generateReelThumbnail = async () => {
     if (!recipe || !reelUploadedImage) return;
@@ -1165,22 +1201,59 @@ function RecipeDetailContent() {
                   className="hidden"
                   onChange={handleReelImageUpload}
                 />
-                {reelUploadedImage && (
+                {/* 버튼 행 */}
+                <div className="mt-4 flex gap-2">
+                  {reelUploadedImage && (
+                    <button
+                      onClick={generateReelThumbnail}
+                      disabled={reelThumbnailLoading}
+                      className="flex-1 py-4 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
+                      style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
+                      {reelThumbnailLoading ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                          </svg>
+                          생성 중...
+                        </span>
+                      ) : reelThumbnail ? "🔄 재생성" : "✨ 썸네일 생성"}
+                    </button>
+                  )}
                   <button
-                    onClick={generateReelThumbnail}
-                    disabled={reelThumbnailLoading}
-                    className="w-full mt-4 py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
-                    style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
-                    {reelThumbnailLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg className="spinner w-5 h-5" viewBox="0 0 24 24" fill="none">
+                    onClick={generateHookMent}
+                    disabled={hookMentLoading}
+                    className={`${reelUploadedImage ? "" : "flex-1"} py-4 px-5 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90 disabled:opacity-50 active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap`}
+                    style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
+                    {hookMentLoading ? (
+                      <>
+                        <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                         </svg>
-                        썸네일 생성 중...
-                      </span>
-                    ) : reelThumbnail ? "🔄 썸네일 재생성" : "✨ 릴스 썸네일 생성하기"}
+                        생성 중...
+                      </>
+                    ) : (
+                      <>{hookMentAudioUrl ? "🔄" : "🎙️"} 3초 훅 멘트</>
+                    )}
                   </button>
+                </div>
+
+                {/* 훅 멘트 오디오 플레이어 */}
+                {hookMentError && (
+                  <p className="mt-2 text-xs text-red-500 px-1">⚠️ {hookMentError}</p>
+                )}
+                {hookMentAudioUrl && !hookMentLoading && (
+                  <div className="mt-3 flex items-center gap-2 px-1">
+                    <audio controls src={hookMentAudioUrl} className="flex-1 h-9" />
+                    <a
+                      href={hookMentAudioUrl}
+                      download={`${recipe?.name ?? "recipe"}-hook-ment.mp3`}
+                      className="flex-shrink-0 px-3 py-2 rounded-xl text-white text-xs font-bold"
+                      style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
+                      ⬇️
+                    </a>
+                  </div>
                 )}
               </div>
             </div>
