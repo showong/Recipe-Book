@@ -21,25 +21,28 @@ async function callGemini(prompt: string, googleApiKey: string, maxTokens = 80):
   return parts.map((p) => p.text ?? "").join("").trim();
 }
 
-// ── 레시피 단계 텍스트 → 3초 이내 핵심 구어체 압축 ────────────────────────────
+// ── 레시피 단계 텍스트 → 자연스럽게 압축된 구어체 변환 ──────────────────────
 async function toSpeechText(raw: string, googleApiKey: string): Promise<string> {
-  const prompt = `다음 요리 레시피 조리 단계에서 가장 핵심이 되는 동작 하나만 골라서,
-5초 이내(약 15~22자)에 읽을 수 있는 자연스러운 한국어 구어체 세 문장으로 압축해 주세요.
+  const prompt = `다음 요리 레시피 조리 단계를 TTS 음성 낭독에 적합하도록 변환해 주세요.
 
-압축 규칙:
-1. 핵심 동작 딱 하나만 
-2. 22자 이내 (공백 포함)
-3. 숫자+단위 → 한국어 발음 (200g → 이백 그램, 3분 → 삼 분)
-4. 자연스러운 구어체 (예: "~해줘", "~하면 돼", "~해요")
-5. 한국어 텍스트만 출력 (설명·번호 없이)
+변환 목표:
+- 원문의 핵심 내용을 자연스럽게 담되, 불필요한 반복·부연 설명은 생략
+- 낭독 시 5~8초 분량 (약 60~100자)
 
-원문: ${raw}
+변환 규칙:
+1. 숫자+단위 → 한국어 발음 (예: 200g → 이백 그램, 2큰술 → 두 큰술, 180°C → 백팔십 도)
+2. 특수문자 제거 또는 구어화 (예: ~ → 정도, / → 또는, → → 넣어)
+3. 자연스러운 구어체 어미 사용 (예: "~해줘요", "~하면 돼요", "~해주세요")
+4. 한국어 텍스트만 출력 (설명·번호 없이)
 
-압축된 한 문장:`;
+원문:
+${raw}
 
-  const result = await callGemini(prompt, googleApiKey, 80);
-  console.log("[TTS] 핵심 압축 (길이:", result.length, "):", result);
-  return result || raw.slice(0, 40); // 실패 시 원문 앞 40자 fallback
+변환된 구어체:`;
+
+  const result = await callGemini(prompt, googleApiKey, 256);
+  console.log("[TTS] 구어체 변환 (길이:", result.length, "):", result.slice(0, 80));
+  return result || raw;
 }
 
 // ── 레시피 정보 → 3초 훅 멘트 생성 ──────────────────────────────────────────
@@ -60,18 +63,23 @@ async function generateHookMentText(
 어울리는 것: ${pairings}
 
 훅 멘트 규칙:
-1. 3초 이내(20자 이내, 공백 포함)
-2. FOMO + 궁금증 자극 — "이거 뭐야?", "어떻게 이래?" 반응 유도
-3. 자연스러운 구어체, 이모지 없음
-4. 훅 멘트 텍스트만 출력 (설명 없이)
-5. 단어 하나 생성은 금지, 반드시 하나의 문장으로 작성
-좋은 예시: "이거 한 번만 봐봐, 진짜야" / "오늘 저녁은 무조건 이거야" / "이 맛 알면 다른 거 못 먹어" / "뭔데 이게 이렇게 맛있어"
+1. 낭독 시 3~4초 분량 (약 30~45자)
+2. 완전한 문장 1~2개로 구성 — 단어 하나만 쓰면 안 됨
+3. FOMO + 궁금증 자극 — "이거 뭐야?", "어떻게 이래?" 반응 유도
+4. 자연스러운 구어체, 이모지 없음
+5. 훅 멘트 텍스트만 출력 (설명 없이)
+
+좋은 예시:
+"이거 한 번만 봐봐, 진짜 미쳐버려."
+"오늘 저녁은 무조건 이거야, 후회 없어."
+"이 맛 알면 다른 거 못 먹어, 진짜로."
+"뭔데 이게 이렇게 맛있어, 말도 안 돼."
 
 훅 멘트:`;
 
-  const result = await callGemini(prompt, googleApiKey, 60);
+  const result = await callGemini(prompt, googleApiKey, 128);
   console.log("[TTS] 훅 멘트 생성:", result);
-  return result || `${recipeName}, 지금 바로 만들어봐`;
+  return result || `${recipeName}, 지금 바로 만들어봐요.`;
 }
 
 // ── Typecast TTS 호출 + 바이너리 MP3 → base64 반환 ──────────────────────────
