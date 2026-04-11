@@ -51,7 +51,7 @@ async function generateHookMentText(
   pairings: string,
   googleApiKey: string,
 ): Promise<string> {
-  const prompt = `다음 레시피 정보를 바탕으로 시청자의 궁금함을 즉시 자극하는 한국어 훅 멘트를 생성하세요.
+  const prompt = `다음 레시피 정보를 바탕으로 시청자의 궁금함을 즉시 자극하는 한국어 훅 멘트 한문장을 생성하세요.
 
 레시피: ${recipeName}
 특징: ${highlight}
@@ -64,7 +64,7 @@ async function generateHookMentText(
 2. FOMO + 궁금증 자극 — "이거 뭐야?", "어떻게 이래?" 반응 유도
 3. 자연스러운 구어체, 이모지 없음
 4. 훅 멘트 텍스트만 출력 (설명 없이)
-
+5. 단어 하나 생성은 금지, 반드시 하나의 문장으로 작성
 좋은 예시: "이거 한 번만 봐봐, 진짜야" / "오늘 저녁은 무조건 이거야" / "이 맛 알면 다른 거 못 먹어" / "뭔데 이게 이렇게 맛있어"
 
 훅 멘트:`;
