@@ -58,10 +58,12 @@ function RecipeDetailContent() {
   const [postCoverImage, setPostCoverImage] = useState<string | null>(null);
   const [postCoverLoading, setPostCoverLoading] = useState(false);
   const [postCoverError, setPostCoverError] = useState<string | null>(null);
+  const [postCoverStyleName, setPostCoverStyleName] = useState<string | null>(null);
   // 영문 게시글 커버 이미지 (1:1)
   const [postCoverEnImage, setPostCoverEnImage] = useState<string | null>(null);
   const [postCoverEnLoading, setPostCoverEnLoading] = useState(false);
   const [postCoverEnError, setPostCoverEnError] = useState<string | null>(null);
+  const [postCoverEnStyleName, setPostCoverEnStyleName] = useState<string | null>(null);
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -429,6 +431,7 @@ function RecipeDetailContent() {
     setPostCoverLoading(true);
     setPostCoverImage(null);
     setPostCoverError(null);
+    setPostCoverStyleName(null);
     try {
       const matches = reelUploadedImage.match(/^data:([^;]+);base64,(.+)$/);
       if (!matches) { setPostCoverError("이미지 형식 오류입니다."); return; }
@@ -451,6 +454,7 @@ function RecipeDetailContent() {
       } else if (data.imageUrl) {
         const cropped = await cropImageToRatio(data.imageUrl, 1080, 1080);
         setPostCoverImage(cropped);
+        if (data.styleName) setPostCoverStyleName(data.styleName);
       }
     } catch (err) {
       setPostCoverError(err instanceof Error ? err.message : "이미지 생성에 실패했습니다.");
@@ -464,6 +468,7 @@ function RecipeDetailContent() {
     setPostCoverEnLoading(true);
     setPostCoverEnImage(null);
     setPostCoverEnError(null);
+    setPostCoverEnStyleName(null);
     try {
       const matches = reelUploadedImage.match(/^data:([^;]+);base64,(.+)$/);
       if (!matches) { setPostCoverEnError("이미지 형식 오류입니다."); return; }
@@ -486,6 +491,7 @@ function RecipeDetailContent() {
       } else if (data.imageUrl) {
         const cropped = await cropImageToRatio(data.imageUrl, 1080, 1080);
         setPostCoverEnImage(cropped);
+        if (data.styleName) setPostCoverEnStyleName(data.styleName);
       }
     } catch (err) {
       setPostCoverEnError(err instanceof Error ? err.message : "이미지 생성에 실패했습니다.");
@@ -1404,6 +1410,11 @@ function RecipeDetailContent() {
                   style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}>
                   <span className="text-white text-lg">🖼️</span>
                   <p className="text-white font-extrabold text-sm">완성된 게시글 커버</p>
+                  {postCoverStyleName && (
+                    <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white">
+                      ✨ {postCoverStyleName}
+                    </span>
+                  )}
                   <span className="ml-auto text-white/70 text-xs">1:1 정사각형</span>
                 </div>
                 <div className="relative w-full mx-auto bg-gray-900"
@@ -1498,6 +1509,11 @@ function RecipeDetailContent() {
                   style={{ background: "linear-gradient(135deg, #3b82f6, #6366f1)" }}>
                   <span className="text-white text-lg">🌏</span>
                   <p className="text-white font-extrabold text-sm">English Post Cover</p>
+                  {postCoverEnStyleName && (
+                    <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white">
+                      ✨ {postCoverEnStyleName}
+                    </span>
+                  )}
                   <span className="ml-auto text-white/70 text-xs">1:1 square</span>
                 </div>
                 <div className="relative w-full mx-auto bg-gray-900"
