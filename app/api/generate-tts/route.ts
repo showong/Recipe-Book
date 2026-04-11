@@ -27,7 +27,7 @@ async function toSpeechText(raw: string, googleApiKey: string): Promise<string> 
 
 변환 목표:
 - 원문의 핵심 내용을 요약하고, 용량이나 시간과 같이 불필요한 반복·부연 설명은 생략
-- 낭독 시 5~6초 분량 (약 100자이내)
+- 낭독 시 5~6초 분량 (약 50자이내)
 
 변환 규칙:
 1. 숫자+단위 → 한국어 발음 (예: 200g → 이백 그램, 2큰술 → 두 큰술, 180°C → 백팔십 도)
