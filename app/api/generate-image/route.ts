@@ -28,67 +28,70 @@ You are given THREE images:
   - Image 2: LAYOUT REFERENCE — reproduce this visual style exactly (layout, typography placement, background treatment, color mood)
   - Image 3: oh_showong brand logo → place as specified
 
-Canvas: 9:16 vertical (1080×1920px). Recipe: "${recipeName}".
+Canvas: 9:16 vertical. Recipe: "${recipeName}".
 FOMO signals — Taste: "${taste}" / Highlight: "${highlight}" / Kick: "${kickPoints}" / Pairs: "${pairingText}"
+
+⚠️ STRICT RULE: The image must contain ONLY the recipe name, hook text, and brand handle as visible text.
+Do NOT render any numbers, units, percentages, color codes, opacity values, pixel sizes, or technical specification terms as visible text anywhere in the image.
 `;
 
   const styles: Record<number, string> = {
     1: `${base}
 === STYLE: 무드 에디토리얼 (Image 2 reference) ===
-BACKGROUND: Food photo fills entire canvas. Apply moody darkening — reduce brightness ~25%, subtle desaturation. Dark semi-transparent overlay (rgba 0,0,0,0.45) on lower 45%.
-LOGO (Image 3): top-right corner, 28px from edge, 110px diameter.
-BRAND HANDLE: "@oh_showong" — small coral (#FF6B35) bold text, bottom-center, above the recipe name.
-RECIPE NAME: bottom 38% of canvas. Large serif/display bold Korean font, white, 100px, left-aligned with 48px left margin. 2-line wrap allowed.
-HOOK LINE: one short line just above recipe name. White, semi-bold, 36px, opacity 0.85. Generate from FOMO signals — editorial tone, max 20 chars.
+BACKGROUND: Food photo fills entire canvas. Apply moody darkening — reduce brightness slightly, subtle desaturation. Dark semi-transparent overlay on the lower half.
+LOGO (Image 3): top-right corner, small inset from the edge, medium size.
+BRAND HANDLE: "@oh_showong" — small coral (#FF6B35) bold text, bottom-center, just above the recipe name.
+RECIPE NAME: positioned in the lower third of the canvas. Extra-large serif/display bold Korean font, white, left-aligned with generous left margin. Up to 2 lines.
+HOOK LINE: one short line just above the recipe name. White, semi-bold, medium size, slightly faded. Generate from FOMO signals — editorial tone, max 20 chars.
 STYLE RULE: sophisticated, minimal, editorial. NO pill badges, NO colorful overlays. Clean white type on dark photo.`,
 
     2: `${base}
 === STYLE: 볼드 컬러 포스터 (Image 2 reference) ===
 BACKGROUND: Do NOT use food photo as background. Solid bright warm color — choose from #FF6B35 (coral), #FF8C00 (orange), or #E63946 (red) based on food mood.
-LOGO (Image 3): bottom-right, inside a white rounded rectangle badge (14px radius), 90px logo + 12px padding.
+LOGO (Image 3): bottom-right corner, inside a small white softly-rounded badge with a little padding.
 LAYOUT (top to bottom):
-  ① Recipe name: y=8%–28%, massive chunky sans-serif, white, 130px, center-aligned. Auto-wrap to 2 lines.
-  ② One appetizing descriptor line: white semi-bold 34px, center, y≈30%. Generate from taste/highlight, max 20 chars.
-  ③ Food photo: center of canvas (y=35%–85%), cutout style with slight drop shadow, natural circular or oval shape, slightly angled –3°.
-  ④ Brand logo badge: bottom-right, y=88%–95%.
+  ① Recipe name: upper quarter of canvas, massive chunky sans-serif, white, center-aligned. Up to 2 lines.
+  ② One appetizing descriptor line: white semi-bold, medium size, center, just below the recipe name. Generate from taste/highlight, max 20 chars.
+  ③ Food photo: center of canvas, cutout style with slight drop shadow, natural circular or oval shape, slightly tilted.
+  ④ Brand logo badge: bottom-right corner.
 STYLE RULE: high-contrast bold poster. Energetic, pop-art food brand feel.`,
 
     3: `${base}
 === STYLE: 드라마틱 클로즈업 (Image 2 reference) ===
-BACKGROUND: Food photo fills canvas. Darken to near-black mood (brightness –35%, contrast +15%). Food is dramatically close-up, cropped to show texture.
-LOGO (Image 3): top-right corner, 28px from edge, 110px.
-TEXT BLOCK (y=48%–72%):
-  ① HOOK LINE: y≈50%, small bold white Korean, 38px, center. Generate urgent hook from FOMO signals — max 14 chars (e.g. "X분만에 완성!", "이 맛 실화?").
-  ② RECIPE NAME: y=56%–70%, HUGE bold Korean display, 140px, center. Fill: white. Stroke: 8px dark green (#1A3A0A) or black outline. 2-line wrap.
-BRAND: "@oh_showong" — very small white text, y=75%, center.
+BACKGROUND: Food photo fills canvas. Darken to near-black mood with boosted contrast. Food is dramatically close-up, cropped to show texture.
+LOGO (Image 3): top-right corner, small inset from the edge, medium size.
+TEXT BLOCK (center of canvas, slightly below midpoint):
+  ① HOOK LINE: upper part of the text block, small bold white Korean, center. Generate urgent hook from FOMO signals — max 14 chars (e.g. "이 맛 실화?").
+  ② RECIPE NAME: below the hook, enormous bold Korean display font, center. White fill with thick dark outline. Up to 2 lines.
+BRAND: "@oh_showong" — very small white text, below the recipe name, center.
 STYLE RULE: YouTube/Shorts thumbnail energy. Maximum drama. Bold strokes on text.`,
 
     4: `${base}
 === STYLE: 레시피 인포그래픽 (Image 2 reference) ===
 BACKGROUND: Warm cream (#FFF5E6). No photo as background.
 LAYOUT (top to bottom):
-  ① TITLE BAR (y=0–18%): recipe name in large bold Korean, #2C1810, 90px, center. Subtitle below: taste/highlight phrase, #8B4513, 30px.
-  ② FOOD PHOTO (y=18%–55%): centered, large natural presentation, slight drop shadow.
-  ③ INGREDIENTS COLUMNS (y=55%–78%): two columns flanking a center divider line.
+  ① TITLE BAR (top fifth of canvas): recipe name in large bold Korean, #2C1810, center. Subtitle below: taste/highlight phrase, #8B4513, small.
+  ② FOOD PHOTO (upper-center area): centered, large natural presentation, slight drop shadow.
+  ③ INGREDIENTS COLUMNS (below the photo): two columns flanking a center divider line.
      Left: "재료" header + top 3 ingredients as icon+text rows.
-     Right: "양념" header + top 3 seasoning items. Font: #2C1810, 24px.
-  ④ HIGHLIGHT BOX (y=80%–92%): full-width, background #FF6B35, white text bold 28px.
-     Text: "포인트: " + kickpoint or highlight phrase. Rounded corners 12px.
-  ⑤ Logo (Image 3): bottom-right, y=93%–99%, 80px.
+     Right: "양념" header + top 3 seasoning items. Small font, #2C1810.
+  ④ HIGHLIGHT BOX (near the bottom): full-width, background #FF6B35, white bold text, softly rounded corners.
+     Text: "포인트: " + kickpoint or highlight phrase.
+  ⑤ Logo (Image 3): bottom-right corner, small.
 STYLE RULE: educational, structured, warm. Like a recipe card someone would save.`,
 
     5: `${base}
 === STYLE: 내추럴 오가닉 (Image 2 reference) ===
 BACKGROUND: Light cream/linen (#F8F5EF). Subtle paper texture feel.
 LAYOUT (top to bottom):
-  ① TOP BAR (y=0–6%): "@oh_showong" centered, small handwritten-style font, #5C4A2A, 24px.
-     Logo (Image 3): top-center or top-right, 80px.
-  ② MAIN TITLE (y=8%–42%): Large brush/calligraphy-style Korean display font.
-     Color: deep earthy green (#2D4A1E) or warm brown (#6B3A2A). 100px. Center. 2-line wrap.
-  ③ THIN DIVIDER LINE: y≈44%, horizontal, #C4B49A, full width with 40px margin.
-  ④ TAGLINE (y=46%–52%): one warm natural phrase, center, #7A6A5A, 28px italic.
+  ① TOP BAR (very top strip): "@oh_showong" centered, small handwritten-style font, #5C4A2A.
+     Logo (Image 3): top-center or top-right, small.
+  ② MAIN TITLE (upper third of canvas): large brush/calligraphy-style Korean display font.
+     Color: deep earthy green (#2D4A1E) or warm brown (#6B3A2A). Center. Up to 2 lines.
+  ③ THIN DIVIDER LINE: horizontal, #C4B49A, full width with generous side margins, just below the title.
+  ④ TAGLINE (just below the divider): one warm natural phrase, center, #7A6A5A, small italic.
      Generate from taste/highlight/pairings — natural, non-clickbait tone, max 22 chars.
-  ⑤ FOOD PHOTO (y=48%–96%): bottom half, natural placement, slightly overlapping the tagline text. Real appetizing photo.
+  ⑤ FOOD PHOTO (lower half of canvas): natural placement, slightly overlapping the tagline. Real appetizing photo.
   ⑥ DECORATIVE ELEMENTS: soft watercolor leaf or dot motifs at top-left and bottom-right corners.
 STYLE RULE: artisanal, farmers-market, trustworthy. Warm but sophisticated.`,
   };
@@ -134,7 +137,7 @@ Highly detailed, vibrant colors, mouth-watering. 4K quality.`;
       if (isEn) {
         prompt = `Create a square 1:1 Instagram flat-lay ingredients photo for Korean recipe "${recipeName}" aimed at international home cooks.
 
-CANVAS: 1080×1080px square.
+CANVAS: Square 1:1.
 BACKGROUND: Clean white marble surface, soft natural daylight from top-left.
 
 LAYOUT: Arrange each ingredient as a real, beautiful food item in a neat flat-lay grid. Every item clearly visible.
@@ -143,15 +146,15 @@ INGREDIENTS: ${ingList}
 
 LABELS (mandatory for every ingredient):
   - Rounded pill label directly below each item. White background, thin #FF6B35 border.
-  - Line 1: English ingredient name, bold, #1A1A1A, 18px. Use common English grocery store names.
-  - Line 2: quantity in BOTH metric and US units (e.g. "200g / 7oz", "2 tbsp / 30ml"), #FF6B35, 16px.
+  - Line 1: English ingredient name, bold, #1A1A1A, small font. Use common English grocery store names.
+  - Line 2: quantity in BOTH metric and US units (e.g. "200g / 7oz", "2 tbsp / 30ml"), #FF6B35, small font.
   - All text in English. No Korean.
 
 STYLE: Professional food photography, warm tones, Instagram-worthy. Beginner-friendly layout.`;
       } else {
         prompt = `Create a square 1:1 Instagram flat-lay ingredients photo for Korean recipe "${recipeName}".
 
-CANVAS: 1080×1080px square.
+CANVAS: Square 1:1.
 BACKGROUND: Clean white marble surface, soft natural daylight from top-left.
 
 LAYOUT: Arrange each ingredient as a real, beautiful food item in a neat flat-lay grid. Every item clearly visible.
@@ -160,8 +163,8 @@ INGREDIENTS: ${ingList}
 
 LABELS (mandatory for every ingredient):
   - Rounded pill label directly below each item. White background, thin #FF6B35 border.
-  - Line 1: Korean ingredient name (한국어), bold, #1A1A1A, 18px.
-  - Line 2: quantity + unit (예: "200g", "2큰술"), #FF6B35, 16px.
+  - Line 1: Korean ingredient name (한국어), bold, #1A1A1A, small font.
+  - Line 2: quantity + unit (예: "200g", "2큰술"), #FF6B35, small font.
   - All text must be Korean (한국어).
 
 STYLE: Professional food photography, warm appetizing tones, Instagram-worthy.`;
@@ -205,49 +208,53 @@ Shallow depth of field, bokeh background, natural window light. Instagram-worthy
       if (isEn) {
         prompt = `Create a square 1:1 Instagram infographic poster — "Success Tips" for the recipe "${recipeName}", designed for international home cooks.
 
+⚠️ STRICT RULE: Do NOT render any numbers with units (px, %, dp, opacity decimals, color codes) as visible text in the image.
+
 === DESIGN SPEC ===
-CANVAS: 1080×1080px square. Background: solid #FFF8F0 (warm cream).
+CANVAS: Square 1:1. Background: solid #FFF8F0 (warm cream).
 
-HEADER (top 20%):
-  Gradient banner #FF6B35 → #FFC857. Title: "✨ Success Tips" white bold 48px centered.
-  Subtitle: "${recipeName}" white semi-bold 28px.
+HEADER (top fifth of canvas):
+  Gradient banner #FF6B35 → #FFC857. Title: "✨ Success Tips" white extra-bold large font, centered.
+  Subtitle: "${recipeName}" white semi-bold medium font.
 
-TIPS LIST (middle 62%):
-  Each tip as a card: left accent bar #FF6B35 8px, step number circle badge #FF6B35, white fill #FFFFFF, 12px rounded corners.
-  - Title: English bold #1A1A1A 24px. Use simple, encouraging cooking language.
-  - Body: English plain text #555555 20px — rewrite the tip so a beginner clearly understands WHY it matters.
+TIPS LIST (middle section):
+  Each tip as a card: left accent bar in #FF6B35, step number circle badge in #FF6B35, white fill, softly rounded corners.
+  - Title: English bold #1A1A1A medium-large font. Use simple, encouraging cooking language.
+  - Body: English plain text #555555 medium font — rewrite the tip so a beginner clearly understands WHY it matters.
     Include measurements in metric + US units where relevant.
   Cards:
 ${kickList}
 
-HIGHLIGHT STRIP: pill badge #FFE66D border #FF6B35 3px.
-  Text: "💡 Key Point: ${highlight}" English bold #1A1A1A 20px.
+HIGHLIGHT STRIP: pill badge #FFE66D with #FF6B35 border.
+  Text: "💡 Key Point: ${highlight}" English bold #1A1A1A medium font.
 
-FOOTER (bottom 8%): #FF6B35 background. White "Recipe Book" centered 22px bold.
+FOOTER (bottom strip): #FF6B35 background. White "Recipe Book" centered bold.
 
 STYLE: Flat design, friendly, encouraging tone. All text in English. No Korean.
 === END SPEC ===`;
       } else {
         prompt = `Create a square 1:1 Instagram infographic poster — 성공 포인트 for the Korean recipe "${recipeName}".
 
+⚠️ STRICT RULE: Do NOT render any numbers with units (px, %, dp, opacity decimals, color codes) as visible text in the image.
+
 === DESIGN SPEC ===
-CANVAS: 1080×1080px square. Background: solid #FFF8F0 (warm cream).
+CANVAS: Square 1:1. Background: solid #FFF8F0 (warm cream).
 
-HEADER (top 20%):
-  Gradient banner #FF6B35 → #FFC857. Title: "⭐ 성공 포인트" white bold 48px centered.
-  Subtitle: "${recipeName}" white semi-bold 28px.
+HEADER (top fifth of canvas):
+  Gradient banner #FF6B35 → #FFC857. Title: "⭐ 성공 포인트" white extra-bold large font, centered.
+  Subtitle: "${recipeName}" white semi-bold medium font.
 
-KICK POINTS LIST (middle 62%):
-  Each kick point as a card: left accent bar #FF6B35 8px, step number circle badge #FF6B35, white #FFFFFF fill, 12px rounded corners.
-  - Title: Korean bold #1A1A1A 24px.
-  - Body: Korean regular text #555555 20px, wrapped to card width.
+KICK POINTS LIST (middle section):
+  Each kick point as a card: left accent bar in #FF6B35, step number circle badge in #FF6B35, white fill, softly rounded corners.
+  - Title: Korean bold #1A1A1A medium-large font.
+  - Body: Korean regular text #555555 medium font, wrapped to card width.
   Cards:
 ${kickList}
 
-HIGHLIGHT STRIP: pill badge #FFE66D border #FF6B35 3px.
-  Text: "💡 핵심: ${highlight}" Korean bold #1A1A1A 20px.
+HIGHLIGHT STRIP: pill badge #FFE66D with #FF6B35 border.
+  Text: "💡 핵심: ${highlight}" Korean bold #1A1A1A medium font.
 
-FOOTER (bottom 8%): #FF6B35. White "레시피북" centered 22px bold.
+FOOTER (bottom strip): #FF6B35 background. White "레시피북" centered bold.
 
 STYLE: Flat design. All text Korean (한국어). No English.
 === END SPEC ===`;
@@ -263,19 +270,21 @@ STYLE: Flat design. All text Korean (한국어). No English.
   - Image 1: LAYOUT TEMPLATE — this is the EXACT card style to reproduce. Match every detail: frame border, panel arrangement, label style, arrow style, badge, progress bar, instruction box.
   - Image 2: CHARACTER REFERENCE — use this bear chef's face, body proportions, hat, apron, and colors exactly. Do NOT alter the character design.
 
+⚠️ STRICT RULE: Do NOT render any numbers with units (px, %, opacity decimals, color codes) as visible text in the image.
+
 TASK: Create one cooking step card in the IDENTICAL style as Image 1 (Layout Template).
 
 === MATCH THESE EXACT VISUAL ELEMENTS FROM IMAGE 1 ===
 
 CANVAS: Square 1:1. Warm cream background (#FFF8F0).
-OUTER FRAME: Thick coral-orange (#FF6B35) rounded-rectangle border, ~14px, inset ~12px from edge.
-STEP BADGE: Top-left corner, circle ~60px, fill #FF6B35, white bold step number, 3px white stroke.
-THREE PANELS: Arranged horizontally, equal width, ~6px gaps. Each panel: white fill, ~10px rounded corners, thin #FF6B35 border.
+OUTER FRAME: Thick coral-orange (#FF6B35) rounded-rectangle border, inset a little from the edge.
+STEP BADGE: Top-left corner, circle shape, fill #FF6B35, white bold step number, white stroke.
+THREE PANELS: Arranged horizontally, equal width, small gaps. Each panel: white fill, softly rounded corners, thin #FF6B35 border.
 ARROWS: Simple thick coral → arrows centered between panels at mid-height.
-PANEL LABELS: At the very bottom of each panel, a rounded-rectangle pill, warm yellow (#FFE66D) fill, thin #FF6B35 border, centered text — short Korean action label (2–4자).
-BEAR IN EVERY PANEL: Bear fills ~70% of panel height, actively cooking. Identical look to Image 2.
-PROGRESS BAR: Full width inside the outer frame, just below the 3 panels. Height ~18px. Track: #FFE66D. Fill: #FF6B35. Filled = (stepNumber/totalSteps × 100)%.
-INSTRUCTION BOX: Below progress bar, inside outer frame. White/cream fill, thin #FF6B35 border, 10px radius. Korean instruction text, 1–2 lines, #1A1A1A, ~18px, center-aligned.
+PANEL LABELS: At the very bottom of each panel, a rounded pill, warm yellow (#FFE66D) fill, thin #FF6B35 border, centered text — short Korean action label (2–4자).
+BEAR IN EVERY PANEL: Bear fills most of the panel height, actively cooking. Identical look to Image 2.
+PROGRESS BAR: Full width inside the outer frame, just below the 3 panels. Thin bar. Track: #FFE66D. Fill: #FF6B35. Filled proportion = stepNumber/totalSteps.
+INSTRUCTION BOX: Below progress bar, inside outer frame. White/cream fill, thin #FF6B35 border, softly rounded. Korean instruction text, 1–2 lines, #1A1A1A, medium size, center-aligned.
 
 === CONTENT TO ILLUSTRATE ===
 
@@ -331,21 +340,21 @@ Do NOT invent a new card layout. Copy the structure from Image 1 exactly.`;
   - Image 1: a food photo → use as the full-bleed background
   - Image 2: the oh_showong brand logo (round badge with bear chef) → render it exactly as provided at the specified position
 
-Create a 1:1 square Instagram feed post cover image (1080×1080px).
+⚠️ STRICT RULE: Do NOT render any numbers with units (px, %, opacity decimals, color codes) as visible text in the image.
+
+Create a 1:1 square Instagram feed post cover image.
 
 === BACKGROUND ===
-Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%). Soft dark vignette at edges only.
+Fill the entire canvas with Image 1 (food photo). Slight saturation boost. Soft dark vignette at edges only.
 
 === LAYER STACK ===
 
 ① oh_showong LOGO (Image 2)
-  Position: top-right corner, 20px from top, 20px from right.
-  Size: 110px diameter. Render the logo exactly as provided.
+  Position: top-right corner, small inset from the edge. Medium size. Render the logo exactly as provided.
 
 ② CONTEXT TAG — small yellow pill badge above food name
-  Style: rounded pill, background #FFE500, text #1A1A1A, bold, 28px.
-  Padding: 7px 18px. Centered horizontally.
-  Position: approx y=58% from top.
+  Style: rounded pill, background #FFE500, text #1A1A1A, bold, medium font.
+  Centered horizontally. Positioned in the lower half of the canvas, above the food name.
 
   GENERATE the pill text yourself using these recipe signals:
     - Taste: "${taste ?? ""}"
@@ -361,26 +370,25 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
 
 ③ FOOD NAME — hero text, centered horizontally
   Text: "${recipeName}"
-  Position: y-center at 68% from top. Left/right margin 40px. Auto-wrap to 2 lines if needed.
+  Positioned in the lower-center area of the canvas, with generous side margins. Up to 2 lines.
   FONT STYLE (critical): thick, rounded, bubbly Korean display font — warm and playful, like Korean YouTube thumbnail text. NOT corporate/geometric.
   Fill color: #FFE500 (bright warm yellow).
-  Stroke: thick black (#1A1A1A) outline, 6px, uniform around every character.
-  Font size: 90px. Line-height: 104px.
-  Drop shadow: 0 5px 14px rgba(0,0,0,0.70).
+  Stroke: thick black (#1A1A1A) outline, uniform around every character.
+  Extra-large font. Strong drop shadow for depth.
 
-④ TAGLINE — directly below ③, 8px gap
+④ TAGLINE — directly below ③, small gap
   Text: "@oh_showong"
-  Font: semi-bold, white, 28px, letter-spacing 2px, opacity 0.85.
-  Stroke: thin black outline, 2px.
+  Font: semi-bold, white, medium size, slightly spaced. Slightly faded.
+  Thin black outline.
 
-⑤ BOTTOM STRIP — flush to bottom, full width, 150px tall
+⑤ BOTTOM STRIP — flush to bottom, full width, tall strip
   Background: solid #FFE500 (warm yellow).
   Text: "저장 필수! 🐻"
-  Font: extra-bold, #1A1A1A, 34px. Horizontally + vertically centered.
+  Font: extra-bold, #1A1A1A, large. Horizontally + vertically centered.
 
 === RULES ===
-- Top 52%: food photo only, ①logo only.
-- ②③④ grouped in lower-center (y=58%~78%).
+- Upper half: food photo only, logo only.
+- ②③④ grouped in lower-center area.
 - ⑤ flush to bottom edge.
 - Warm, friendly, cozy feel matching oh_showong brand.
 === END ===`;
@@ -395,21 +403,21 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
   - Image 1: a food photo → use as the full-bleed background
   - Image 2: the oh_showong brand logo (round badge with bear chef) → render it exactly as provided at the specified position
 
-Create a 1:1 square Instagram feed post cover image (1080×1080px) with ENGLISH text.
+⚠️ STRICT RULE: Do NOT render any numbers with units (px, %, opacity decimals, color codes) as visible text in the image.
+
+Create a 1:1 square Instagram feed post cover image with ENGLISH text.
 
 === BACKGROUND ===
-Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%). Soft dark vignette at edges only.
+Fill the entire canvas with Image 1 (food photo). Slight saturation boost. Soft dark vignette at edges only.
 
 === LAYER STACK ===
 
 ① oh_showong LOGO (Image 2)
-  Position: top-right corner, 20px from top, 20px from right.
-  Size: 110px diameter. Render the logo exactly as provided.
+  Position: top-right corner, small inset from the edge. Medium size. Render the logo exactly as provided.
 
 ② CONTEXT TAG — small yellow pill badge above food name
-  Style: rounded pill, background #FFE500, text #1A1A1A, bold, 26px.
-  Padding: 7px 18px. Centered horizontally.
-  Position: approx y=58% from top.
+  Style: rounded pill, background #FFE500, text #1A1A1A, bold, medium font.
+  Centered horizontally. Positioned in the lower half of the canvas, above the food name.
 
   GENERATE the pill text yourself using these recipe signals:
     - Taste: "${taste ?? ""}"
@@ -425,26 +433,25 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
 
 ③ FOOD NAME — hero text, centered horizontally
   Text: "${recipeName}"
-  Position: y-center at 68% from top. Left/right margin 40px. Auto-wrap to 2 lines if needed.
+  Positioned in the lower-center area of the canvas, with generous side margins. Up to 2 lines.
   FONT STYLE (critical): thick, rounded, bubbly display font — warm and playful. NOT corporate/geometric.
   Fill color: #FFE500 (bright warm yellow).
-  Stroke: thick black (#1A1A1A) outline, 6px, uniform around every character.
-  Font size: 82px. Line-height: 96px.
-  Drop shadow: 0 5px 14px rgba(0,0,0,0.70).
+  Stroke: thick black (#1A1A1A) outline, uniform around every character.
+  Extra-large font. Strong drop shadow for depth.
 
-④ TAGLINE — directly below ③, 8px gap
+④ TAGLINE — directly below ③, small gap
   Text: "@oh_showong"
-  Font: semi-bold, white, 28px, letter-spacing 2px, opacity 0.85.
-  Stroke: thin black outline, 2px.
+  Font: semi-bold, white, medium size, slightly spaced. Slightly faded.
+  Thin black outline.
 
-⑤ BOTTOM STRIP — flush to bottom, full width, 150px tall
+⑤ BOTTOM STRIP — flush to bottom, full width, tall strip
   Background: solid #FFE500 (warm yellow).
   Text: "Save now! 🐻"
-  Font: extra-bold, #1A1A1A, 34px. Horizontally + vertically centered.
+  Font: extra-bold, #1A1A1A, large. Horizontally + vertically centered.
 
 === RULES ===
-- Top 52%: food photo only, ①logo only.
-- ②③④ grouped in lower-center (y=58%~78%).
+- Upper half: food photo only, logo only.
+- ②③④ grouped in lower-center area.
 - ⑤ flush to bottom edge.
 - ALL text must be in ENGLISH. No Korean characters.
 - Warm, friendly, cozy feel matching oh_showong brand.
