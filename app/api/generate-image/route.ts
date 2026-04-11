@@ -5,60 +5,6 @@ import path from "path";
 const GEMINI_MODEL = "gemini-3.1-flash-image-preview";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-// ─── 공통 디자인 시스템 (한국어 / 영어 공통 적용) ─────────────────────────────
-const STEP_DESIGN_BASE = `
-=== FIXED DESIGN SYSTEM (apply identically to every image in this series) ===
-
-CANVAS: Square 1:1 ratio, 1080×1080px equivalent.
-
-BACKGROUND: Solid flat color #FFF8F0 (warm cream). No gradients, no textures.
-
-OUTER FRAME: 24px rounded rectangle border, color #FF6B35 (coral orange), inset 16px from edge.
-
-LAYOUT — always exactly 3 equal-width vertical panels side by side, separated by 8px gaps in #FF6B35.
-  Each panel: white (#FFFFFF) fill, 12px inner padding.
-
-ILLUSTRATION STYLE:
-  - Flat vector cartoon. Zero photo-realism. No shading, no drop shadows.
-  - Outlines: 3px uniform #1A1A1A strokes only.
-  - Color palette (locked):
-      Coral    #FF6B35  · Mint  #4ECDC4  · Lemon  #FFE66D
-      Lavender #C7CEEA  · Cream #FFF8F0  · Dark   #1A1A1A  · White #FFFFFF
-
-CHARACTER: Use the exact bear chef from the reference image.
-  - Light golden-brown fluffy teddy bear, large sparkling dark eyes.
-  - Tall white puffy toque blanche chef hat (from reference). NEVER omit the hat.
-  - Beige/cream apron (from reference). Rosy cheeks, small dark nose, gentle smile.
-  - Paw-shaped hands holding cooking utensils for each action.
-  - Identical look across every panel: same proportions, colors, hat.
-
-STEP BADGE: Top-left corner, circle 64px, fill #FF6B35, white bold number, 2px black stroke.
-
-PROGRESS BAR: Bottom edge, inside frame. Height 20px, background #FFE66D.
-  Filled = (stepNumber / totalSteps × 100)%, fill #FF6B35.
-
-PANEL CONTENT: Each panel = one sequential micro-action. Arrow (→) between panels, 24px, #FF6B35.
-=== END DESIGN SYSTEM ===
-`;
-
-// 한국어 텍스트 레이블 규칙
-const KO_TEXT_RULE = `
-TEXT LABELS (Korean — mandatory):
-  - Each panel: short Korean action label (2–6자) in a #FFE66D pill badge at panel bottom-center.
-  - Below the 3 panels: full Korean step instruction in one line, white box with #FF6B35 border 2px.
-  - ALL text must be 한국어. No English, Chinese, or Japanese.
-`;
-
-// 영어 텍스트 레이블 규칙 (외국인 친화적)
-const EN_TEXT_RULE = `
-TEXT LABELS (English — mandatory):
-  - Each panel: short English action verb phrase (2–4 words) in a #FFE66D pill badge at panel bottom-center.
-    Use simple, clear verbs a cooking beginner understands (e.g. "Chop onions", "Stir gently", "Heat pan").
-  - Below the 3 panels: the step instruction rewritten in plain English (max 15 words), white box with #FF6B35 border 2px.
-    • Use everyday vocabulary, no jargon.
-    • Include quantities in BOTH metric and US units where applicable (e.g. "200g / 7oz", "1 tbsp / 15ml").
-  - ALL text must be English. No Korean, Chinese, or Japanese.
-`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -218,29 +164,46 @@ STYLE: Flat design. All text Korean (한국어). No English.
 
     // ── Step-instagram (bear character, 한/영) ────────────────────────────────
     } else if (type === "step-instagram") {
-      const textRule = isEn ? EN_TEXT_RULE : KO_TEXT_RULE;
       const langNote = isEn
-        ? `NOTE: This card is for INTERNATIONAL viewers. All text must be in clear, simple English. Quantities in metric + US units.`
-        : `NOTE: This card is for Korean viewers. All text must be in Korean (한국어).`;
+        ? `TEXT LANGUAGE: English only. Quantities in metric + US units.`
+        : `TEXT LANGUAGE: Korean (한국어) only.`;
 
-      prompt = `Generate a cooking step illustration card for a recipe series.
-${STEP_DESIGN_BASE}
-${textRule}
-${langNote}
+      prompt = `You are given TWO reference images:
+  - Image 1: LAYOUT TEMPLATE — this is the EXACT card style to reproduce. Match every detail: frame border, panel arrangement, label style, arrow style, badge, progress bar, instruction box.
+  - Image 2: CHARACTER REFERENCE — use this bear chef's face, body proportions, hat, apron, and colors exactly. Do NOT alter the character design.
+
+TASK: Create one cooking step card in the IDENTICAL style as Image 1 (Layout Template).
+
+=== MATCH THESE EXACT VISUAL ELEMENTS FROM IMAGE 1 ===
+
+CANVAS: Square 1:1. Warm cream background (#FFF8F0).
+OUTER FRAME: Thick coral-orange (#FF6B35) rounded-rectangle border, ~14px, inset ~12px from edge.
+STEP BADGE: Top-left corner, circle ~60px, fill #FF6B35, white bold step number, 3px white stroke.
+THREE PANELS: Arranged horizontally, equal width, ~6px gaps. Each panel: white fill, ~10px rounded corners, thin #FF6B35 border.
+ARROWS: Simple thick coral → arrows centered between panels at mid-height.
+PANEL LABELS: At the very bottom of each panel, a rounded-rectangle pill, warm yellow (#FFE66D) fill, thin #FF6B35 border, centered text — short Korean action label (2–4자).
+BEAR IN EVERY PANEL: Bear fills ~70% of panel height, actively cooking. Identical look to Image 2.
+PROGRESS BAR: Full width inside the outer frame, just below the 3 panels. Height ~18px. Track: #FFE66D. Fill: #FF6B35. Filled = (stepNumber/totalSteps × 100)%.
+INSTRUCTION BOX: Below progress bar, inside outer frame. White/cream fill, thin #FF6B35 border, 10px radius. Korean instruction text, 1–2 lines, #1A1A1A, ~18px, center-aligned.
+
+=== CONTENT TO ILLUSTRATE ===
 
 RECIPE: "${recipeName}"
 STEP: ${stepNumber} of ${totalSteps}
 STEP TITLE: "${stepTitle}"
 INSTRUCTION: ${stepDescription}
 ${stepTime ? `TIME: ${stepTime}` : ""}
+${langNote}
 
-TASK: Illustrate this single cooking step across exactly 3 sequential panels.
-- Draw the bear chef character EXACTLY as shown in the reference image (same face, hat, apron).
-- The bear must appear in every panel actively performing the cooking action.
-- Show specific ingredients and utensils using only the locked color palette.
-- Follow all TEXT LABEL rules above precisely.
-- Fill the progress bar to ${stepNumber}/${totalSteps}.
-- Place the step number badge (${stepNumber}) at top-left.`;
+=== PANEL BREAKDOWN ===
+Divide this step into exactly 3 micro-actions shown left-to-right.
+Each panel:
+  1. Bear performing the action with appropriate utensils / ingredients.
+  2. Short action label at bottom (match the label pill style from Image 1).
+Progress bar fill = ${stepNumber}/${totalSteps}.
+Step badge number = ${stepNumber}.
+
+Do NOT invent a new card layout. Copy the structure from Image 1 exactly.`;
 
     // ── Reel thumbnail (9:16, 업로드된 음식 사진 기반) ─────────────────────────
     } else if (type === "reel-thumbnail") {
@@ -456,15 +419,18 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
       prompt = `Professional food photography of Korean dish "${recipeName}". Beautiful presentation.`;
     }
 
-    // step-instagram은 곰 캐릭터 참조 이미지를 함께 전달
+    // step-instagram: 레이아웃 템플릿(Image 1) + 곰 캐릭터 레퍼런스(Image 2) 함께 전달
     // reel-thumbnail / post-cover / post-cover-en은 업로드된 음식 사진을 함께 전달
     let contents;
     if (type === "step-instagram") {
-      const refImagePath = path.join(process.cwd(), "public", "chef-bear-reference.png");
-      const refImageBase64 = fs.readFileSync(refImagePath).toString("base64");
+      const templatePath = path.join(process.cwd(), "public", "step-card-template.jpeg");
+      const bearPath = path.join(process.cwd(), "public", "chef-bear-reference.png");
+      const templateBase64 = fs.readFileSync(templatePath).toString("base64");
+      const bearBase64 = fs.readFileSync(bearPath).toString("base64");
       contents = [{
         parts: [
-          { inlineData: { mimeType: "image/png", data: refImageBase64 } },
+          { inlineData: { mimeType: "image/jpeg", data: templateBase64 } }, // Image 1: layout
+          { inlineData: { mimeType: "image/png",  data: bearBase64 } },     // Image 2: character
           { text: prompt },
         ],
       }];
