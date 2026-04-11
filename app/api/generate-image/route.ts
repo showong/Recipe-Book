@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       stepTitle, stepDescription, stepNumber, stepTime, totalSteps,
       ingredients, steps, kickSteps, highlight,
       uploadedImageBase64, uploadedImageMimeType,
-      cookingTime, servings, taste, pairings,
+      cookingTime, servings, taste, pairings, kickPoints,
     } = await req.json();
 
     const isEn = language === "en";
@@ -292,12 +292,15 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
     - Occasion/highlight: "${highlight ?? ""}"
     - Pairings: "${pairingText}"
     - Recipe name: "${recipeName}"
+    - Kick points (what makes this recipe special): "${kickPoints ?? ""}"
   Rules for the pill text:
     - Korean only. Max 9 characters (no spaces counted). NO emoji inside the pill.
-    - Must feel like a punchy hook that instantly grabs attention.
-    - Pick the single strongest angle: taste sensation, occasion fit, or social proof.
-    - Good examples: "이 맛 실화?" / "무조건 저장" / "자취생 필수" / "한입에 반함" / "술안주 최고" / "다이어트 OK" / "손님상에 딱"
-    - BAD (too generic): "맛있어요" / "집밥으로 딱" / "추천"
+    - FOMO + CTA principle: the viewer must feel they are MISSING OUT and must act NOW.
+    - Extract the most surprising, craveable, or exclusive insight from the kick points above.
+    - Blend scarcity / urgency / crowd-proof with an irresistible CTA in ≤9 chars.
+    - Strong FOMO examples: "안 만들면 손해" / "다들 만드는 중" / "요즘 난리남" / "숨은 꿀팁" / "안 먹어봤어?"
+    - Strong CTA examples: "지금 바로 저장" / "반드시 해봐" / "오늘 꼭 도전" / "무조건 저장해"
+    - NEVER use generic phrases: "맛있어요" / "집밥으로 딱" / "추천"
 
 ⑥ BOTTOM STRIP — flush to bottom, full width, 130px tall
   Background: solid #FFE500 (warm yellow).

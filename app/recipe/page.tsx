@@ -40,8 +40,11 @@ function RecipeDetailContent() {
   const [postEnCopied, setPostEnCopied] = useState(false);
   // 릴스 썸네일
   const [reelUploadedImage, setReelUploadedImage] = useState<string | null>(null);
+  const [reelIsVideo, setReelIsVideo] = useState(false);
   const [reelThumbnail, setReelThumbnail] = useState<string | null>(null);
   const [reelThumbnailLoading, setReelThumbnailLoading] = useState(false);
+  const [reelVideoThumbnailUrl, setReelVideoThumbnailUrl] = useState<string | null>(null);
+  const [reelVideoConverting, setReelVideoConverting] = useState(false);
   // TTS (스텝별)
   const [ttsLoading, setTtsLoading] = useState<Record<number, boolean>>({});
   const [ttsAudioUrls, setTtsAudioUrls] = useState<Record<number, string>>({});
@@ -265,15 +268,87 @@ function RecipeDetailContent() {
       img.src = dataUrl;
     });
 
+  // 동영상에서 대표 프레임 추출 (JPEG base64)
+  const extractVideoFrame = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const video = document.createElement("video");
+      video.muted = true;
+      video.preload = "metadata";
+      video.onloadeddata = () => { video.currentTime = Math.min(video.duration * 0.1, 1); };
+      video.onseeked = () => {
+        const MAX = 1024;
+        const scale = Math.min(1, MAX / Math.max(video.videoWidth, video.videoHeight));
+        const w = Math.round(video.videoWidth * scale);
+        const h = Math.round(video.videoHeight * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { URL.revokeObjectURL(url); reject(new Error("canvas unavailable")); return; }
+        ctx.drawImage(video, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      video.onerror = () => { URL.revokeObjectURL(url); reject(new Error("동영상 로드 실패")); };
+      video.src = url;
+    });
+
+  // AI 썸네일 이미지로 켄번스 애니메이션 WebM 생성
+  const createAnimatedThumbnail = (imageDataUrl: string): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const W = 540, H = 960, DURATION = 5;
+      const canvas = document.createElement("canvas");
+      canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { reject(new Error("canvas unavailable")); return; }
+
+      const img = document.createElement("img");
+      img.onload = () => {
+        const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
+          .find((m) => MediaRecorder.isTypeSupported(m)) ?? "video/webm";
+        const stream = canvas.captureStream(24);
+        const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 1_500_000 });
+        const chunks: BlobPart[] = [];
+
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = () =>
+          resolve(URL.createObjectURL(new Blob(chunks, { type: mime.split(";")[0] })));
+        recorder.onerror = () => reject(new Error("MediaRecorder 오류"));
+
+        recorder.start(200);
+        const t0 = performance.now();
+        const frame = () => {
+          const elapsed = (performance.now() - t0) / 1000;
+          if (elapsed >= DURATION) { recorder.stop(); return; }
+          const p = elapsed / DURATION;
+          const scale = 1 + p * 0.06; // 켄번스: 서서히 줌인
+          ctx.save();
+          ctx.translate(W / 2, H / 2);
+          ctx.scale(scale, scale);
+          ctx.drawImage(img, -W / 2, -H / 2, W, H);
+          ctx.restore();
+          requestAnimationFrame(frame);
+        };
+        frame();
+      };
+      img.onerror = () => reject(new Error("이미지 로드 실패"));
+      img.src = imageDataUrl;
+    });
+
   const generateReelThumbnail = async () => {
     if (!recipe || !reelUploadedImage) return;
     setReelThumbnailLoading(true);
     setReelThumbnail(null);
+    setReelVideoThumbnailUrl(null);
     try {
       const matches = reelUploadedImage.match(/^data:([^;]+);base64,(.+)$/);
       if (!matches) return;
       const mimeType = matches[1];
       const base64Data = matches[2];
+      const kickPoints = recipe.steps
+        .filter((s) => s.isKick && s.kickReason)
+        .map((s) => s.kickReason)
+        .join(" / ");
       const res = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -287,12 +362,21 @@ function RecipeDetailContent() {
           servings: recipe.servings,
           taste: recipe.taste,
           pairings: recipe.pairings,
+          kickPoints,
         }),
       });
       const data = await res.json();
       if (data.imageUrl) {
         const cropped = await cropImageToRatio(data.imageUrl, 1080, 1920);
         setReelThumbnail(cropped);
+        // 동영상 업로드 시: AI 이미지로 애니메이션 WebM 생성 (백그라운드)
+        if (reelIsVideo) {
+          setReelVideoConverting(true);
+          createAnimatedThumbnail(cropped)
+            .then(setReelVideoThumbnailUrl)
+            .catch(console.error)
+            .finally(() => setReelVideoConverting(false));
+        }
       }
     } catch {
       // silently fail
@@ -444,10 +528,24 @@ function RecipeDetailContent() {
     const file = e.target.files?.[0];
     if (!file) return;
     setReelThumbnail(null);
+    setReelVideoThumbnailUrl(null);
     setPostCoverImage(null);
     setPostCoverError(null);
     setPostCoverEnImage(null);
     setPostCoverEnError(null);
+
+    const isVideo = file.type.startsWith("video/");
+    setReelIsVideo(isVideo);
+
+    if (isVideo) {
+      // 동영상: 대표 프레임 추출해서 미리보기로 사용
+      extractVideoFrame(file)
+        .then(setReelUploadedImage)
+        .catch(() => setReelUploadedImage(null));
+      return;
+    }
+
+    // 이미지: 기존 압축 로직
     const objectUrl = URL.createObjectURL(file);
     const img = document.createElement("img");
     img.onload = () => {
@@ -1026,8 +1124,8 @@ function RecipeDetailContent() {
             <div className="bg-white rounded-3xl shadow-md overflow-hidden">
               <div className="px-5 py-4"
                 style={{ background: "linear-gradient(135deg, #faf5ff, #fdf2f8)" }}>
-                <p className="text-sm font-bold text-purple-700">📸 완성된 요리 사진 업로드</p>
-                <p className="text-xs text-gray-500 mt-0.5">JPG, PNG, WEBP 등 — 직접 찍은 사진을 올려주세요</p>
+                <p className="text-sm font-bold text-purple-700">📸 완성된 요리 사진 / 동영상 업로드</p>
+                <p className="text-xs text-gray-500 mt-0.5">사진(JPG·PNG·WEBP) 또는 동영상(MP4·MOV) — 동영상은 애니메이션 썸네일로 변환돼요</p>
               </div>
               <div className="p-5">
                 <label
@@ -1043,22 +1141,27 @@ function RecipeDetailContent() {
                         className="object-cover rounded-2xl"
                         unoptimized
                       />
+                      {reelIsVideo && (
+                        <div className="absolute top-2 left-2 bg-black/70 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                          🎬 동영상
+                        </div>
+                      )}
                       <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-2xl opacity-0 hover:opacity-100 transition-opacity">
-                        <span className="text-white text-sm font-bold bg-black/50 px-3 py-1.5 rounded-full">📷 사진 변경</span>
+                        <span className="text-white text-sm font-bold bg-black/50 px-3 py-1.5 rounded-full">📷 변경</span>
                       </div>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2 py-10 text-center px-4">
                       <span className="text-5xl">📤</span>
-                      <p className="text-sm font-bold text-gray-600">여기를 눌러 사진 업로드</p>
-                      <p className="text-xs text-gray-400">완성된 {recipe.name} 사진을 선택해주세요</p>
+                      <p className="text-sm font-bold text-gray-600">여기를 눌러 사진/동영상 업로드</p>
+                      <p className="text-xs text-gray-400">완성된 {recipe.name} 사진 또는 동영상 파일</p>
                     </div>
                   )}
                 </label>
                 <input
                   id="reel-upload"
                   type="file"
-                  accept="image/*"
+                  accept="image/*,video/*"
                   className="hidden"
                   onChange={handleReelImageUpload}
                 />
@@ -1100,25 +1203,51 @@ function RecipeDetailContent() {
                   style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
                   <span className="text-white text-lg">🎬</span>
                   <p className="text-white font-extrabold text-sm">완성된 릴스 썸네일</p>
-                  <span className="ml-auto text-white/70 text-xs">9:16 세로형</span>
+                  <span className="ml-auto text-white/70 text-xs">
+                    {reelIsVideo && reelVideoThumbnailUrl ? "9:16 · 동영상" : "9:16 세로형"}
+                  </span>
                 </div>
                 <div className="relative w-full mx-auto bg-gray-900"
                   style={{ aspectRatio: "9 / 16", maxWidth: "360px" }}>
-                  <Image
-                    src={reelThumbnail}
-                    alt="릴스 썸네일"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
+                  {reelIsVideo && reelVideoThumbnailUrl ? (
+                    <video
+                      src={reelVideoThumbnailUrl}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Image
+                      src={reelThumbnail}
+                      alt="릴스 썸네일"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  )}
+                  {/* 동영상 변환 진행 중 배지 */}
+                  {reelVideoConverting && (
+                    <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-black/70 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                      <svg className="spinner w-3 h-3" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                      동영상 변환 중...
+                    </div>
+                  )}
                 </div>
                 <div className="px-5 py-4 flex gap-3"
                   style={{ background: "linear-gradient(135deg, #faf5ff, #fdf2f8)" }}>
                   <button
                     onClick={() => {
                       const a = document.createElement("a");
-                      a.href = reelThumbnail;
-                      a.download = `${recipe.name}-reel-thumbnail.png`;
+                      const useVideo = reelIsVideo && !!reelVideoThumbnailUrl;
+                      a.href = useVideo ? reelVideoThumbnailUrl! : reelThumbnail;
+                      a.download = useVideo
+                        ? `${recipe.name}-reel-thumbnail.webm`
+                        : `${recipe.name}-reel-thumbnail.png`;
                       a.click();
                     }}
                     className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
