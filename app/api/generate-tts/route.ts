@@ -26,22 +26,22 @@ async function toSpeechText(raw: string, googleApiKey: string): Promise<string> 
   const prompt = `다음 요리 레시피 조리 단계를 TTS 음성 낭독에 적합하도록 변환해 주세요.
 
 변환 목표:
-- 원문의 핵심 내용을 자연스럽게 담되, 불필요한 반복·부연 설명은 생략
-- 낭독 시 5~8초 분량 (약 60~100자)
+- 원문의 핵심 내용을 요약하고, 용량이나 시간과 같이 불필요한 반복·부연 설명은 생략
+- 낭독 시 5~8초 분량 (약 150자이내)
 
 변환 규칙:
 1. 숫자+단위 → 한국어 발음 (예: 200g → 이백 그램, 2큰술 → 두 큰술, 180°C → 백팔십 도)
 2. 특수문자 제거 또는 구어화 (예: ~ → 정도, / → 또는, → → 넣어)
 3. 자연스러운 구어체 어미 사용 (예: "~해줘요", "~하면 돼요", "~해주세요")
 4. 한국어 텍스트만 출력 (설명·번호 없이)
-
+5. 문장은 반드시 "~하세요"이나 "해주세요"로 끝맺음을 해야한다.
 원문:
 ${raw}
 
 변환된 구어체:`;
 
   const result = await callGemini(prompt, googleApiKey, 256);
-  console.log("[TTS] 구어체 변환 (길이:", result.length, "):", result.slice(0, 80));
+  console.log("[TTS] 구어체 변환 (길이:", result.length, "):", result.slice(0, 150));
   return result || raw;
 }
 
@@ -63,7 +63,7 @@ async function generateHookMentText(
 어울리는 것: ${pairings}
 
 훅 멘트 규칙:
-1. 낭독 시 3~4초 분량 (약 30~45자)
+1. 낭독 시 3~4초 분량 (약 50자)
 2. 완전한 문장 1~2개로 구성 — 단어 하나만 쓰면 안 됨
 3. FOMO + 궁금증 자극 — "이거 뭐야?", "어떻게 이래?" 반응 유도
 4. 자연스러운 구어체, 이모지 없음
