@@ -45,6 +45,7 @@ function RecipeDetailContent() {
   const [reelThumbnailLoading, setReelThumbnailLoading] = useState(false);
   const [reelVideoThumbnailUrl, setReelVideoThumbnailUrl] = useState<string | null>(null);
   const [reelVideoConverting, setReelVideoConverting] = useState(false);
+  const [reelStyleName, setReelStyleName] = useState<string | null>(null);
   // 훅 멘트 TTS
   const [hookMentLoading, setHookMentLoading] = useState(false);
   const [hookMentAudioUrl, setHookMentAudioUrl] = useState<string | null>(null);
@@ -376,6 +377,7 @@ function RecipeDetailContent() {
     setReelThumbnailLoading(true);
     setReelThumbnail(null);
     setReelVideoThumbnailUrl(null);
+    setReelStyleName(null);
     try {
       const matches = reelUploadedImage.match(/^data:([^;]+);base64,(.+)$/);
       if (!matches) return;
@@ -405,6 +407,7 @@ function RecipeDetailContent() {
       if (data.imageUrl) {
         const cropped = await cropImageToRatio(data.imageUrl, 1080, 1920);
         setReelThumbnail(cropped);
+        if (data.styleName) setReelStyleName(data.styleName);
         // 동영상 업로드 시: AI 이미지로 애니메이션 WebM 생성 (백그라운드)
         if (reelIsVideo) {
           setReelVideoConverting(true);
@@ -1276,6 +1279,11 @@ function RecipeDetailContent() {
                   style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
                   <span className="text-white text-lg">🎬</span>
                   <p className="text-white font-extrabold text-sm">완성된 릴스 썸네일</p>
+                  {reelStyleName && (
+                    <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white">
+                      ✨ {reelStyleName}
+                    </span>
+                  )}
                   <span className="ml-auto text-white/70 text-xs">
                     {reelIsVideo && reelVideoThumbnailUrl ? "9:16 · 동영상" : "9:16 세로형"}
                   </span>

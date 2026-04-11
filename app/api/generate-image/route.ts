@@ -5,6 +5,96 @@ import path from "path";
 const GEMINI_MODEL = "gemini-3.1-flash-image-preview";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
+// ── 5가지 썸네일 스타일 정의 ──────────────────────────────────────────────────
+const THUMBNAIL_STYLES = [
+  { id: 1, name: "무드 에디토리얼", file: "thumb-style-1.jpeg" },
+  { id: 2, name: "볼드 컬러 포스터", file: "thumb-style-2.jpeg" },
+  { id: 3, name: "드라마틱 클로즈업", file: "thumb-style-3.jpeg" },
+  { id: 4, name: "레시피 인포그래픽", file: "thumb-style-4.jpeg" },
+  { id: 5, name: "내추럴 오가닉", file: "thumb-style-5.jpeg" },
+] as const;
+
+function buildThumbnailPrompt(
+  styleId: number,
+  recipeName: string,
+  taste: string,
+  highlight: string,
+  kickPoints: string,
+  pairingText: string,
+): string {
+  const base = `
+You are given THREE images:
+  - Image 1: uploaded food photo
+  - Image 2: LAYOUT REFERENCE — reproduce this visual style exactly (layout, typography placement, background treatment, color mood)
+  - Image 3: oh_showong brand logo → place as specified
+
+Canvas: 9:16 vertical (1080×1920px). Recipe: "${recipeName}".
+FOMO signals — Taste: "${taste}" / Highlight: "${highlight}" / Kick: "${kickPoints}" / Pairs: "${pairingText}"
+`;
+
+  const styles: Record<number, string> = {
+    1: `${base}
+=== STYLE: 무드 에디토리얼 (Image 2 reference) ===
+BACKGROUND: Food photo fills entire canvas. Apply moody darkening — reduce brightness ~25%, subtle desaturation. Dark semi-transparent overlay (rgba 0,0,0,0.45) on lower 45%.
+LOGO (Image 3): top-right corner, 28px from edge, 110px diameter.
+BRAND HANDLE: "@oh_showong" — small coral (#FF6B35) bold text, bottom-center, above the recipe name.
+RECIPE NAME: bottom 38% of canvas. Large serif/display bold Korean font, white, 100px, left-aligned with 48px left margin. 2-line wrap allowed.
+HOOK LINE: one short line just above recipe name. White, semi-bold, 36px, opacity 0.85. Generate from FOMO signals — editorial tone, max 20 chars.
+STYLE RULE: sophisticated, minimal, editorial. NO pill badges, NO colorful overlays. Clean white type on dark photo.`,
+
+    2: `${base}
+=== STYLE: 볼드 컬러 포스터 (Image 2 reference) ===
+BACKGROUND: Do NOT use food photo as background. Solid bright warm color — choose from #FF6B35 (coral), #FF8C00 (orange), or #E63946 (red) based on food mood.
+LOGO (Image 3): bottom-right, inside a white rounded rectangle badge (14px radius), 90px logo + 12px padding.
+LAYOUT (top to bottom):
+  ① Recipe name: y=8%–28%, massive chunky sans-serif, white, 130px, center-aligned. Auto-wrap to 2 lines.
+  ② One appetizing descriptor line: white semi-bold 34px, center, y≈30%. Generate from taste/highlight, max 20 chars.
+  ③ Food photo: center of canvas (y=35%–85%), cutout style with slight drop shadow, natural circular or oval shape, slightly angled –3°.
+  ④ Brand logo badge: bottom-right, y=88%–95%.
+STYLE RULE: high-contrast bold poster. Energetic, pop-art food brand feel.`,
+
+    3: `${base}
+=== STYLE: 드라마틱 클로즈업 (Image 2 reference) ===
+BACKGROUND: Food photo fills canvas. Darken to near-black mood (brightness –35%, contrast +15%). Food is dramatically close-up, cropped to show texture.
+LOGO (Image 3): top-right corner, 28px from edge, 110px.
+TEXT BLOCK (y=48%–72%):
+  ① HOOK LINE: y≈50%, small bold white Korean, 38px, center. Generate urgent hook from FOMO signals — max 14 chars (e.g. "X분만에 완성!", "이 맛 실화?").
+  ② RECIPE NAME: y=56%–70%, HUGE bold Korean display, 140px, center. Fill: white. Stroke: 8px dark green (#1A3A0A) or black outline. 2-line wrap.
+BRAND: "@oh_showong" — very small white text, y=75%, center.
+STYLE RULE: YouTube/Shorts thumbnail energy. Maximum drama. Bold strokes on text.`,
+
+    4: `${base}
+=== STYLE: 레시피 인포그래픽 (Image 2 reference) ===
+BACKGROUND: Warm cream (#FFF5E6). No photo as background.
+LAYOUT (top to bottom):
+  ① TITLE BAR (y=0–18%): recipe name in large bold Korean, #2C1810, 90px, center. Subtitle below: taste/highlight phrase, #8B4513, 30px.
+  ② FOOD PHOTO (y=18%–55%): centered, large natural presentation, slight drop shadow.
+  ③ INGREDIENTS COLUMNS (y=55%–78%): two columns flanking a center divider line.
+     Left: "재료" header + top 3 ingredients as icon+text rows.
+     Right: "양념" header + top 3 seasoning items. Font: #2C1810, 24px.
+  ④ HIGHLIGHT BOX (y=80%–92%): full-width, background #FF6B35, white text bold 28px.
+     Text: "포인트: " + kickpoint or highlight phrase. Rounded corners 12px.
+  ⑤ Logo (Image 3): bottom-right, y=93%–99%, 80px.
+STYLE RULE: educational, structured, warm. Like a recipe card someone would save.`,
+
+    5: `${base}
+=== STYLE: 내추럴 오가닉 (Image 2 reference) ===
+BACKGROUND: Light cream/linen (#F8F5EF). Subtle paper texture feel.
+LAYOUT (top to bottom):
+  ① TOP BAR (y=0–6%): "@oh_showong" centered, small handwritten-style font, #5C4A2A, 24px.
+     Logo (Image 3): top-center or top-right, 80px.
+  ② MAIN TITLE (y=8%–42%): Large brush/calligraphy-style Korean display font.
+     Color: deep earthy green (#2D4A1E) or warm brown (#6B3A2A). 100px. Center. 2-line wrap.
+  ③ THIN DIVIDER LINE: y≈44%, horizontal, #C4B49A, full width with 40px margin.
+  ④ TAGLINE (y=46%–52%): one warm natural phrase, center, #7A6A5A, 28px italic.
+     Generate from taste/highlight/pairings — natural, non-clickbait tone, max 22 chars.
+  ⑤ FOOD PHOTO (y=48%–96%): bottom half, natural placement, slightly overlapping the tagline text. Real appetizing photo.
+  ⑥ DECORATIVE ELEMENTS: soft watercolor leaf or dot motifs at top-left and bottom-right corners.
+STYLE RULE: artisanal, farmers-market, trustworthy. Warm but sophisticated.`,
+  };
+
+  return styles[styleId] ?? styles[1];
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,6 +113,7 @@ export async function POST(req: NextRequest) {
     }
 
     let prompt = "";
+    let selectedStyle: typeof THUMBNAIL_STYLES[number] | null = null;
 
     // ── Recipe card ──────────────────────────────────────────────────────────
     if (type === "recipe-card") {
@@ -205,78 +296,22 @@ Step badge number = ${stepNumber}.
 
 Do NOT invent a new card layout. Copy the structure from Image 1 exactly.`;
 
-    // ── Reel thumbnail (9:16, 업로드된 음식 사진 기반) ─────────────────────────
+    // ── Reel thumbnail — 5가지 스타일 중 랜덤 선택 ──────────────────────────────
     } else if (type === "reel-thumbnail") {
       const pairingText = Array.isArray(pairings) && pairings.length > 0
         ? pairings.slice(0, 2).join(" · ")
         : "";
 
-      prompt = `You are given TWO images:
-  - Image 1: a food photo → use as the full-bleed background
-  - Image 2: the oh_showong brand logo (round badge with bear chef) → render it exactly as provided at the specified position
-
-Create a 9:16 vertical Instagram Reels thumbnail (1080×1920px).
-
-=== BACKGROUND ===
-Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%). Soft dark vignette at edges only. The food must be clearly visible and appetizing — especially the center zone.
-
-=== LAYER STACK ===
-
-① oh_showong LOGO (Image 2)
-  Position: top-right corner, 28px from top, 28px from right.
-  Size: 130px diameter. Render the logo exactly as provided — do not alter colors or add effects.
-
-② BRAND HANDLE — top-left, vertically aligned with the logo
-  Text: "@oh_showong"
-  Position: top-left, 42px from top, 28px from left.
-  Font: semi-bold, white, 30px, letter-spacing 1.5px, opacity 0.90.
-  Stroke: thin black outline, 2px.
-
-③ BOTTOM DARK OVERLAY — covers bottom 28% of canvas (y=72% to bottom)
-  Full-width gradient: fully transparent at y=72% → rgba(0,0,0,0.78) at y=82% and below.
-  This guarantees text legibility regardless of food photo content.
-
-④ FOOD NAME — hero text inside the dark overlay zone
-  Text: "${recipeName}"
-  Position: y-center at 80% from top. Left/right margin 44px. Auto-wrap to 2 lines if needed.
-  FONT STYLE (critical): thick, rounded, bubbly Korean display font — warm and playful, like Korean YouTube thumbnail text. NOT a corporate or geometric font.
-  Fill color: #FFE500 (bright warm yellow).
-  Stroke: thick black (#1A1A1A) outline, 7px, uniform around every character.
-  Font size: 110px. Line-height: 125px.
-  Drop shadow: 0 6px 16px rgba(0,0,0,0.60).
-
-⑤ CTA HOOK PILL — just above the bottom strip
-  Style: rounded pill, background #FFE500 (bright yellow), text color #1A1A1A (black), bold, 30px.
-  Padding: 8px 22px. Centered horizontally.
-  Position: y-center at 91% from top.
-
-  GENERATE the pill text yourself using these recipe signals:
-    - Taste: "${taste ?? ""}"
-    - Occasion/highlight: "${highlight ?? ""}"
-    - Pairings: "${pairingText}"
-    - Recipe name: "${recipeName}"
-    - Kick points (what makes this recipe special): "${kickPoints ?? ""}"
-  Rules for the pill text:
-    - Korean only. Max 9 characters (no spaces counted). NO emoji inside the pill.
-    - FOMO + CTA principle: the viewer must feel they are MISSING OUT and must act NOW.
-    - Extract the most surprising, craveable, or exclusive insight from the kick points above.
-    - Blend scarcity / urgency / crowd-proof with an irresistible CTA in ≤9 chars.
-    - Strong FOMO examples: "안 만들면 손해" / "다들 만드는 중" / "요즘 난리남" / "숨은 꿀팁" / "안 먹어봤어?"
-    - Strong CTA examples: "지금 바로 저장" / "반드시 해봐" / "오늘 꼭 도전" / "무조건 저장해"
-    - NEVER use generic phrases: "맛있어요" / "집밥으로 딱" / "추천"
-
-⑥ BOTTOM STRIP — flush to bottom, full width, 130px tall
-  Background: solid #FFE500 (warm yellow).
-  Text: "레시피 전체 보기 ▶"
-  Font: extra-bold, #1A1A1A, 40px. Horizontally + vertically centered.
-
-=== CRITICAL LAYOUT RULES ===
-- CENTER ZONE (y=10% to y=72%): COMPLETELY FREE of all text, overlays, and UI elements. Only the food photo background is visible here. Absolutely no exceptions.
-- TOP ZONE (y=0% to y=8%): ①logo (top-right) and ②handle (top-left) only.
-- BOTTOM ZONE (y=72% to y=100%): ③overlay + ④food name + ⑤CTA pill + ⑥strip only.
-- The overall feel: warm, friendly, approachable — matching the oh_showong brand (cozy home cooking).
-- NO cold/corporate vibes. Playful and energetic.
-=== END ===`;
+      // 랜덤 스타일 선택
+      selectedStyle = THUMBNAIL_STYLES[Math.floor(Math.random() * THUMBNAIL_STYLES.length)];
+      prompt = buildThumbnailPrompt(
+        selectedStyle.id,
+        recipeName,
+        taste ?? "",
+        highlight ?? "",
+        kickPoints ?? "",
+        pairingText,
+      );
 
     // ── Post cover (1:1, 업로드된 음식 사진 기반) ───────────────────────────────
     } else if (type === "post-cover") {
@@ -436,14 +471,21 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
       }];
     } else if ((type === "reel-thumbnail" || type === "post-cover" || type === "post-cover-en") && uploadedImageBase64) {
       const parts: { inlineData?: { mimeType: string; data: string }; text?: string }[] = [
-        { inlineData: { mimeType: uploadedImageMimeType ?? "image/jpeg", data: uploadedImageBase64 } },
+        { inlineData: { mimeType: uploadedImageMimeType ?? "image/jpeg", data: uploadedImageBase64 } }, // Image 1: food photo
       ];
-      // 로고 파일이 있으면 함께 전달
+      // reel-thumbnail: 스타일 레퍼런스를 Image 2로 삽입
+      if (type === "reel-thumbnail" && selectedStyle) {
+        const styleRefPath = path.join(process.cwd(), "public", selectedStyle.file);
+        if (fs.existsSync(styleRefPath)) {
+          parts.push({ inlineData: { mimeType: "image/jpeg", data: fs.readFileSync(styleRefPath).toString("base64") } }); // Image 2: style ref
+        }
+      }
+      // 로고 파일이 있으면 다음 Image로 전달
       for (const ext of ["png", "jpg", "jpeg", "webp"]) {
         const logoPath = path.join(process.cwd(), "public", `oh_showong_logo.${ext}`);
         if (fs.existsSync(logoPath)) {
           const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext}`;
-          parts.push({ inlineData: { mimeType: mime, data: fs.readFileSync(logoPath).toString("base64") } });
+          parts.push({ inlineData: { mimeType: mime, data: fs.readFileSync(logoPath).toString("base64") } }); // Image 3: logo
           break;
         }
       }
@@ -476,7 +518,10 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
     }
 
     const { mimeType, data: base64 } = imagePart.inlineData;
-    return NextResponse.json({ imageUrl: `data:${mimeType};base64,${base64}` });
+    return NextResponse.json({
+      imageUrl: `data:${mimeType};base64,${base64}`,
+      styleName: selectedStyle?.name ?? null,
+    });
 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
