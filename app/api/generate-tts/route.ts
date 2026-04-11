@@ -24,10 +24,10 @@ async function callGemini(prompt: string, googleApiKey: string, maxTokens = 80):
 // ── 레시피 단계 텍스트 → 3초 이내 핵심 구어체 압축 ────────────────────────────
 async function toSpeechText(raw: string, googleApiKey: string): Promise<string> {
   const prompt = `다음 요리 레시피 조리 단계에서 가장 핵심이 되는 동작 하나만 골라서,
-3초 이내(약 15~22자)에 읽을 수 있는 자연스러운 한국어 구어체 한 문장으로 압축해 주세요.
+5초 이내(약 15~22자)에 읽을 수 있는 자연스러운 한국어 구어체 세 문장으로 압축해 주세요.
 
 압축 규칙:
-1. 핵심 동작 딱 하나만 — 부가 설명, 팁, 시간, 분량 제거
+1. 핵심 동작 딱 하나만 
 2. 22자 이내 (공백 포함)
 3. 숫자+단위 → 한국어 발음 (200g → 이백 그램, 3분 → 삼 분)
 4. 자연스러운 구어체 (예: "~해줘", "~하면 돼", "~해요")
