@@ -127,7 +127,7 @@ async function callTypecastTts(
       output: {
         audio_format: "mp3",
         audio_pitch: 0,
-        audio_tempo: 1.0,
+        audio_tempo: 1.3,
         volume: 100,
       },
     }),
