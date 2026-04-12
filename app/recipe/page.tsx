@@ -1550,7 +1550,7 @@ function RecipeDetailContent() {
             )}
 
             {/* ── 음성 파일 일괄 다운로드 ── */}
-            {Object.keys(ttsAudioUrls).length > 0 && (
+            {(Object.keys(ttsAudioUrls).length > 0 || !!hookMentAudioUrl) && (
               <div className="bg-white rounded-3xl shadow-md overflow-hidden">
                 <div className="px-5 py-4 flex items-center gap-2"
                   style={{ background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)" }}>
@@ -1558,30 +1558,37 @@ function RecipeDetailContent() {
                   <div>
                     <p className="text-sm font-bold text-sky-700">음성 파일 일괄 다운로드</p>
                     <p className="text-xs text-gray-500">
-                      생성된 단계별 MP3 파일을 한 번에 저장하세요
+                      단계별 MP3{hookMentAudioUrl ? " + 3초 훅 멘트" : ""}를 한 번에 저장하세요
                     </p>
                   </div>
                   <span className="ml-auto text-xs font-semibold text-sky-600 bg-sky-100 px-2.5 py-1 rounded-full">
-                    {Object.keys(ttsAudioUrls).length}개
+                    {Object.keys(ttsAudioUrls).length + (hookMentAudioUrl ? 1 : 0)}개
                   </span>
                 </div>
                 <div className="p-5">
                   <button
                     onClick={() => {
+                      const files: { url: string; name: string }[] = [];
+                      if (hookMentAudioUrl) {
+                        files.push({ url: hookMentAudioUrl, name: `${recipe.name}-00-hook-ment.mp3` });
+                      }
                       Object.entries(ttsAudioUrls)
                         .sort(([a], [b]) => Number(a) - Number(b))
-                        .forEach(([num, url], idx) => {
-                          setTimeout(() => {
-                            const a = document.createElement("a");
-                            a.href = url;
-                            a.download = `${recipe.name}-step${num}-voice.mp3`;
-                            a.click();
-                          }, idx * 400);
+                        .forEach(([num, url]) => {
+                          files.push({ url, name: `${recipe.name}-step${num}-voice.mp3` });
                         });
+                      files.forEach(({ url, name }, idx) => {
+                        setTimeout(() => {
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = name;
+                          a.click();
+                        }, idx * 400);
+                      });
                     }}
                     className="w-full py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90 active:scale-95"
                     style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
-                    ⬇️ 음성 파일 전체 다운로드 ({Object.keys(ttsAudioUrls).length}개)
+                    ⬇️ 음성 파일 전체 다운로드 ({Object.keys(ttsAudioUrls).length + (hookMentAudioUrl ? 1 : 0)}개)
                   </button>
                 </div>
               </div>
