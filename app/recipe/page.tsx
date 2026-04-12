@@ -55,8 +55,12 @@ function RecipeDetailContent() {
   // 릴스 최종 편집 영상
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
   const [finalVideoExt, setFinalVideoExt] = useState<"mp4" | "webm">("mp4");
+  const [finalVideoBlob, setFinalVideoBlob] = useState<Blob | null>(null);
   const [finalVideoLoading, setFinalVideoLoading] = useState(false);
   const [finalVideoProgress, setFinalVideoProgress] = useState(0);
+  // Telegram 전송 상태
+  const [telegramStatus, setTelegramStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [telegramError, setTelegramError] = useState<string | null>(null);
   // TTS (스텝별)
   const [ttsLoading, setTtsLoading] = useState<Record<number, boolean>>({});
   const [ttsAudioUrls, setTtsAudioUrls] = useState<Record<number, string>>({});
@@ -628,13 +632,40 @@ function RecipeDetailContent() {
     setHookMentVideoUrl(URL.createObjectURL(file));
   };
 
+  // ── Telegram 전송 ─────────────────────────────────────────────────────────────
+  const sendToTelegram = async (blob: Blob, ext: string) => {
+    setTelegramStatus("sending");
+    setTelegramError(null);
+    try {
+      const fd = new FormData();
+      fd.append("video", blob, `${recipe?.name ?? "reels"}.${ext}`);
+      if (instagramPost)   fd.append("postText", instagramPost);
+      else if (instagramPostEn) fd.append("postText", instagramPostEn);
+
+      const res  = await fetch("/api/send-telegram", { method: "POST", body: fd });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setTelegramStatus("error");
+        setTelegramError(data.error ?? "전송 실패");
+      } else {
+        setTelegramStatus("done");
+      }
+    } catch (e) {
+      setTelegramStatus("error");
+      setTelegramError(e instanceof Error ? e.message : "네트워크 오류");
+    }
+  };
+
   // ── 릴스 최종 영상 편집 ───────────────────────────────────────────────────────
   const createFinalVideo = async () => {
     if (!recipe) return;
     setFinalVideoLoading(true);
     setFinalVideoProgress(0);
+    setTelegramStatus("idle");
+    setTelegramError(null);
     if (finalVideoUrl) URL.revokeObjectURL(finalVideoUrl);
     setFinalVideoUrl(null);
+    setFinalVideoBlob(null);
 
     const CANVAS_W  = 1080;
     const CANVAS_H  = 1920;
@@ -880,8 +911,12 @@ function RecipeDetailContent() {
 
       const blob = new Blob(chunks, { type: mimeType });
       setFinalVideoUrl(URL.createObjectURL(blob));
+      setFinalVideoBlob(blob);
       setFinalVideoProgress(100);
       await audioCtx.close();
+
+      // ── Telegram 자동 전송 ───────────────────────────────────────────────
+      void sendToTelegram(blob, ext);
 
     } catch (err) {
       console.error("[Video edit]", err instanceof Error ? err.message : String(err));
@@ -2022,6 +2057,38 @@ function RecipeDetailContent() {
                         style={{ borderColor: "#4f46e5", color: "#4f46e5" }}>
                         🔄 재편집
                       </button>
+                    </div>
+                    {/* Telegram 전송 상태 */}
+                    <div className="px-5 pb-4">
+                      {telegramStatus === "sending" && (
+                        <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 rounded-2xl px-4 py-3">
+                          <svg className="spinner w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                          </svg>
+                          <span>Telegram으로 전송 중...</span>
+                        </div>
+                      )}
+                      {telegramStatus === "done" && (
+                        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-2xl px-4 py-3">
+                          <span>✅</span>
+                          <span>Telegram 전송 완료!</span>
+                        </div>
+                      )}
+                      {telegramStatus === "error" && (
+                        <div className="space-y-2">
+                          <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 rounded-2xl px-4 py-3">
+                            <span className="shrink-0">⚠️</span>
+                            <span>{telegramError ?? "Telegram 전송 실패"}</span>
+                          </div>
+                          <button
+                            onClick={() => finalVideoBlob && sendToTelegram(finalVideoBlob, finalVideoExt)}
+                            className="w-full py-2.5 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
+                            style={{ background: "linear-gradient(135deg, #0088cc, #0066aa)" }}>
+                            ✈️ Telegram 재전송
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
