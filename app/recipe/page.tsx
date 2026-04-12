@@ -639,7 +639,7 @@ function RecipeDetailContent() {
     const CANVAS_H  = 960;
     const IMG_SIZE  = 540;                          // 1:1 이미지 (가로 꽉 채움)
     const BLACK_ALL = CANVAS_H - IMG_SIZE;          // 총 검은 공간 420px
-    const TOP_BLACK = Math.round(BLACK_ALL * 0.2);  // 상단 20% = 84px
+    const TOP_BLACK = Math.round(BLACK_ALL * 0.3);  // 상단 30% = 126px
     const IMG_Y     = TOP_BLACK;                    // 이미지 시작 Y = 84
     const SUB_TOP   = IMG_Y + IMG_SIZE + 20;        // 자막 시작 Y = 644
     const GAP_DUR   = 0.3;                          // 단계 사이 무음 간격(초)
@@ -671,7 +671,7 @@ function RecipeDetailContent() {
           sw * scale, sh * scale);
       };
 
-      // 가로 꽉 채움 + 상단 20% / 하단 80% 검은 공간 + 자막 (1:1 조리 단계 이미지용)
+      // 가로 꽉 채움 + 상단 30% / 하단 70% 검은 공간 + 자막 (1:1 조리 단계 이미지용)
       const drawStepFrame = (
         c: CanvasRenderingContext2D,
         img: HTMLImageElement,
@@ -679,7 +679,7 @@ function RecipeDetailContent() {
       ) => {
         c.fillStyle = "#000";
         c.fillRect(0, 0, CANVAS_W, CANVAS_H);
-        // 이미지: 상단 84px 검은 공간 이후 배치 (가로 꽉 채움)
+        // 이미지: 상단 126px 검은 공간 이후 배치 (가로 꽉 채움)
         c.drawImage(img, 0, IMG_Y, CANVAS_W, IMG_SIZE);
 
         // 자막 영역: IMG_SIZE 아래 검은 공간
@@ -783,21 +783,14 @@ function RecipeDetailContent() {
         // TTS 생성 시 압축된 구어체 텍스트 우선, 없으면 원본 설명 fallback
         const subtitle = ttsTexts[step.number] ?? step.description ?? "";
 
-        // 조리 단계 세그먼트
+        // 조리 단계 세그먼트 (마지막 아닌 경우 GAP_DUR 연장 — 이미지 유지, 오디오만 무음)
+        const isLast = i === steps.length - 1;
+        const segDur = audioBuf.duration + (isLast ? 0 : GAP_DUR);
         segs.push({
-          start: cursor, dur: audioBuf.duration, audioBuf,
+          start: cursor, dur: segDur, audioBuf,
           draw: (c) => drawStepFrame(c, img, subtitle),
         });
-        cursor += audioBuf.duration;
-
-        // 단계 사이 0.3s 무음 간격 (마지막 단계 제외)
-        if (i < steps.length - 1) {
-          segs.push({
-            start: cursor, dur: GAP_DUR,
-            draw: (c) => { c.fillStyle = "#000"; c.fillRect(0, 0, CANVAS_W, CANVAS_H); },
-          });
-          cursor += GAP_DUR;
-        }
+        cursor += segDur;
       }
 
       // ── 3. 엔딩: 재료 이미지 1초 + 성공포인트 이미지 1초 ──────────────────
