@@ -54,6 +54,7 @@ function RecipeDetailContent() {
   const [hookMentVideoUrl, setHookMentVideoUrl] = useState<string | null>(null);
   // 릴스 최종 편집 영상
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
+  const [finalVideoExt, setFinalVideoExt] = useState<"mp4" | "webm">("mp4");
   const [finalVideoLoading, setFinalVideoLoading] = useState(false);
   const [finalVideoProgress, setFinalVideoProgress] = useState(0);
   // TTS (스텝별)
@@ -823,8 +824,11 @@ function RecipeDetailContent() {
         ...dest.stream.getAudioTracks(),
       ]);
       const mimeType =
-        ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"]
+        ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4;codecs=avc1", "video/mp4",
+         "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"]
           .find(m => MediaRecorder.isTypeSupported(m)) ?? "video/webm";
+      const ext = mimeType.startsWith("video/mp4") ? "mp4" : "webm";
+      setFinalVideoExt(ext);
       const recorder = new MediaRecorder(combined, { mimeType, videoBitsPerSecond: 2_500_000 });
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
@@ -2004,7 +2008,7 @@ function RecipeDetailContent() {
                         onClick={() => {
                           const a = document.createElement("a");
                           a.href = finalVideoUrl;
-                          a.download = `${recipe.name}-reels.webm`;
+                          a.download = `${recipe.name}-reels.${finalVideoExt}`;
                           a.click();
                         }}
                         className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
