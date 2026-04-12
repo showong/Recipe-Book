@@ -633,11 +633,14 @@ function RecipeDetailContent() {
     if (finalVideoUrl) URL.revokeObjectURL(finalVideoUrl);
     setFinalVideoUrl(null);
 
-    const CANVAS_W = 540;
-    const CANVAS_H = 960;
+    const CANVAS_W  = 540;
+    const CANVAS_H  = 960;
+    const IMG_SIZE  = 540;          // 1:1 이미지 영역 (가로 꽉 채움)
+    const SUB_TOP   = IMG_SIZE + 20; // 자막 시작 Y
+    const GAP_DUR   = 0.3;          // 단계 사이 무음 간격(초)
 
     try {
-      // helpers
+      // ── helpers ────────────────────────────────────────────────────────────
       const loadImg = (src: string): Promise<HTMLImageElement> =>
         new Promise((res, rej) => {
           const el = new window.Image();
@@ -651,6 +654,7 @@ function RecipeDetailContent() {
         return ctx.decodeAudioData(buf);
       };
 
+      // 9:16 전체 채우기 (훅멘트 / 엔딩 슬라이드용)
       const fillCover = (c: CanvasRenderingContext2D, src: HTMLImageElement | HTMLVideoElement) => {
         const sw = src instanceof HTMLVideoElement ? src.videoWidth  : src.naturalWidth;
         const sh = src instanceof HTMLVideoElement ? src.videoHeight : src.naturalHeight;
@@ -662,15 +666,63 @@ function RecipeDetailContent() {
           sw * scale, sh * scale);
       };
 
+      // 가로 꽉 채움 + 하단 자막 공간 확보 (1:1 조리 단계 이미지용)
+      const drawStepFrame = (
+        c: CanvasRenderingContext2D,
+        img: HTMLImageElement,
+        subtitle: string,
+      ) => {
+        c.fillStyle = "#000";
+        c.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        // 이미지: 가로=CANVAS_W, 세로=IMG_SIZE (1:1이므로 동일)
+        c.drawImage(img, 0, 0, CANVAS_W, IMG_SIZE);
+
+        // 자막 영역: IMG_SIZE 아래 검은 공간
+        if (!subtitle) return;
+        const FONT_SIZE = 26;
+        const LINE_H    = FONT_SIZE + 10;
+        const PAD       = 28;
+        const MAX_W     = CANVAS_W - PAD * 2;
+        c.font = `bold ${FONT_SIZE}px 'Noto Sans KR', sans-serif`;
+        c.fillStyle = "#ffffff";
+        c.textAlign  = "center";
+        c.textBaseline = "top";
+
+        // 한 글자씩 너비 계산하며 줄 나눔
+        const lines: string[] = [];
+        let line = "";
+        for (const ch of subtitle) {
+          if (c.measureText(line + ch).width > MAX_W && line) {
+            lines.push(line);
+            line = ch;
+          } else {
+            line += ch;
+          }
+        }
+        if (line) lines.push(line);
+
+        const totalH = lines.length * LINE_H;
+        const startY = SUB_TOP + Math.max(0, (CANVAS_H - SUB_TOP - totalH) / 2 - 20);
+        lines.forEach((l, i) => c.fillText(l, CANVAS_W / 2, startY + i * LINE_H));
+      };
+
+      // 엔딩 이미지 슬라이드 (정사각형 → 가로 꽉 채움, 자막 없음)
+      const drawEndingFrame = (c: CanvasRenderingContext2D, img: HTMLImageElement) => {
+        c.fillStyle = "#000";
+        c.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        c.drawImage(img, 0, 0, CANVAS_W, IMG_SIZE);
+      };
+
+      // ── AudioContext ───────────────────────────────────────────────────────
       const audioCtx = new AudioContext();
-      const dest = audioCtx.createMediaStreamDestination();
+      const dest     = audioCtx.createMediaStreamDestination();
 
       type DrawFn = (c: CanvasRenderingContext2D) => void;
       interface Seg { start: number; dur: number; draw: DrawFn; audioBuf?: AudioBuffer; }
       const segs: Seg[] = [];
       let cursor = 0;
 
-      // 훅 멘트 영상 엘리먼트 준비
+      // ── 훅 멘트 영상 준비 ──────────────────────────────────────────────────
       let hookVidEl: HTMLVideoElement | null = null;
       if (hookMentVideoUrl) {
         hookVidEl = document.createElement("video");
@@ -684,7 +736,7 @@ function RecipeDetailContent() {
         });
       }
 
-      // 1. 훅 멘트 섹션
+      // ── 1. 훅 멘트 섹션 ───────────────────────────────────────────────────
       if (hookMentAudioUrl) {
         const audioBuf = await decodeAudio(hookMentAudioUrl, audioCtx);
         const hookDur  = audioBuf.duration;
@@ -692,7 +744,6 @@ function RecipeDetailContent() {
         const vidDur   = hookDur - thumbDur;
         const thumbImg = reelThumbnail ? await loadImg(reelThumbnail) : null;
 
-        // 1a. 썸네일 1초
         segs.push({
           start: cursor, dur: thumbDur, audioBuf,
           draw: (c) => {
@@ -702,7 +753,6 @@ function RecipeDetailContent() {
         });
         cursor += thumbDur;
 
-        // 1b. 영상 클립 (남은 시간)
         if (vidDur > 0) {
           segs.push({
             start: cursor, dur: vidDur,
@@ -716,32 +766,55 @@ function RecipeDetailContent() {
         }
       }
 
-      // 2. 단계별 조리 섹션
+      // ── 2. 단계별 조리 섹션 (간격 + 자막 + letterbox) ─────────────────────
       const steps = [...recipe.steps]
         .filter(s => stepImages[s.number] && ttsAudioUrls[s.number])
         .sort((a, b) => a.number - b.number);
 
-      for (const step of steps) {
+      for (let i = 0; i < steps.length; i++) {
+        const step     = steps[i];
         const audioBuf = await decodeAudio(ttsAudioUrls[step.number], audioCtx);
         const img      = await loadImg(stepImages[step.number]);
+        const subtitle = step.description ?? "";
+
+        // 조리 단계 세그먼트
         segs.push({
           start: cursor, dur: audioBuf.duration, audioBuf,
-          draw: (c) => {
-            c.fillStyle = "#000"; c.fillRect(0, 0, CANVAS_W, CANVAS_H);
-            fillCover(c, img);
-          },
+          draw: (c) => drawStepFrame(c, img, subtitle),
         });
         cursor += audioBuf.duration;
+
+        // 단계 사이 0.3s 무음 간격 (마지막 단계 제외)
+        if (i < steps.length - 1) {
+          segs.push({
+            start: cursor, dur: GAP_DUR,
+            draw: (c) => { c.fillStyle = "#000"; c.fillRect(0, 0, CANVAS_W, CANVAS_H); },
+          });
+          cursor += GAP_DUR;
+        }
+      }
+
+      // ── 3. 엔딩: 재료 이미지 1초 + 성공포인트 이미지 1초 ──────────────────
+      const endingSlides: HTMLImageElement[] = [];
+      if (ingredientsImage) endingSlides.push(await loadImg(ingredientsImage));
+      if (kickInstagramImage) endingSlides.push(await loadImg(kickInstagramImage));
+
+      for (const slide of endingSlides) {
+        segs.push({
+          start: cursor, dur: 1,
+          draw: (c) => drawEndingFrame(c, slide),
+        });
+        cursor += 1;
       }
 
       const totalDur = cursor;
       if (totalDur === 0) throw new Error("편집할 콘텐츠가 없습니다. 음성 파일을 먼저 생성해주세요.");
 
-      // 캔버스 + 레코더 준비
+      // ── 캔버스 + 레코더 ────────────────────────────────────────────────────
       const canvas = document.createElement("canvas");
       canvas.width  = CANVAS_W;
       canvas.height = CANVAS_H;
-      const ctx2d = canvas.getContext("2d")!;
+      const ctx2d   = canvas.getContext("2d")!;
       ctx2d.fillStyle = "#000";
       ctx2d.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
@@ -757,7 +830,7 @@ function RecipeDetailContent() {
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
 
-      // 오디오 스케줄
+      // ── 오디오 스케줄 ─────────────────────────────────────────────────────
       await audioCtx.resume();
       const START_DELAY = 0.2;
       const t0 = audioCtx.currentTime + START_DELAY;
@@ -777,7 +850,7 @@ function RecipeDetailContent() {
         setTimeout(() => hookVidEl!.play().catch(() => {}), (START_DELAY + thumbDur) * 1000);
       }
 
-      // 녹화 시작 + 애니메이션
+      // ── 애니메이션 + 녹화 ─────────────────────────────────────────────────
       recorder.start(100);
 
       await new Promise<void>((resolve) => {
@@ -1873,10 +1946,18 @@ function RecipeDetailContent() {
                     <div className="flex items-start gap-2 text-xs text-gray-600">
                       <span className="mt-0.5 w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center flex-shrink-0 font-bold text-[10px]">{hookMentAudioUrl ? 2 : 1}</span>
                       <span>
-                        <strong>조리 단계</strong> — 이미지+음성 생성된 {Object.keys(ttsAudioUrls).filter(n => stepImages[Number(n)]).length}개 단계
+                        <strong>조리 단계</strong> — 이미지+음성 생성된 {Object.keys(ttsAudioUrls).filter(n => stepImages[Number(n)]).length}개 단계 (단계 사이 0.3초 간격 · 하단 자막 포함)
                         {Object.keys(ttsAudioUrls).filter(n => !stepImages[Number(n)]).length > 0 && (
                           <span className="text-gray-400 ml-1">(카드 이미지 없는 단계는 제외)</span>
                         )}
+                      </span>
+                    </div>
+                  )}
+                  {(ingredientsImage || kickInstagramImage) && (
+                    <div className="flex items-start gap-2 text-xs text-gray-600">
+                      <span className="mt-0.5 w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center flex-shrink-0 font-bold text-[10px]">{(hookMentAudioUrl ? 1 : 0) + (Object.keys(ttsAudioUrls).length > 0 ? 1 : 0) + 1}</span>
+                      <span>
+                        <strong>마무리</strong> —{ingredientsImage ? " 재료 이미지 1초" : ""}{ingredientsImage && kickInstagramImage ? " +" : ""}{kickInstagramImage ? " 성공포인트 1초" : ""}
                       </span>
                     </div>
                   )}
