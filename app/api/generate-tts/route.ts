@@ -112,6 +112,7 @@ async function generateHookMentText(
 async function callTypecastTts(
   speechText: string,
   typecastKey: string,
+  extraData: Record<string, unknown> = {},
 ): Promise<NextResponse> {
   const ttsRes = await fetch(TTS_ENDPOINT, {
     method: "POST",
@@ -152,7 +153,7 @@ async function callTypecastTts(
       binary += String.fromCharCode(...bytes.slice(i, i + CHUNK));
     }
     const mimeType = contentType.split(";")[0].trim();
-    return NextResponse.json({ audioUrl: `data:${mimeType};base64,${btoa(binary)}` });
+    return NextResponse.json({ audioUrl: `data:${mimeType};base64,${btoa(binary)}`, ...extraData });
   }
 
   // JSON 응답 (폴링 방식 fallback)
@@ -160,7 +161,7 @@ async function callTypecastTts(
   const result = (json?.result ?? json) as Record<string, unknown>;
 
   if (result?.audio_download_url) {
-    return NextResponse.json({ audioUrl: result.audio_download_url });
+    return NextResponse.json({ audioUrl: result.audio_download_url, ...extraData });
   }
 
   const speakUrl = (result?.speak_v2_url ?? json?.speak_v2_url) as string | undefined;
@@ -175,7 +176,7 @@ async function callTypecastTts(
     const pd = await pollRes.json() as Record<string, unknown>;
     const r2 = (pd?.result ?? pd) as Record<string, unknown>;
     if (r2?.status === "done" && r2?.audio_download_url) {
-      return NextResponse.json({ audioUrl: r2.audio_download_url });
+      return NextResponse.json({ audioUrl: r2.audio_download_url, ...extraData });
     }
     if (r2?.status === "error") {
       return NextResponse.json({ error: "Typecast 변환 실패" });
@@ -235,7 +236,7 @@ export async function POST(req: NextRequest) {
     }
 
     const speechText = await toSpeechText(text, googleKey);
-    return callTypecastTts(speechText, typecastKey);
+    return callTypecastTts(speechText, typecastKey, { speechText });
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

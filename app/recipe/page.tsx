@@ -59,6 +59,7 @@ function RecipeDetailContent() {
   // TTS (스텝별)
   const [ttsLoading, setTtsLoading] = useState<Record<number, boolean>>({});
   const [ttsAudioUrls, setTtsAudioUrls] = useState<Record<number, string>>({});
+  const [ttsTexts, setTtsTexts] = useState<Record<number, string>>({});
   const [ttsErrors, setTtsErrors] = useState<Record<number, string>>({});
   // 게시글 커버 이미지 (1:1)
   const [postCoverImage, setPostCoverImage] = useState<string | null>(null);
@@ -567,6 +568,7 @@ function RecipeDetailContent() {
         setTtsErrors((p) => ({ ...p, [num]: data.error }));
       } else {
         setTtsAudioUrls((p) => ({ ...p, [num]: data.audioUrl }));
+        if (data.speechText) setTtsTexts((p) => ({ ...p, [num]: data.speechText }));
       }
     } catch (err) {
       setTtsErrors((p) => ({ ...p, [num]: err instanceof Error ? err.message : "음성 생성 실패" }));
@@ -635,9 +637,12 @@ function RecipeDetailContent() {
 
     const CANVAS_W  = 540;
     const CANVAS_H  = 960;
-    const IMG_SIZE  = 540;          // 1:1 이미지 영역 (가로 꽉 채움)
-    const SUB_TOP   = IMG_SIZE + 20; // 자막 시작 Y
-    const GAP_DUR   = 0.3;          // 단계 사이 무음 간격(초)
+    const IMG_SIZE  = 540;                          // 1:1 이미지 (가로 꽉 채움)
+    const BLACK_ALL = CANVAS_H - IMG_SIZE;          // 총 검은 공간 420px
+    const TOP_BLACK = Math.round(BLACK_ALL * 0.2);  // 상단 20% = 84px
+    const IMG_Y     = TOP_BLACK;                    // 이미지 시작 Y = 84
+    const SUB_TOP   = IMG_Y + IMG_SIZE + 20;        // 자막 시작 Y = 644
+    const GAP_DUR   = 0.3;                          // 단계 사이 무음 간격(초)
 
     try {
       // ── helpers ────────────────────────────────────────────────────────────
@@ -666,7 +671,7 @@ function RecipeDetailContent() {
           sw * scale, sh * scale);
       };
 
-      // 가로 꽉 채움 + 하단 자막 공간 확보 (1:1 조리 단계 이미지용)
+      // 가로 꽉 채움 + 상단 20% / 하단 80% 검은 공간 + 자막 (1:1 조리 단계 이미지용)
       const drawStepFrame = (
         c: CanvasRenderingContext2D,
         img: HTMLImageElement,
@@ -674,8 +679,8 @@ function RecipeDetailContent() {
       ) => {
         c.fillStyle = "#000";
         c.fillRect(0, 0, CANVAS_W, CANVAS_H);
-        // 이미지: 가로=CANVAS_W, 세로=IMG_SIZE (1:1이므로 동일)
-        c.drawImage(img, 0, 0, CANVAS_W, IMG_SIZE);
+        // 이미지: 상단 84px 검은 공간 이후 배치 (가로 꽉 채움)
+        c.drawImage(img, 0, IMG_Y, CANVAS_W, IMG_SIZE);
 
         // 자막 영역: IMG_SIZE 아래 검은 공간
         if (!subtitle) return;
@@ -706,11 +711,11 @@ function RecipeDetailContent() {
         lines.forEach((l, i) => c.fillText(l, CANVAS_W / 2, startY + i * LINE_H));
       };
 
-      // 엔딩 이미지 슬라이드 (정사각형 → 가로 꽉 채움, 자막 없음)
+      // 엔딩 이미지 슬라이드 (정사각형 → 상단 84px 여백 후 배치)
       const drawEndingFrame = (c: CanvasRenderingContext2D, img: HTMLImageElement) => {
         c.fillStyle = "#000";
         c.fillRect(0, 0, CANVAS_W, CANVAS_H);
-        c.drawImage(img, 0, 0, CANVAS_W, IMG_SIZE);
+        c.drawImage(img, 0, IMG_Y, CANVAS_W, IMG_SIZE);
       };
 
       // ── AudioContext ───────────────────────────────────────────────────────
@@ -775,7 +780,8 @@ function RecipeDetailContent() {
         const step     = steps[i];
         const audioBuf = await decodeAudio(ttsAudioUrls[step.number], audioCtx);
         const img      = await loadImg(stepImages[step.number]);
-        const subtitle = step.description ?? "";
+        // TTS 생성 시 압축된 구어체 텍스트 우선, 없으면 원본 설명 fallback
+        const subtitle = ttsTexts[step.number] ?? step.description ?? "";
 
         // 조리 단계 세그먼트
         segs.push({
