@@ -636,13 +636,14 @@ function RecipeDetailContent() {
     if (finalVideoUrl) URL.revokeObjectURL(finalVideoUrl);
     setFinalVideoUrl(null);
 
-    const CANVAS_W  = 540;
-    const CANVAS_H  = 960;
-    const IMG_SIZE  = 540;                          // 1:1 이미지 (가로 꽉 채움)
-    const BLACK_ALL = CANVAS_H - IMG_SIZE;          // 총 검은 공간 420px
-    const TOP_BLACK = Math.round(BLACK_ALL * 0.3);  // 상단 30% = 126px
-    const IMG_Y     = TOP_BLACK;                    // 이미지 시작 Y = 84
-    const SUB_TOP   = IMG_Y + IMG_SIZE + 20;        // 자막 시작 Y = 644
+    const CANVAS_W  = 1080;
+    const CANVAS_H  = 1920;
+    const IMG_SIZE  = 1080;                          // 1:1 이미지 (가로 꽉 채움)
+    const SCALE     = CANVAS_W / 540;                // 기준(540p) 대비 배율 = 2
+    const BLACK_ALL = CANVAS_H - IMG_SIZE;          // 총 검은 공간 840px
+    const TOP_BLACK = Math.round(BLACK_ALL * 0.3);  // 상단 30% = 252px
+    const IMG_Y     = TOP_BLACK;                    // 이미지 시작 Y
+    const SUB_TOP   = IMG_Y + IMG_SIZE + Math.round(20 * SCALE); // 자막 시작 Y
     const GAP_DUR   = 0.3;                          // 단계 사이 무음 간격(초)
 
     try {
@@ -685,9 +686,9 @@ function RecipeDetailContent() {
 
         // 자막 영역: IMG_SIZE 아래 검은 공간
         if (!subtitle) return;
-        const FONT_SIZE = 26;
-        const LINE_H    = FONT_SIZE + 10;
-        const PAD       = 28;
+        const FONT_SIZE = Math.round(26 * SCALE);
+        const LINE_H    = FONT_SIZE + Math.round(10 * SCALE);
+        const PAD       = Math.round(28 * SCALE);
         const MAX_W     = CANVAS_W - PAD * 2;
         c.font = `bold ${FONT_SIZE}px 'Noto Sans KR', sans-serif`;
         c.fillStyle = "#ffffff";
@@ -708,7 +709,7 @@ function RecipeDetailContent() {
         if (line) lines.push(line);
 
         const totalH = lines.length * LINE_H;
-        const startY = SUB_TOP + Math.max(0, (CANVAS_H - SUB_TOP - totalH) / 2 - 20);
+        const startY = SUB_TOP + Math.max(0, (CANVAS_H - SUB_TOP - totalH) / 2 - Math.round(20 * SCALE));
         lines.forEach((l, i) => c.fillText(l, CANVAS_W / 2, startY + i * LINE_H));
       };
 
@@ -829,7 +830,7 @@ function RecipeDetailContent() {
           .find(m => MediaRecorder.isTypeSupported(m)) ?? "video/webm";
       const ext = mimeType.startsWith("video/mp4") ? "mp4" : "webm";
       setFinalVideoExt(ext);
-      const recorder = new MediaRecorder(combined, { mimeType, videoBitsPerSecond: 2_500_000 });
+      const recorder = new MediaRecorder(combined, { mimeType, videoBitsPerSecond: 8_000_000 });
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
 
