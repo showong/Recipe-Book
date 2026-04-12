@@ -50,6 +50,12 @@ function RecipeDetailContent() {
   const [hookMentLoading, setHookMentLoading] = useState(false);
   const [hookMentAudioUrl, setHookMentAudioUrl] = useState<string | null>(null);
   const [hookMentError, setHookMentError] = useState<string | null>(null);
+  // 훅 멘트 영상 클립 (영상 편집용)
+  const [hookMentVideoUrl, setHookMentVideoUrl] = useState<string | null>(null);
+  // 릴스 최종 편집 영상
+  const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
+  const [finalVideoLoading, setFinalVideoLoading] = useState(false);
+  const [finalVideoProgress, setFinalVideoProgress] = useState(0);
   // TTS (스텝별)
   const [ttsLoading, setTtsLoading] = useState<Record<number, boolean>>({});
   const [ttsAudioUrls, setTtsAudioUrls] = useState<Record<number, string>>({});
@@ -609,6 +615,202 @@ function RecipeDetailContent() {
     };
     img.onerror = () => URL.revokeObjectURL(objectUrl);
     img.src = objectUrl;
+  };
+
+  // ── 훅 멘트 영상 업로드 ───────────────────────────────────────────────────────
+  const handleHookMentVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith("video/")) return;
+    if (hookMentVideoUrl) URL.revokeObjectURL(hookMentVideoUrl);
+    setHookMentVideoUrl(URL.createObjectURL(file));
+  };
+
+  // ── 릴스 최종 영상 편집 ───────────────────────────────────────────────────────
+  const createFinalVideo = async () => {
+    if (!recipe) return;
+    setFinalVideoLoading(true);
+    setFinalVideoProgress(0);
+    if (finalVideoUrl) URL.revokeObjectURL(finalVideoUrl);
+    setFinalVideoUrl(null);
+
+    const CANVAS_W = 540;
+    const CANVAS_H = 960;
+
+    try {
+      // helpers
+      const loadImg = (src: string): Promise<HTMLImageElement> =>
+        new Promise((res, rej) => {
+          const el = new window.Image();
+          el.onload = () => res(el);
+          el.onerror = rej;
+          el.src = src;
+        });
+
+      const decodeAudio = async (url: string, ctx: AudioContext): Promise<AudioBuffer> => {
+        const buf = await (await fetch(url)).arrayBuffer();
+        return ctx.decodeAudioData(buf);
+      };
+
+      const fillCover = (c: CanvasRenderingContext2D, src: HTMLImageElement | HTMLVideoElement) => {
+        const sw = src instanceof HTMLVideoElement ? src.videoWidth  : src.naturalWidth;
+        const sh = src instanceof HTMLVideoElement ? src.videoHeight : src.naturalHeight;
+        if (!sw || !sh) return;
+        const scale = Math.max(CANVAS_W / sw, CANVAS_H / sh);
+        c.drawImage(src,
+          (CANVAS_W - sw * scale) / 2,
+          (CANVAS_H - sh * scale) / 2,
+          sw * scale, sh * scale);
+      };
+
+      const audioCtx = new AudioContext();
+      const dest = audioCtx.createMediaStreamDestination();
+
+      type DrawFn = (c: CanvasRenderingContext2D) => void;
+      interface Seg { start: number; dur: number; draw: DrawFn; audioBuf?: AudioBuffer; }
+      const segs: Seg[] = [];
+      let cursor = 0;
+
+      // 훅 멘트 영상 엘리먼트 준비
+      let hookVidEl: HTMLVideoElement | null = null;
+      if (hookMentVideoUrl) {
+        hookVidEl = document.createElement("video");
+        hookVidEl.src = hookMentVideoUrl;
+        hookVidEl.muted = true;
+        hookVidEl.playsInline = true;
+        await new Promise<void>((r, j) => {
+          hookVidEl!.onloadeddata = () => r();
+          hookVidEl!.onerror = () => j(new Error("훅 멘트 영상 로드 실패"));
+          hookVidEl!.load();
+        });
+      }
+
+      // 1. 훅 멘트 섹션
+      if (hookMentAudioUrl) {
+        const audioBuf = await decodeAudio(hookMentAudioUrl, audioCtx);
+        const hookDur  = audioBuf.duration;
+        const thumbDur = Math.min(1, hookDur);
+        const vidDur   = hookDur - thumbDur;
+        const thumbImg = reelThumbnail ? await loadImg(reelThumbnail) : null;
+
+        // 1a. 썸네일 1초
+        segs.push({
+          start: cursor, dur: thumbDur, audioBuf,
+          draw: (c) => {
+            c.fillStyle = "#000"; c.fillRect(0, 0, CANVAS_W, CANVAS_H);
+            if (thumbImg) fillCover(c, thumbImg);
+          },
+        });
+        cursor += thumbDur;
+
+        // 1b. 영상 클립 (남은 시간)
+        if (vidDur > 0) {
+          segs.push({
+            start: cursor, dur: vidDur,
+            draw: (c) => {
+              c.fillStyle = "#000"; c.fillRect(0, 0, CANVAS_W, CANVAS_H);
+              if (hookVidEl && hookVidEl.readyState >= 2) fillCover(c, hookVidEl);
+              else if (thumbImg) fillCover(c, thumbImg);
+            },
+          });
+          cursor += vidDur;
+        }
+      }
+
+      // 2. 단계별 조리 섹션
+      const steps = [...recipe.steps]
+        .filter(s => stepImages[s.number] && ttsAudioUrls[s.number])
+        .sort((a, b) => a.number - b.number);
+
+      for (const step of steps) {
+        const audioBuf = await decodeAudio(ttsAudioUrls[step.number], audioCtx);
+        const img      = await loadImg(stepImages[step.number]);
+        segs.push({
+          start: cursor, dur: audioBuf.duration, audioBuf,
+          draw: (c) => {
+            c.fillStyle = "#000"; c.fillRect(0, 0, CANVAS_W, CANVAS_H);
+            fillCover(c, img);
+          },
+        });
+        cursor += audioBuf.duration;
+      }
+
+      const totalDur = cursor;
+      if (totalDur === 0) throw new Error("편집할 콘텐츠가 없습니다. 음성 파일을 먼저 생성해주세요.");
+
+      // 캔버스 + 레코더 준비
+      const canvas = document.createElement("canvas");
+      canvas.width  = CANVAS_W;
+      canvas.height = CANVAS_H;
+      const ctx2d = canvas.getContext("2d")!;
+      ctx2d.fillStyle = "#000";
+      ctx2d.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+      const canvasStream = canvas.captureStream(30);
+      const combined = new MediaStream([
+        ...canvasStream.getVideoTracks(),
+        ...dest.stream.getAudioTracks(),
+      ]);
+      const mimeType =
+        ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"]
+          .find(m => MediaRecorder.isTypeSupported(m)) ?? "video/webm";
+      const recorder = new MediaRecorder(combined, { mimeType, videoBitsPerSecond: 2_500_000 });
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+      // 오디오 스케줄
+      await audioCtx.resume();
+      const START_DELAY = 0.2;
+      const t0 = audioCtx.currentTime + START_DELAY;
+
+      for (const seg of segs) {
+        if (seg.audioBuf) {
+          const src = audioCtx.createBufferSource();
+          src.buffer = seg.audioBuf;
+          src.connect(dest);
+          src.start(t0 + seg.start);
+        }
+      }
+
+      // 훅 영상: 썸네일 1초 후 재생 시작
+      if (hookVidEl) {
+        const thumbDur = segs[0]?.dur ?? 1;
+        setTimeout(() => hookVidEl!.play().catch(() => {}), (START_DELAY + thumbDur) * 1000);
+      }
+
+      // 녹화 시작 + 애니메이션
+      recorder.start(100);
+
+      await new Promise<void>((resolve) => {
+        const animate = () => {
+          const elapsed = audioCtx.currentTime - t0;
+          if (elapsed >= totalDur + 0.15) { resolve(); return; }
+
+          setFinalVideoProgress(Math.round(Math.max(0, Math.min(99, (elapsed / totalDur) * 100))));
+
+          ctx2d.fillStyle = "#000";
+          ctx2d.fillRect(0, 0, CANVAS_W, CANVAS_H);
+          if (elapsed >= 0) {
+            const seg = [...segs].reverse().find(s => elapsed >= s.start);
+            if (seg) seg.draw(ctx2d);
+          }
+          requestAnimationFrame(animate);
+        };
+        requestAnimationFrame(animate);
+      });
+
+      recorder.stop();
+      await new Promise<void>((r) => { recorder.onstop = () => r(); });
+
+      const blob = new Blob(chunks, { type: mimeType });
+      setFinalVideoUrl(URL.createObjectURL(blob));
+      setFinalVideoProgress(100);
+      await audioCtx.close();
+
+    } catch (err) {
+      console.error("[Video edit]", err instanceof Error ? err.message : String(err));
+    } finally {
+      setFinalVideoLoading(false);
+    }
   };
 
   if (!recipe) {
@@ -1267,6 +1469,57 @@ function RecipeDetailContent() {
               </div>
             </div>
 
+            {/* 훅 멘트 영상 클립 업로드 */}
+            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
+              <div className="px-5 py-4"
+                style={{ background: "linear-gradient(135deg, #fef3c7, #fde68a)" }}>
+                <p className="text-sm font-bold text-amber-700">🎬 훅 멘트용 영상 클립 업로드</p>
+                <p className="text-xs text-gray-500 mt-0.5">3초 훅 멘트 중 썸네일(1초) 이후 재생될 영상 클립 — 없으면 썸네일 이미지로 대체됩니다</p>
+              </div>
+              <div className="p-5">
+                <label
+                  htmlFor="hook-video-upload"
+                  className="flex flex-col items-center justify-center w-full rounded-2xl border-2 border-dashed cursor-pointer transition-all hover:bg-amber-50"
+                  style={{ borderColor: hookMentVideoUrl ? "#d97706" : "#d1d5db", minHeight: "120px" }}>
+                  {hookMentVideoUrl ? (
+                    <div className="relative w-full" style={{ aspectRatio: "16/9" }}>
+                      <video
+                        src={hookMentVideoUrl}
+                        className="w-full h-full object-cover rounded-2xl"
+                        muted
+                        playsInline
+                        onMouseEnter={e => (e.currentTarget as HTMLVideoElement).play()}
+                        onMouseLeave={e => { const v = e.currentTarget as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-2xl opacity-0 hover:opacity-100 transition-opacity">
+                        <span className="text-white text-sm font-bold bg-black/50 px-3 py-1.5 rounded-full">🎬 변경</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 py-8 text-center px-4">
+                      <span className="text-4xl">🎬</span>
+                      <p className="text-sm font-bold text-gray-600">훅 멘트용 영상 클립 업로드</p>
+                      <p className="text-xs text-gray-400">MP4, MOV 등 — 약 2초 분량 권장</p>
+                    </div>
+                  )}
+                </label>
+                <input
+                  id="hook-video-upload"
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={handleHookMentVideoUpload}
+                />
+                {hookMentVideoUrl && (
+                  <button
+                    onClick={() => { URL.revokeObjectURL(hookMentVideoUrl); setHookMentVideoUrl(null); }}
+                    className="mt-3 w-full py-2 rounded-xl text-xs font-bold text-amber-700 border border-amber-300 hover:bg-amber-50 transition-all">
+                    ✕ 영상 제거
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Generated thumbnail */}
             {reelThumbnailLoading && (
               <div className="bg-white rounded-3xl shadow-md p-10 flex flex-col items-center gap-4">
@@ -1572,7 +1825,7 @@ function RecipeDetailContent() {
                       if (hookMentAudioUrl) {
                         files.push({ url: hookMentAudioUrl, name: `${recipe.name}-00-hook-ment.mp3` });
                       }
-                      Object.entries(ttsAudioUrls)
+                      (Object.entries(ttsAudioUrls) as [string, string][])
                         .sort(([a], [b]) => Number(a) - Number(b))
                         .forEach(([num, url]) => {
                           files.push({ url, name: `${recipe.name}-step${num}-voice.mp3` });
@@ -1591,6 +1844,102 @@ function RecipeDetailContent() {
                     ⬇️ 음성 파일 전체 다운로드 ({Object.keys(ttsAudioUrls).length + (hookMentAudioUrl ? 1 : 0)}개)
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* ── 릴스 영상 편집 ── */}
+            {(hookMentAudioUrl || Object.keys(ttsAudioUrls).length > 0) && (
+              <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+                <div className="px-5 py-4 flex items-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #1e1b4b, #4c1d95)" }}>
+                  <span className="text-white text-xl">🎞️</span>
+                  <div>
+                    <p className="text-sm font-extrabold text-white">릴스 영상 자동 편집</p>
+                    <p className="text-xs text-white/70">생성된 이미지와 음성을 하나의 영상으로 조합</p>
+                  </div>
+                </div>
+                <div className="px-5 py-4 space-y-2 bg-indigo-50/50">
+                  <p className="text-xs font-bold text-indigo-700">편집 순서</p>
+                  {hookMentAudioUrl && (
+                    <div className="flex items-start gap-2 text-xs text-gray-600">
+                      <span className="mt-0.5 w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center flex-shrink-0 font-bold text-[10px]">1</span>
+                      <span>
+                        <strong>훅 멘트</strong> — 썸네일 1초 + {hookMentVideoUrl ? "업로드 영상" : "썸네일"} {hookMentAudioUrl ? "~2초" : "—"}
+                        {!hookMentVideoUrl && <span className="text-amber-500 ml-1">(위에 영상 업로드 시 적용)</span>}
+                      </span>
+                    </div>
+                  )}
+                  {Object.keys(ttsAudioUrls).length > 0 && (
+                    <div className="flex items-start gap-2 text-xs text-gray-600">
+                      <span className="mt-0.5 w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center flex-shrink-0 font-bold text-[10px]">{hookMentAudioUrl ? 2 : 1}</span>
+                      <span>
+                        <strong>조리 단계</strong> — 이미지+음성 생성된 {Object.keys(ttsAudioUrls).filter(n => stepImages[Number(n)]).length}개 단계
+                        {Object.keys(ttsAudioUrls).filter(n => !stepImages[Number(n)]).length > 0 && (
+                          <span className="text-gray-400 ml-1">(카드 이미지 없는 단계는 제외)</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="p-5">
+                  <button
+                    onClick={createFinalVideo}
+                    disabled={finalVideoLoading}
+                    className="w-full py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90 disabled:opacity-60 active:scale-95"
+                    style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
+                    {finalVideoLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="spinner w-5 h-5" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        편집 중... {finalVideoProgress}%
+                      </span>
+                    ) : "🎞️ 영상 편집하기"}
+                  </button>
+                  {finalVideoLoading && (
+                    <div className="mt-3">
+                      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-300"
+                          style={{ width: `${finalVideoProgress}%`, background: "linear-gradient(90deg, #4f46e5, #7c3aed)" }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {finalVideoUrl && !finalVideoLoading && (
+                  <div>
+                    <div className="relative w-full mx-auto bg-black" style={{ aspectRatio: "9/16", maxWidth: "320px" }}>
+                      <video
+                        src={finalVideoUrl}
+                        controls
+                        playsInline
+                        className="absolute inset-0 w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="px-5 py-4 flex gap-3"
+                      style={{ background: "linear-gradient(135deg, #ede9fe, #ddd6fe)" }}>
+                      <button
+                        onClick={() => {
+                          const a = document.createElement("a");
+                          a.href = finalVideoUrl;
+                          a.download = `${recipe.name}-reels.webm`;
+                          a.click();
+                        }}
+                        className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
+                        style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
+                        ⬇️ 영상 다운로드
+                      </button>
+                      <button
+                        onClick={createFinalVideo}
+                        className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-indigo-50"
+                        style={{ borderColor: "#4f46e5", color: "#4f46e5" }}>
+                        🔄 재편집
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
