@@ -889,9 +889,14 @@ function RecipeDetailContent() {
       recorder.start(100);
 
       await new Promise<void>((resolve) => {
+        const wallStart   = performance.now();
+        // 안전 타임아웃: rAF가 백그라운드 탭에서 스로틀되거나 AudioContext 시간이 멈춰도 강제 종료
+        const safetyTimer = setTimeout(resolve, (START_DELAY + totalDur + 3.0) * 1000);
+
         const animate = () => {
-          const elapsed = audioCtx.currentTime - t0;
-          if (elapsed >= totalDur + 0.15) { resolve(); return; }
+          // AudioContext 시간 대신 performance.now() 사용 → AudioContext 정지에 영향받지 않음
+          const elapsed = (performance.now() - wallStart) / 1000 - START_DELAY;
+          if (elapsed >= totalDur + 0.3) { clearTimeout(safetyTimer); resolve(); return; }
 
           setFinalVideoProgress(Math.round(Math.max(0, Math.min(99, (elapsed / totalDur) * 100))));
 
