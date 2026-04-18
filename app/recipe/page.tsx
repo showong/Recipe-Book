@@ -861,9 +861,15 @@ function RecipeDetailContent() {
           .find(m => MediaRecorder.isTypeSupported(m)) ?? "video/webm";
       const ext = mimeType.startsWith("video/mp4") ? "mp4" : "webm";
       setFinalVideoExt(ext);
-      const recorder = new MediaRecorder(combined, { mimeType, videoBitsPerSecond: 8_000_000 });
+      const recorder = new MediaRecorder(combined, { mimeType, videoBitsPerSecond: 5_000_000 });
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+      // onstop/onerror 핸들러는 stop() 호출 전에 등록 (race condition 방지)
+      const stopPromise = new Promise<void>((res, rej) => {
+        recorder.onstop  = () => res();
+        recorder.onerror = (e) => rej(new Error(`MediaRecorder 오류: ${(e as MediaRecorderErrorEvent).error?.message ?? "unknown"}`));
+      });
 
       // ── 오디오 스케줄 ─────────────────────────────────────────────────────
       await audioCtx.resume();
@@ -891,7 +897,7 @@ function RecipeDetailContent() {
       await new Promise<void>((resolve) => {
         const wallStart   = performance.now();
         // 안전 타임아웃: rAF가 백그라운드 탭에서 스로틀되거나 AudioContext 시간이 멈춰도 강제 종료
-        const safetyTimer = setTimeout(resolve, (START_DELAY + totalDur + 3.0) * 1000);
+        const safetyTimer = setTimeout(resolve, (START_DELAY + totalDur + 5.0) * 1000);
 
         const animate = () => {
           // AudioContext 시간 대신 performance.now() 사용 → AudioContext 정지에 영향받지 않음
@@ -912,7 +918,7 @@ function RecipeDetailContent() {
       });
 
       recorder.stop();
-      await new Promise<void>((r) => { recorder.onstop = () => r(); });
+      await stopPromise;
 
       const blob = new Blob(chunks, { type: mimeType });
       setFinalVideoUrl(URL.createObjectURL(blob));
