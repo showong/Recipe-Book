@@ -760,28 +760,16 @@ function RecipeDetailContent() {
       const segs: Seg[] = [];
       let cursor = 0;
 
-      // ── 훅 멘트 영상 준비 ──────────────────────────────────────────────────
-      let hookVidEl: HTMLVideoElement | null = null;
-      if (hookMentVideoUrl) {
-        hookVidEl = document.createElement("video");
-        hookVidEl.src = hookMentVideoUrl;
-        hookVidEl.muted = true;
-        hookVidEl.playsInline = true;
-        await new Promise<void>((r, j) => {
-          hookVidEl!.onloadeddata = () => r();
-          hookVidEl!.onerror = () => j(new Error("훅 멘트 영상 로드 실패"));
-          hookVidEl!.load();
-        });
-      }
-
-      // ── 1. 훅 멘트 섹션 ───────────────────────────────────────────────────
+      // ── 1. 오프닝: 썸네일(1초) → 재료(남은 2초) + 훅 멘트 음성 ───────────
       if (hookMentAudioUrl) {
         const audioBuf = await decodeAudio(hookMentAudioUrl, audioCtx);
         const hookDur  = audioBuf.duration;
         const thumbDur = Math.min(1, hookDur);
-        const vidDur   = hookDur - thumbDur;
+        const ingDur   = hookDur - thumbDur; // 훅 음성 나머지 구간 = 재료 노출 (약 2초)
         const thumbImg = reelThumbnail ? await loadImg(reelThumbnail) : null;
+        const ingImg   = ingredientsImage ? await loadImg(ingredientsImage) : null;
 
+        // 썸네일 1초 (오디오 트랙을 여기에 붙이면 전체 hookDur 동안 이어서 재생됨)
         segs.push({
           start: cursor, dur: thumbDur, audioBuf,
           draw: (c) => {
@@ -791,16 +779,21 @@ function RecipeDetailContent() {
         });
         cursor += thumbDur;
 
-        if (vidDur > 0) {
+        // 재료 이미지 2초 (훅 음성은 위 세그먼트에서 이미 스케줄됨 → 계속 재생)
+        if (ingDur > 0) {
           segs.push({
-            start: cursor, dur: vidDur,
+            start: cursor, dur: ingDur,
             draw: (c) => {
-              c.fillStyle = "#000"; c.fillRect(0, 0, CANVAS_W, CANVAS_H);
-              if (hookVidEl && hookVidEl.readyState >= 2) fillCover(c, hookVidEl);
-              else if (thumbImg) fillCover(c, thumbImg);
+              if (ingImg) drawEndingFrame(c, ingImg);
+              else if (thumbImg) {
+                c.fillStyle = "#000"; c.fillRect(0, 0, CANVAS_W, CANVAS_H);
+                fillCover(c, thumbImg);
+              } else {
+                c.fillStyle = "#000"; c.fillRect(0, 0, CANVAS_W, CANVAS_H);
+              }
             },
           });
-          cursor += vidDur;
+          cursor += ingDur;
         }
       }
 
@@ -826,17 +819,14 @@ function RecipeDetailContent() {
         cursor += segDur;
       }
 
-      // ── 3. 엔딩: 재료 이미지 1초 + 성공포인트 이미지 1초 ──────────────────
-      const endingSlides: HTMLImageElement[] = [];
-      if (ingredientsImage) endingSlides.push(await loadImg(ingredientsImage));
-      if (kickInstagramImage) endingSlides.push(await loadImg(kickInstagramImage));
-
-      for (const slide of endingSlides) {
+      // ── 3. 엔딩: 꿀팁(성공포인트) 이미지 2초 ──────────────────────────────
+      if (kickInstagramImage) {
+        const kickImg = await loadImg(kickInstagramImage);
         segs.push({
-          start: cursor, dur: 1,
-          draw: (c) => drawEndingFrame(c, slide),
+          start: cursor, dur: 2,
+          draw: (c) => drawEndingFrame(c, kickImg),
         });
-        cursor += 1;
+        cursor += 2;
       }
 
       const totalDur = cursor;
@@ -883,12 +873,6 @@ function RecipeDetailContent() {
           src.connect(dest);
           src.start(t0 + seg.start);
         }
-      }
-
-      // 훅 영상: 썸네일 1초 후 재생 시작
-      if (hookVidEl) {
-        const thumbDur = segs[0]?.dur ?? 1;
-        setTimeout(() => hookVidEl!.play().catch(() => {}), (START_DELAY + thumbDur) * 1000);
       }
 
       // ── 애니메이션 + 녹화 ─────────────────────────────────────────────────
