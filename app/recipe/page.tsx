@@ -76,6 +76,8 @@ function RecipeDetailContent() {
   const [postCoverEnLoading, setPostCoverEnLoading] = useState(false);
   const [postCoverEnError, setPostCoverEnError] = useState<string | null>(null);
   const [postCoverEnStyleName, setPostCoverEnStyleName] = useState<string | null>(null);
+  // 캐릭터 버전
+  const [characterVersion, setCharacterVersion] = useState<"cute" | "lazy">("cute");
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -87,6 +89,7 @@ function RecipeDetailContent() {
       const parsed = JSON.parse(decodeURIComponent(data));
       setRecipe(parsed.recipe);
       setIngredients(parsed.ingredients || []);
+      setCharacterVersion(parsed.character === "lazy" ? "lazy" : "cute");
       // Hero image stored in sessionStorage to avoid oversized URL
       if (parsed.heroImageKey) {
         const stored = sessionStorage.getItem(parsed.heroImageKey);
@@ -209,7 +212,7 @@ function RecipeDetailContent() {
       const res = await fetch("/api/generate-post", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipe, language: lang }),
+        body: JSON.stringify({ recipe, language: lang, character: characterVersion }),
       });
       const data = await res.json();
       if (data.post) {
@@ -374,6 +377,7 @@ function RecipeDetailContent() {
           taste: recipe.taste,
           kickPoints,
           pairings: (recipe.pairings ?? []).slice(0, 2).join(", "),
+          character: characterVersion,
         }),
       });
       const data = await res.json();
@@ -415,6 +419,7 @@ function RecipeDetailContent() {
           taste: recipe.taste,
           pairings: recipe.pairings,
           kickPoints,
+          character: characterVersion,
         }),
       });
       const data = await res.json();
@@ -458,6 +463,7 @@ function RecipeDetailContent() {
           highlight: recipe.highlight,
           taste: recipe.taste,
           pairings: recipe.pairings,
+          character: characterVersion,
         }),
       });
       const data = await res.json();
@@ -495,6 +501,7 @@ function RecipeDetailContent() {
           highlight: recipe.highlight,
           taste: recipe.taste,
           pairings: recipe.pairings,
+          character: characterVersion,
         }),
       });
       const data = await res.json();
@@ -566,7 +573,7 @@ function RecipeDetailContent() {
       const res = await fetch("/api/generate-tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, character: characterVersion }),
       });
       const data = await res.json();
       if (data.error) {
@@ -955,6 +962,12 @@ function RecipeDetailContent() {
             ← 뒤로
           </button>
           {!heroImage && <div className="text-5xl mb-3">{recipe.emoji}</div>}
+          <div className="flex justify-center mb-2">
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold"
+              style={{ background: characterVersion === "lazy" ? "rgba(79,70,229,0.85)" : "rgba(234,88,12,0.85)", backdropFilter: "blur(4px)" }}>
+              {characterVersion === "lazy" ? "🐨 귀차니즘 곰돌이" : "🐻 귀여운 곰돌이"}
+            </span>
+          </div>
           <h1 className="text-3xl font-extrabold mb-2 drop-shadow">{recipe.name}</h1>
           <p className="text-sm opacity-90 max-w-md mx-auto drop-shadow">{recipe.description}</p>
           <div className="flex justify-center gap-6 mt-4">

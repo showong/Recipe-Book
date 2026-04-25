@@ -11,6 +11,7 @@ function RecipesContent() {
   const searchParams = useSearchParams();
   const [recipes, setRecipes] = useState<RecipeSuggestion[]>([]);
   const [ingredients, setIngredients] = useState<string[]>([]);
+  const [character, setCharacter] = useState<"cute" | "lazy">("cute");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -29,6 +30,7 @@ function RecipesContent() {
       const loadedRecipes: RecipeSuggestion[] = parsed.recipes || [];
       setRecipes(loadedRecipes);
       setIngredients(parsed.ingredients || []);
+      setCharacter(parsed.character === "lazy" ? "lazy" : "cute");
       // Start generating images for all recipe cards in parallel
       loadedRecipes.forEach((r) => generateRecipeImage(r));
     } catch {
@@ -74,6 +76,7 @@ function RecipesContent() {
           recipeName: recipe.name,
           ownedIngredients: recipe.ownedIngredients,
           additionalIngredients: recipe.additionalIngredients,
+          character,
         }),
       });
 
@@ -92,6 +95,7 @@ function RecipesContent() {
         recipe: data.recipe,
         ingredients,
         heroImageKey: recipeImages[recipe.id] ? heroImgKey : null,
+        character,
       }));
       router.push(`/recipe?data=${encoded}`);
     } catch (err) {

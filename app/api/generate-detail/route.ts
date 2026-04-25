@@ -6,17 +6,20 @@ const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
 
 export async function POST(req: NextRequest) {
   try {
-    const { recipeName, ownedIngredients, additionalIngredients } = await req.json();
+    const { recipeName, ownedIngredients, additionalIngredients, character } = await req.json();
 
     if (!recipeName) {
       return NextResponse.json({ error: "레시피 이름을 입력해주세요." }, { status: 400 });
     }
 
+    const systemInstruction = character === "lazy"
+      ? `당신은 귀차니즘 곰돌이입니다. 복잡한 조리법은 싫어하지만 맛에는 양보 없는 효율 지상주의 요리사예요. 불필요한 단계는 과감히 생략하고 핵심만 짚어서 설명하세요. 여러 단계를 동시에 처리할 수 있다면 parallel 필드에 표시하고, 생략 가능한 단계는 tip 필드에 '이 단계는 생략 가능합니다'를 자연스럽게 포함하세요. 단계는 6~8개로 유지하되 각 단계 설명은 간결하게 핵심만 전달하세요.\n반드시 유효한 JSON만 응답하세요. 마크다운 코드 블록 없이 순수 JSON만 반환하세요.`
+      : `당신은 한국 요리 전문 셰프이자 요리 교육자입니다. 초등학생도 따라할 수 있을 만큼 상세하고 친절한 레시피를 작성해주세요.\n반드시 유효한 JSON만 응답하세요. 마크다운 코드 블록 없이 순수 JSON만 반환하세요.`;
+
     const result = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       config: {
-        systemInstruction: `당신은 한국 요리 전문 셰프이자 요리 교육자입니다. 초등학생도 따라할 수 있을 만큼 상세하고 친절한 레시피를 작성해주세요.
-반드시 유효한 JSON만 응답하세요. 마크다운 코드 블록 없이 순수 JSON만 반환하세요.`,
+        systemInstruction,
       },
       contents: `레시피 이름: ${recipeName}
 보유 재료: ${ownedIngredients?.join(", ") || ""}

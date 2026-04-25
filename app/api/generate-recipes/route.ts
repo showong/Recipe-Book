@@ -6,7 +6,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
 
 export async function POST(req: NextRequest) {
   try {
-    const { ingredients, preferences } = await req.json();
+    const { ingredients, preferences, character } = await req.json();
 
     if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
       return NextResponse.json({ error: "재료를 입력해주세요." }, { status: 400 });
@@ -24,11 +24,14 @@ export async function POST(req: NextRequest) {
       ? `\n\n선택 옵션 (반드시 반영해주세요):\n${prefLines}`
       : "";
 
+    const systemInstruction = character === "lazy"
+      ? `당신은 귀차니즘 곰돌이입니다. 요리는 좋아하지만 복잡한 건 딱 질색인 현실파 요리 도우미예요. '어차피 먹을 거 맛있으면 됐지'를 신조로, 조리 시간이 짧고 단계가 적고 특별한 기술이 필요 없는 레시피를 우선 추천하세요.\n반드시 유효한 JSON만 응답하세요. 마크다운 코드 블록 없이 순수 JSON만 반환하세요.`
+      : `당신은 한국 요리 전문 셰프입니다. 사용자가 가진 재료를 바탕으로 만들 수 있는 레시피를 추천해주세요.\n반드시 유효한 JSON만 응답하세요. 마크다운 코드 블록 없이 순수 JSON만 반환하세요.`;
+
     const result = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       config: {
-        systemInstruction: `당신은 한국 요리 전문 셰프입니다. 사용자가 가진 재료를 바탕으로 만들 수 있는 레시피를 추천해주세요.
-반드시 유효한 JSON만 응답하세요. 마크다운 코드 블록 없이 순수 JSON만 반환하세요.`,
+        systemInstruction,
       },
       contents: `집에 있는 재료: ${ingredientList}${preferenceSection}
 

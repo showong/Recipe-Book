@@ -24,6 +24,7 @@ export default function HomePage() {
   const [prefStyle, setPrefStyle] = useState("");
   const [prefPairing, setPrefPairing] = useState("");
   const [prefType, setPrefType] = useState("");
+  const [characterVersion, setCharacterVersion] = useState<"cute" | "lazy">("cute");
 
   const addIngredient = (value: string) => {
     const trimmed = value.trim();
@@ -72,7 +73,7 @@ export default function HomePage() {
       const response = await fetch("/api/generate-recipes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ingredients, preferences }),
+        body: JSON.stringify({ ingredients, preferences, character: characterVersion }),
       });
 
       const data = await response.json();
@@ -84,6 +85,7 @@ export default function HomePage() {
       const encoded = encodeURIComponent(JSON.stringify({
         recipes: data.recipes,
         ingredients,
+        character: characterVersion,
       }));
       router.push(`/recipes?data=${encoded}`);
     } catch (err) {
@@ -152,6 +154,57 @@ export default function HomePage() {
           <p className="text-xs text-gray-400 mt-2">
             Enter 또는 쉼표(,)로 재료를 추가하세요 · Backspace로 마지막 재료 삭제
           </p>
+        </div>
+
+        {/* 캐릭터 선택 */}
+        <div className="bg-white rounded-3xl shadow-lg p-6 mb-6">
+          <h2 className="text-lg font-bold mb-4 text-gray-700 flex items-center gap-2">
+            <span>🐻</span> 캐릭터 선택
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              {
+                id: "cute" as const,
+                emoji: "🐻",
+                name: "귀여운 곰돌이",
+                desc: "따뜻하고 친절한\n요리 가이드",
+                accent: "#ea580c",
+                bg: "#fff7ed",
+                border: "#fed7aa",
+              },
+              {
+                id: "lazy" as const,
+                emoji: "🐨",
+                name: "귀차니즘 곰돌이",
+                desc: "노력 최소, 맛 최대\n효율 요리사",
+                accent: "#4f46e5",
+                bg: "#eef2ff",
+                border: "#a5b4fc",
+              },
+            ] as const).map((ch) => (
+              <button
+                key={ch.id}
+                onClick={() => setCharacterVersion(ch.id)}
+                className="relative p-4 rounded-2xl border-2 text-left transition-all"
+                style={{
+                  borderColor: characterVersion === ch.id ? ch.accent : "#e5e7eb",
+                  background: characterVersion === ch.id ? ch.bg : "white",
+                }}
+              >
+                <div className="text-3xl mb-2">{ch.emoji}</div>
+                <div className="font-bold text-sm" style={{ color: characterVersion === ch.id ? ch.accent : "#374151" }}>
+                  {ch.name}
+                </div>
+                <div className="text-xs text-gray-400 mt-1 whitespace-pre-line">{ch.desc}</div>
+                {characterVersion === ch.id && (
+                  <span
+                    className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                    style={{ background: ch.accent }}
+                  >✓</span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Quick Add Examples */}

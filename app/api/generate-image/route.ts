@@ -21,6 +21,7 @@ function buildThumbnailPrompt(
   highlight: string,
   kickPoints: string,
   pairingText: string,
+  character: string = "cute",
 ): string {
   const base = `
 You are given THREE images:
@@ -42,7 +43,7 @@ BACKGROUND: Food photo fills entire canvas. Apply moody darkening — reduce bri
 LOGO (Image 3): top-right corner, small inset from the edge, medium size.
 BRAND HANDLE: "@oh_showong" — small coral (#FF6B35) bold text, bottom-center, just above the recipe name.
 RECIPE NAME: positioned in the lower third of the canvas. Extra-large serif/display bold Korean font, white, left-aligned with generous left margin. Up to 2 lines.
-HOOK LINE: one short line just above the recipe name. White, semi-bold, medium size, slightly faded. Generate from FOMO signals — editorial tone, max 20 chars.
+HOOK LINE: one short line just above the recipe name. White, semi-bold, medium size, slightly faded. Generate from FOMO signals — editorial tone, max 20 chars.${character === "lazy" ? ` For the CTA hook pill text, use efficiency/laziness themed content like "5분이면 끝", "쉽고 맛있음", "노력 최소 맛 최대".` : ""}
 STYLE RULE: sophisticated, minimal, editorial. NO pill badges, NO colorful overlays. Clean white type on dark photo.`,
 
     2: `${base}
@@ -51,7 +52,7 @@ BACKGROUND: Do NOT use food photo as background. Solid bright warm color — cho
 LOGO (Image 3): bottom-right corner, inside a small white softly-rounded badge with a little padding.
 LAYOUT (top to bottom):
   ① Recipe name: upper quarter of canvas, massive chunky sans-serif, white, center-aligned. Up to 2 lines.
-  ② One appetizing descriptor line: white semi-bold, medium size, center, just below the recipe name. Generate from taste/highlight, max 20 chars.
+  ② One appetizing descriptor line: white semi-bold, medium size, center, just below the recipe name. Generate from taste/highlight, max 20 chars.${character === "lazy" ? ` For the CTA hook pill text, use efficiency/laziness themed content like "5분이면 끝", "쉽고 맛있음", "노력 최소 맛 최대".` : ""}
   ③ Food photo: center of canvas, cutout style with slight drop shadow, natural circular or oval shape, slightly tilted.
   ④ Brand logo badge: bottom-right corner.
 STYLE RULE: high-contrast bold poster. Energetic, pop-art food brand feel.`,
@@ -61,7 +62,7 @@ STYLE RULE: high-contrast bold poster. Energetic, pop-art food brand feel.`,
 BACKGROUND: Food photo fills canvas. Darken to near-black mood with boosted contrast. Food is dramatically close-up, cropped to show texture.
 LOGO (Image 3): top-right corner, small inset from the edge, medium size.
 TEXT BLOCK (center of canvas, slightly below midpoint):
-  ① HOOK LINE: upper part of the text block, small bold white Korean, center. Generate urgent hook from FOMO signals — max 14 chars (e.g. "이 맛 실화?").
+  ① HOOK LINE: upper part of the text block, small bold white Korean, center. Generate urgent hook from FOMO signals — max 14 chars (e.g. "이 맛 실화?").${character === "lazy" ? ` For the CTA hook pill text, use efficiency/laziness themed content like "5분이면 끝", "쉽고 맛있음", "노력 최소 맛 최대".` : ""}
   ② RECIPE NAME: below the hook, enormous bold Korean display font, center. White fill with thick dark outline. Up to 2 lines.
 BRAND: "@oh_showong" — very small white text, below the recipe name, center.
 STYLE RULE: YouTube/Shorts thumbnail energy. Maximum drama. Bold strokes on text.`,
@@ -76,7 +77,7 @@ LAYOUT (top to bottom):
      Left: "재료" header + top 3 ingredients as icon+text rows.
      Right: "양념" header + top 3 seasoning items. Small font, #2C1810.
   ④ HIGHLIGHT BOX (near the bottom): full-width, background #FF6B35, white bold text, softly rounded corners.
-     Text: "포인트: " + kickpoint or highlight phrase.
+     Text: "포인트: " + kickpoint or highlight phrase.${character === "lazy" ? ` For the CTA hook pill text, use efficiency/laziness themed content like "5분이면 끝", "쉽고 맛있음", "노력 최소 맛 최대".` : ""}
   ⑤ Logo (Image 3): bottom-right corner, small.
 STYLE RULE: educational, structured, warm. Like a recipe card someone would save.`,
 
@@ -90,7 +91,7 @@ LAYOUT (top to bottom):
      Color: deep earthy green (#2D4A1E) or warm brown (#6B3A2A). Center. Up to 2 lines.
   ③ THIN DIVIDER LINE: horizontal, #C4B49A, full width with generous side margins, just below the title.
   ④ TAGLINE (just below the divider): one warm natural phrase, center, #7A6A5A, small italic.
-     Generate from taste/highlight/pairings — natural, non-clickbait tone, max 22 chars.
+     Generate from taste/highlight/pairings — natural, non-clickbait tone, max 22 chars.${character === "lazy" ? ` For the CTA hook pill text, use efficiency/laziness themed content like "5분이면 끝", "쉽고 맛있음", "노력 최소 맛 최대".` : ""}
   ⑤ FOOD PHOTO (lower half of canvas): natural placement, slightly overlapping the tagline. Real appetizing photo.
   ⑥ DECORATIVE ELEMENTS: soft watercolor leaf or dot motifs at top-left and bottom-right corners.
 STYLE RULE: artisanal, farmers-market, trustworthy. Warm but sophisticated.`,
@@ -107,12 +108,17 @@ function buildPostCoverPrompt(
   highlight: string,
   pairingText: string,
   lang: "ko" | "en",
+  character: string = "cute",
 ): string {
   const isEn = lang === "en";
 
   const hookRules = isEn
     ? `Generate a punchy English pill text (max 4 words). Examples: "Must try!", "Perfect date night", "Insanely good". No Korean.`
     : `Generate a punchy Korean pill text (max 9 chars). Examples: "이 맛 실화?" / "무조건 저장" / "술안주 최고". No English.`;
+
+  const lazyCtaHint = character === "lazy"
+    ? ` For the CTA hook pill text, use efficiency/laziness themed content like "5분이면 끝", "쉽고 맛있음", "노력 최소 맛 최대".`
+    : "";
 
   const nameText = `"${recipeName}"`;
   const bottomText = isEn ? `"Save now! 🐻"` : `"저장 필수! 🐻"`;
@@ -141,7 +147,7 @@ BACKGROUND: Food photo fills entire canvas. Moody darkening — slightly reduced
 LOGO (Image 3): top-right corner, small inset from edge, medium size.
 BRAND HANDLE: "@oh_showong" — small coral (#FF6B35) bold text, just above the recipe name.
 RECIPE NAME: lower-center area. Extra-large serif/display bold font, white, left-aligned. Up to 2 lines.
-HOOK PILL: rounded pill badge just above the brand handle. ${hookRules}. Background #FFE500, text #1A1A1A.
+HOOK PILL: rounded pill badge just above the brand handle. ${hookRules}${lazyCtaHint} Background #FFE500, text #1A1A1A.
 STYLE RULE: sophisticated, minimal, editorial. Clean white type on dark photo.`,
 
     2: `${base}
@@ -150,7 +156,7 @@ BACKGROUND: Solid bright warm color — choose from #FF6B35 (coral), #FF8C00 (or
 LOGO (Image 3): bottom-right corner, inside a small white softly-rounded badge.
 LAYOUT (top to bottom):
   ① Recipe name: upper quarter, massive chunky sans-serif, white, center-aligned. Up to 2 lines.
-  ② Hook descriptor: white semi-bold medium, center, just below recipe name. ${hookRules}
+  ② Hook descriptor: white semi-bold medium, center, just below recipe name. ${hookRules}${lazyCtaHint}
   ③ Food photo: center area, cutout style with slight drop shadow, natural shape, slightly tilted.
   ④ Bottom strip: solid #FFE500, text ${bottomText}, extra-bold, #1A1A1A, centered.
 STYLE RULE: high-contrast bold poster. Energetic, pop-art feel.`,
@@ -160,7 +166,7 @@ STYLE RULE: high-contrast bold poster. Energetic, pop-art feel.`,
 BACKGROUND: Food photo fills canvas. Darken dramatically — near-black mood, boosted contrast. Close-up crop showing texture.
 LOGO (Image 3): top-right corner, small inset, medium size.
 TEXT BLOCK (center-lower area):
-  ① HOOK LINE: small bold white font, center. ${hookRules}
+  ① HOOK LINE: small bold white font, center. ${hookRules}${lazyCtaHint}
   ② RECIPE NAME: below the hook, enormous bold display font, center. White fill with thick dark outline. Up to 2 lines.
 BRAND: "@oh_showong" — very small white text, centered, below recipe name.
 STYLE RULE: YouTube thumbnail energy. Maximum drama. Bold outlines on text.`,
@@ -171,7 +177,7 @@ BACKGROUND: Warm cream (#FFF5E6). No photo as background.
 LAYOUT (top to bottom):
   ① TITLE BAR (top fifth): recipe name in large bold font, #2C1810, center. Subtitle: taste/highlight, #8B4513, small.
   ② FOOD PHOTO (upper-center): centered, large natural presentation, slight drop shadow.
-  ③ INFO STRIP (below photo): full-width #FF6B35 band. White bold text: hook phrase from FOMO signals. ${hookRules}
+  ③ INFO STRIP (below photo): full-width #FF6B35 band. White bold text: hook phrase from FOMO signals. ${hookRules}${lazyCtaHint}
   ④ BOTTOM STRIP: #FFE500 background. Text ${bottomText}, extra-bold #1A1A1A, centered.
   ⑤ Logo (Image 3): bottom-right corner, small.
 STYLE RULE: educational, structured, warm. Like a recipe card someone would save.`,
@@ -183,7 +189,7 @@ LAYOUT (top to bottom):
   ① TOP STRIP: "@oh_showong" centered, small handwritten-style font, #5C4A2A. Logo (Image 3) top-right, small.
   ② MAIN TITLE (upper third): large brush/calligraphy-style display font, deep earthy green (#2D4A1E) or warm brown (#6B3A2A), center. Up to 2 lines.
   ③ DIVIDER LINE: horizontal, #C4B49A, full width with generous margins.
-  ④ TAGLINE (just below divider): warm natural phrase, center, #7A6A5A, small italic. ${hookRules}
+  ④ TAGLINE (just below divider): warm natural phrase, center, #7A6A5A, small italic. ${hookRules}${lazyCtaHint}
   ⑤ FOOD PHOTO (lower half): natural placement, slightly overlapping the tagline. Real appetizing photo.
   ⑥ DECORATIVE ELEMENTS: soft watercolor leaf or dot motifs at corners.
 STYLE RULE: artisanal, farmers-market, trustworthy. Warm but sophisticated.`,
@@ -199,7 +205,7 @@ export async function POST(req: NextRequest) {
       stepTitle, stepDescription, stepNumber, stepTime, totalSteps,
       ingredients, steps, kickSteps, highlight,
       uploadedImageBase64, uploadedImageMimeType,
-      cookingTime, servings, taste, pairings, kickPoints,
+      cookingTime, servings, taste, pairings, kickPoints, character,
     } = await req.json();
 
     const isEn = language === "en";
@@ -413,6 +419,7 @@ Do NOT invent a new card layout. Copy the structure from Image 1 exactly.`;
         highlight ?? "",
         kickPoints ?? "",
         pairingText,
+        character ?? "cute",
       );
 
     // ── Post cover (1:1, 5가지 스타일 랜덤) ─────────────────────────────────────
@@ -428,6 +435,7 @@ Do NOT invent a new card layout. Copy the structure from Image 1 exactly.`;
         highlight ?? "",
         pairingText,
         "ko",
+        character ?? "cute",
       );
 
     // ── English post cover (1:1, 5가지 스타일 랜덤) ──────────────────────────────
@@ -443,6 +451,7 @@ Do NOT invent a new card layout. Copy the structure from Image 1 exactly.`;
         highlight ?? "",
         pairingText,
         "en",
+        character ?? "cute",
       );
 
     } else {

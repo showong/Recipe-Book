@@ -22,7 +22,7 @@ async function callGemini(prompt: string, googleApiKey: string, maxTokens = 80):
 }
 
 // ── 구어체 텍스트 → 절반 이하로 압축 ────────────────────────────────────────
-async function compressSpeechText(converted: string, googleApiKey: string): Promise<string> {
+async function compressSpeechText(converted: string, googleApiKey: string, character: string): Promise<string> {
   const targetLen = Math.floor(converted.length / 2);
   const prompt = `다음 한국어 구어체 문장을 절반 이하 길이로 압축해 주세요.
 
@@ -44,19 +44,29 @@ ${converted}
 }
 
 // ── 레시피 단계 텍스트 → 구어체 변환 → 압축 ────────────────────────────────
-async function toSpeechText(raw: string, googleApiKey: string): Promise<string> {
-  const prompt = `다음 요리 레시피 조리 단계를 TTS 음성 낭독에 적합하도록 변환해 주세요.
+async function toSpeechText(raw: string, googleApiKey: string, character: string): Promise<string> {
+  const isLazy = character === "lazy";
 
-변환 목표:
-- 원문의 핵심 내용을 요약하고, 용량이나 시간과 같이 불필요한 반복·부연 설명은 생략
-- 낭독 시 5~6초 분량 (약 50자이내)
+  const promptOpening = isLazy
+    ? `다음 요리 레시피 조리 단계를 귀차니즘 곰돌이 스타일의 TTS 음성 낭독에 적합하도록 변환해 주세요.\n\n변환 목표:\n- 핵심 동작만 짧게 요약, 군더더기 설명 없음\n- 낭독 시 3~5초 분량 (약 40자 이내)`
+    : `다음 요리 레시피 조리 단계를 TTS 음성 낭독에 적합하도록 변환해 주세요.\n\n변환 목표:\n- 원문의 핵심 내용을 요약하고, 용량이나 시간과 같이 불필요한 반복·부연 설명은 생략\n- 낭독 시 5~6초 분량 (약 50자이내)`;
+
+  const rule3 = isLazy
+    ? `3. 건조하고 직접적인 구어체 어미 (예: "~하세요", "~해요", "그냥 ~하면 됩니다")`
+    : `3. 자연스러운 구어체 어미 사용 (예: "~해줘요", "~하면 돼요", "~해주세요")`;
+
+  const rule5 = isLazy
+    ? `5. 문장은 반드시 "~하세요" 또는 "하면 됩니다"로 끝맺음`
+    : `5. 문장은 반드시 "~하세요"이나 "해주세요"로 끝맺음을 해야한다.`;
+
+  const prompt = `${promptOpening}
 
 변환 규칙:
 1. 숫자+단위 → 한국어 발음 (예: 200g → 이백 그램, 2큰술 → 두 큰술, 180°C → 백팔십 도)
 2. 특수문자 제거 또는 구어화 (예: ~ → 정도, / → 또는, → → 넣어)
-3. 자연스러운 구어체 어미 사용 (예: "~해줘요", "~하면 돼요", "~해주세요")
+${rule3}
 4. 한국어 텍스트만 출력 (설명·번호 없이)
-5. 문장은 반드시 "~하세요"이나 "해주세요"로 끝맺음을 해야한다.
+${rule5}
 원문:
 ${raw}
 
@@ -67,7 +77,7 @@ ${raw}
   if (!converted) return raw;
 
   // Step 2: 변환된 구어체를 절반 이하로 압축
-  const compressed = await compressSpeechText(converted, googleApiKey);
+  const compressed = await compressSpeechText(converted, googleApiKey, character);
   return compressed || converted;
 }
 
@@ -79,7 +89,26 @@ async function generateHookMentText(
   kickPoints: string,
   pairings: string,
   googleApiKey: string,
+  character: string,
 ): Promise<string> {
+  const isLazy = character === "lazy";
+
+  const rule3 = isLazy
+    ? `3. 효율 + 기대감 — '생각보다 쉬움', '귀찮은 거 없음' 반응 유도`
+    : `3. FOMO + 궁금증 자극 — "이거 뭐야?", "어떻게 이래?" 반응 유도`;
+
+  const examples = isLazy
+    ? `좋은 예시:
+"귀찮은 거 다 빼도 이 맛이에요."
+"생각보다 별거 없는데, 진짜 맛있어요."
+"노력 최소 맛 최대, 이거면 충분합니다."
+"5분이면 끝납니다. 믿어봐요."`
+    : `좋은 예시:
+"이거 한 번만 봐봐, 진짜 미쳐버려."
+"오늘 저녁은 무조건 이거야, 후회 없어."
+"이 맛 알면 다른 거 못 먹어, 진짜로."
+"뭔데 이게 이렇게 맛있어, 말도 안 돼."`;
+
   const prompt = `다음 레시피 정보를 바탕으로 시청자의 궁금함을 즉시 자극하는 한국어 훅 멘트 한문장을 생성하세요.
 
 레시피: ${recipeName}
@@ -91,15 +120,11 @@ async function generateHookMentText(
 훅 멘트 규칙:
 1. 낭독 시 3~4초 분량 (약 20자)
 2. 완전한 문장 1~2개로 구성 — 단어 하나만 쓰면 안 됨
-3. FOMO + 궁금증 자극 — "이거 뭐야?", "어떻게 이래?" 반응 유도
+${rule3}
 4. 자연스러운 구어체, 이모지 없음
 5. 훅 멘트 텍스트만 출력 (설명 없이)
 
-좋은 예시:
-"이거 한 번만 봐봐, 진짜 미쳐버려."
-"오늘 저녁은 무조건 이거야, 후회 없어."
-"이 맛 알면 다른 거 못 먹어, 진짜로."
-"뭔데 이게 이렇게 맛있어, 말도 안 돼."
+${examples}
 
 훅 멘트:`;
 
@@ -190,7 +215,7 @@ async function callTypecastTts(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { mode, text, recipeName, highlight, taste, kickPoints, pairings } = body as {
+    const { mode, text, recipeName, highlight, taste, kickPoints, pairings, character } = body as {
       mode?: string;
       text?: string;
       recipeName?: string;
@@ -198,6 +223,7 @@ export async function POST(req: NextRequest) {
       taste?: string;
       kickPoints?: string;
       pairings?: string;
+      character?: string;
     };
 
     const typecastKey = process.env.TYPECAST_API_KEY;
@@ -225,6 +251,7 @@ export async function POST(req: NextRequest) {
         kickPoints ?? "",
         pairings ?? "",
         googleKey,
+        character ?? "cute",
       );
       console.log("[TTS] 훅 멘트 TTS 변환:", hookText);
       return callTypecastTts(hookText, typecastKey);
@@ -235,7 +262,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "text가 필요합니다." }, { status: 400 });
     }
 
-    const speechText = await toSpeechText(text, googleKey);
+    const speechText = await toSpeechText(text, googleKey, character ?? "cute");
     return callTypecastTts(speechText, typecastKey, { speechText });
 
   } catch (err) {
