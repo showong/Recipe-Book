@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const VOICE_ID     = "tc_624cccbcadcd568510764d65";
-const TTS_ENDPOINT = "https://api.typecast.ai/v1/text-to-speech";
+const VOICE_ID_CUTE = "tc_624cccbcadcd568510764d65";
+const VOICE_ID_LAZY = "tc_606c6c155e38f609c6789d2b";
+const TTS_ENDPOINT  = "https://api.typecast.ai/v1/text-to-speech";
 const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
 const GEMINI_URL   = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
@@ -94,22 +95,26 @@ async function generateHookMentText(
   const isLazy = character === "lazy";
 
   const rule3 = isLazy
-    ? `3. 효율 + 기대감 — '생각보다 쉬움', '귀찮은 거 없음' 반응 유도`
+    ? `3. 엄청난 요리 내공이 느껴지면서도 귀찮음을 이겨낸 장인의 감성 — 집에 있는 재료만으로 아내를 위해 몰래 만든 비밀 레시피 느낌`
     : `3. FOMO + 궁금증 자극 — "이거 뭐야?", "어떻게 이래?" 반응 유도`;
 
   const examples = isLazy
     ? `좋은 예시:
-"귀찮은 거 다 빼도 이 맛이에요."
-"생각보다 별거 없는데, 진짜 맛있어요."
-"노력 최소 맛 최대, 이거면 충분합니다."
-"5분이면 끝납니다. 믿어봐요."`
+"마트 안 가도 됩니다. 집에 있는 거로 충분해요."
+"귀찮아서 만든 건데, 아내가 맛집이냐고 물어봤어요."
+"어차피 먹을 건데, 이왕이면 제대로 먹어야죠."
+"재료 없어도 됩니다. 다 필요 없어요, 이것만 있으면 됩니다."`
     : `좋은 예시:
 "이거 한 번만 봐봐, 진짜 미쳐버려."
 "오늘 저녁은 무조건 이거야, 후회 없어."
 "이 맛 알면 다른 거 못 먹어, 진짜로."
 "뭔데 이게 이렇게 맛있어, 말도 안 돼."`;
 
-  const prompt = `다음 레시피 정보를 바탕으로 시청자의 궁금함을 즉시 자극하는 한국어 훅 멘트 한문장을 생성하세요.
+  const lazyPersona = isLazy
+    ? `당신은 엄청난 요리 내공을 가진 장인인데 너무너무 귀찮습니다. 아내를 위해 마트에 가기 싫어서 집에 있는 재료만 가지고 몰래 레시피를 만들었지만, 그 결과물이 놀라울 정도로 맛있습니다. 이 비밀이 들키지 않게 하되, 요리에 대한 진심과 내공이 느껴지는 임팩트 있는 훅 멘트를 작성하세요.\n\n`
+    : "";
+
+  const prompt = `${lazyPersona}다음 레시피 정보를 바탕으로 시청자의 궁금함을 즉시 자극하는 한국어 훅 멘트 한문장을 생성하세요.
 
 레시피: ${recipeName}
 특징: ${highlight}
@@ -138,7 +143,9 @@ async function callTypecastTts(
   speechText: string,
   typecastKey: string,
   extraData: Record<string, unknown> = {},
+  character = "cute",
 ): Promise<NextResponse> {
+  const voiceId = character === "lazy" ? VOICE_ID_LAZY : VOICE_ID_CUTE;
   const ttsRes = await fetch(TTS_ENDPOINT, {
     method: "POST",
     headers: {
@@ -146,7 +153,7 @@ async function callTypecastTts(
       "X-API-KEY": typecastKey,
     },
     body: JSON.stringify({
-      voice_id: VOICE_ID,
+      voice_id: voiceId,
       text: speechText,
       model: "ssfm-v30",
       language: "kor",
@@ -254,7 +261,7 @@ export async function POST(req: NextRequest) {
         character ?? "cute",
       );
       console.log("[TTS] 훅 멘트 TTS 변환:", hookText);
-      return callTypecastTts(hookText, typecastKey);
+      return callTypecastTts(hookText, typecastKey, {}, character ?? "cute");
     }
 
     // ── 모드 2: 레시피 단계 구어체 압축 + TTS ────────────────────────────────
@@ -263,7 +270,7 @@ export async function POST(req: NextRequest) {
     }
 
     const speechText = await toSpeechText(text, googleKey, character ?? "cute");
-    return callTypecastTts(speechText, typecastKey, { speechText });
+    return callTypecastTts(speechText, typecastKey, { speechText }, character ?? "cute");
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
