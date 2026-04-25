@@ -463,7 +463,8 @@ Do NOT invent a new card layout. Copy the structure from Image 1 exactly.`;
     let contents;
     if (type === "step-instagram") {
       const templatePath = path.join(process.cwd(), "public", "step-card-template.jpeg");
-      const bearPath = path.join(process.cwd(), "public", "chef-bear-reference.png");
+      const bearFile = character === "lazy" ? "chef-bear-reference-2.png" : "chef-bear-reference.png";
+      const bearPath = path.join(process.cwd(), "public", bearFile);
       const templateBase64 = fs.readFileSync(templatePath).toString("base64");
       const bearBase64 = fs.readFileSync(bearPath).toString("base64");
       contents = [{
