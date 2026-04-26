@@ -899,7 +899,7 @@ function RecipeDetailContent() {
       // onstop/onerror 핸들러는 stop() 호출 전에 등록 (race condition 방지)
       const stopPromise = new Promise<void>((res, rej) => {
         recorder.onstop  = () => res();
-        recorder.onerror = (e) => rej(new Error(`MediaRecorder 오류: ${(e as MediaRecorderErrorEvent).error?.message ?? "unknown"}`));
+        recorder.onerror = (e) => rej(new Error(`MediaRecorder 오류: ${(e as MediaRecorderErrorEvent).error?.message}`));
       });
 
       // ── 오디오 스케줄 ─────────────────────────────────────────────────────
