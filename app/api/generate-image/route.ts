@@ -12,6 +12,7 @@ const THUMBNAIL_STYLES = [
   { id: 3, name: "드라마틱 클로즈업", file: "thumb-style-3.jpeg" },
   { id: 4, name: "레시피 인포그래픽", file: "thumb-style-4.jpeg" },
   { id: 5, name: "내추럴 오가닉", file: "thumb-style-5.jpeg" },
+  { id: 6, name: "TV 요리쇼", file: "thumb-style-6.jpeg" },
 ] as const;
 
 function buildThumbnailPrompt(
@@ -95,6 +96,21 @@ LAYOUT (top to bottom):
   ⑤ FOOD PHOTO (lower half of canvas): natural placement, slightly overlapping the tagline. Real appetizing photo.
   ⑥ DECORATIVE ELEMENTS: soft watercolor leaf or dot motifs at top-left and bottom-right corners.
 STYLE RULE: artisanal, farmers-market, trustworthy. Warm but sophisticated.`,
+
+    6: `${base}
+=== STYLE: TV 요리쇼 ===
+BACKGROUND: Food photo (Image 1) fills the entire 9:16 canvas. Keep it natural, bright, and appetizing — do NOT heavily darken the center. Apply dark gradient overlays only at the top strip (top 25%) and bottom strip (bottom 20%) to make text readable.
+LAYOUT (top to bottom):
+  ① TOP HOOK (top 8–22% of canvas): 1–2 bold hook lines, center-aligned. White extra-bold Korean font with subtle dark text shadow.
+     Line 1: short punchy accent (e.g. "딱 10분만!" / "집밥의 완성!") — medium-large size. Generate from FOMO signals, max 10 chars.
+     Line 2 (optional): secondary hook if needed — slightly smaller. Max 14 chars.
+  ② CENTER (22–76%): Food photo fully visible. Absolutely NO text in this zone.
+  ③ RECIPE NAME (76–93% of canvas): Dish name in enormous Korean ultra-bold font, center-aligned.
+     Color: bright orange (#FF8C00) with thick black stroke outline, OR pure white with thick black outline.
+     Size: as large as possible while fitting. Up to 2 lines.
+  ④ BOTTOM TAGLINE (93–97%): One very short taste/mood phrase. White, small semi-transparent text, center. Max 16 chars. Generate from taste/pairings.
+LOGO (Image 3): top-right corner, very small, semi-transparent.
+STYLE RULE: YouTube cooking channel / TV recipe broadcast thumbnail energy. The food photo is the hero. Text reads like a broadcast chyron — confident, punchy, instantly legible.${character === "lazy" ? ` Hook tone: dry master-chef confidence. Examples: "마트 안 갔음", "집에 있던 거로", "귀찮은데 맛있음".` : ""}`,
   };
 
   return styles[styleId] ?? styles[1];
@@ -206,6 +222,7 @@ export async function POST(req: NextRequest) {
       ingredients, steps, kickSteps, highlight,
       uploadedImageBase64, uploadedImageMimeType,
       cookingTime, servings, taste, pairings, kickPoints, character,
+      styleId,
     } = await req.json();
 
     const isEn = language === "en";
@@ -404,14 +421,14 @@ Step badge number = ${stepNumber}.
 
 Do NOT invent a new card layout. Copy the structure from Image 1 exactly.`;
 
-    // ── Reel thumbnail — 5가지 스타일 중 랜덤 선택 ──────────────────────────────
+    // ── Reel thumbnail — styleId 지정 or 랜덤 ──────────────────────────────────
     } else if (type === "reel-thumbnail") {
       const pairingText = Array.isArray(pairings) && pairings.length > 0
         ? pairings.slice(0, 2).join(" · ")
         : "";
 
-      // 랜덤 스타일 선택
-      selectedStyle = THUMBNAIL_STYLES[Math.floor(Math.random() * THUMBNAIL_STYLES.length)];
+      const picked = styleId != null ? THUMBNAIL_STYLES.find(s => s.id === Number(styleId)) : undefined;
+      selectedStyle = picked ?? THUMBNAIL_STYLES[Math.floor(Math.random() * THUMBNAIL_STYLES.length)];
       prompt = buildThumbnailPrompt(
         selectedStyle.id,
         recipeName,
@@ -422,12 +439,13 @@ Do NOT invent a new card layout. Copy the structure from Image 1 exactly.`;
         character ?? "cute",
       );
 
-    // ── Post cover (1:1, 5가지 스타일 랜덤) ─────────────────────────────────────
+    // ── Post cover (1:1, styleId 지정 or 랜덤) ──────────────────────────────────
     } else if (type === "post-cover") {
       const pairingText = Array.isArray(pairings) && pairings.length > 0
         ? pairings.slice(0, 2).join(" · ")
         : "";
-      selectedStyle = THUMBNAIL_STYLES[Math.floor(Math.random() * THUMBNAIL_STYLES.length)];
+      const picked = styleId != null ? THUMBNAIL_STYLES.find(s => s.id === Number(styleId)) : undefined;
+      selectedStyle = picked ?? THUMBNAIL_STYLES[Math.floor(Math.random() * THUMBNAIL_STYLES.length)];
       prompt = buildPostCoverPrompt(
         selectedStyle.id,
         recipeName,
@@ -438,12 +456,13 @@ Do NOT invent a new card layout. Copy the structure from Image 1 exactly.`;
         character ?? "cute",
       );
 
-    // ── English post cover (1:1, 5가지 스타일 랜덤) ──────────────────────────────
+    // ── English post cover (1:1, styleId 지정 or 랜덤) ─────────────────────────
     } else if (type === "post-cover-en") {
       const pairingText = Array.isArray(pairings) && pairings.length > 0
         ? pairings.slice(0, 2).join(" · ")
         : "";
-      selectedStyle = THUMBNAIL_STYLES[Math.floor(Math.random() * THUMBNAIL_STYLES.length)];
+      const picked = styleId != null ? THUMBNAIL_STYLES.find(s => s.id === Number(styleId)) : undefined;
+      selectedStyle = picked ?? THUMBNAIL_STYLES[Math.floor(Math.random() * THUMBNAIL_STYLES.length)];
       prompt = buildPostCoverPrompt(
         selectedStyle.id,
         recipeName,

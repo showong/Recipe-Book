@@ -46,6 +46,7 @@ function RecipeDetailContent() {
   const [reelVideoThumbnailUrl, setReelVideoThumbnailUrl] = useState<string | null>(null);
   const [reelVideoConverting, setReelVideoConverting] = useState(false);
   const [reelStyleName, setReelStyleName] = useState<string | null>(null);
+  const [selectedStyleId, setSelectedStyleId] = useState<number | null>(null);
   // 훅 멘트 TTS
   const [hookMentLoading, setHookMentLoading] = useState(false);
   const [hookMentAudioUrl, setHookMentAudioUrl] = useState<string | null>(null);
@@ -169,6 +170,7 @@ function RecipeDetailContent() {
       setStepImagesEn((prev) => { const n = { ...prev }; delete n[step.number]; return n; });
       setStepImagesEnLoading((prev) => ({ ...prev, [step.number]: true }));
     } else {
+      setStepImages((prev) => { const n = { ...prev }; delete n[step.number]; return n; });
       setStepImagesLoading((prev) => ({ ...prev, [step.number]: true }));
     }
     try {
@@ -420,6 +422,7 @@ function RecipeDetailContent() {
           pairings: recipe.pairings,
           kickPoints,
           character: characterVersion,
+          styleId: selectedStyleId,
         }),
       });
       const data = await res.json();
@@ -1532,6 +1535,37 @@ function RecipeDetailContent() {
                   className="hidden"
                   onChange={handleReelImageUpload}
                 />
+
+                {/* 썸네일 양식 선택 */}
+                <div className="mt-4">
+                  <p className="text-xs font-bold text-gray-500 mb-2">🎨 썸네일 양식 선택</p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: null,  emoji: "🎲", name: "랜덤" },
+                      { id: 1,     emoji: "🌙", name: "무드 에디토리얼" },
+                      { id: 2,     emoji: "🎨", name: "볼드 포스터" },
+                      { id: 3,     emoji: "🎬", name: "드라마틱" },
+                      { id: 4,     emoji: "📋", name: "인포그래픽" },
+                      { id: 5,     emoji: "🌿", name: "내추럴" },
+                      { id: 6,     emoji: "📺", name: "TV 요리쇼" },
+                    ].map((s) => {
+                      const active = selectedStyleId === s.id;
+                      return (
+                        <button
+                          key={String(s.id)}
+                          onClick={() => setSelectedStyleId(s.id as number | null)}
+                          className="py-2 px-1.5 rounded-xl text-xs font-bold transition-all text-center leading-tight"
+                          style={active
+                            ? { background: "linear-gradient(135deg,#7c3aed,#ec4899)", color: "#fff" }
+                            : { background: "#f3f4f6", color: "#6b7280" }}>
+                          <span className="block text-base leading-none mb-0.5">{s.emoji}</span>
+                          {s.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* 버튼 행 */}
                 <div className="mt-4 flex gap-2">
                   {reelUploadedImage && (
