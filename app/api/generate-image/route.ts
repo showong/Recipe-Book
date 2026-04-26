@@ -5,13 +5,14 @@ import path from "path";
 const GEMINI_MODEL = "gemini-3.1-flash-image-preview";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-// ── 5가지 썸네일 스타일 정의 ──────────────────────────────────────────────────
+// ── 6가지 썸네일 스타일 정의 ──────────────────────────────────────────────────
 const THUMBNAIL_STYLES = [
   { id: 1, name: "무드 에디토리얼", file: "thumb-style-1.jpeg" },
   { id: 2, name: "볼드 컬러 포스터", file: "thumb-style-2.jpeg" },
   { id: 3, name: "드라마틱 클로즈업", file: "thumb-style-3.jpeg" },
   { id: 4, name: "레시피 인포그래픽", file: "thumb-style-4.jpeg" },
   { id: 5, name: "내추럴 오가닉", file: "thumb-style-5.jpeg" },
+  { id: 6, name: "TV 요리쇼", file: "thumb-style-6.jpeg" },
 ] as const;
 
 function buildThumbnailPrompt(
@@ -91,6 +92,37 @@ LAYOUT (top to bottom):
   ⑤ FOOD PHOTO (y=48%–96%): bottom half, natural placement, slightly overlapping the tagline text. Real appetizing photo.
   ⑥ DECORATIVE ELEMENTS: soft watercolor leaf or dot motifs at top-left and bottom-right corners.
 STYLE RULE: artisanal, farmers-market, trustworthy. Warm but sophisticated.`,
+
+    6: `${base}
+=== STYLE: TV 요리쇼 (Image 2 reference) ===
+BACKGROUND: Food photo (Image 1) fills entire 1080×1920 canvas edge-to-edge. Slight saturation boost (+8%). No cropping — full canvas coverage.
+
+CENTER CLEAR RULE (CRITICAL): The zone from y=10% to y=72% from top must be COMPLETELY FREE of text, badges, or overlays. Only the food photo is visible in this zone.
+
+TOP BRANDING (y=0%–5%):
+  "@oh_showong" — small white semi-bold text, 28px, centered horizontally, y≈3%.
+  Drop shadow: 0 2px 8px rgba(0,0,0,0.8).
+
+BOTTOM DARK OVERLAY: Smooth vertical gradient starting at y=72% (fully transparent) fading to rgba(0,0,0,0.80) at y=100%. Applied only within the bottom 28%.
+
+FOOD NAME (y=72%–86%):
+  Text: "${recipeName}"
+  Font: ultra-bold Korean display, white, 80px. Center-aligned with 48px left/right margin. Auto-wrap to 2 lines.
+  Drop shadow: 0 4px 20px rgba(0,0,0,0.95).
+
+CTA HOOK PILL (y=86%–93%):
+  Rounded pill badge, background #FF6B35, padding 8px 28px, centered horizontally.
+  Text: white bold 32px, Korean only, max 12 chars.
+  Generate the hook from taste/highlight/kick signals — urgent desire-triggering tone.
+  Examples: "지금 당장 만들어봐!", "이 맛 진짜 실화?", "저장 필수 레시피"
+
+BOTTOM STRIP (y=93%–100%):
+  Solid #FFE500 (warm yellow) full-width strip, 134px tall.
+  Text: "레시피 전체 보기 ▶" — #1A1A1A extra-bold 28px, vertically + horizontally centered.
+
+LOGO (Image 3): Render the logo exactly as provided. Position: top-right corner, 20px from top, 20px from right, 90px diameter.
+
+STYLE RULE: Professional broadcast lower-third. The food photo commands the eye. Text appears only at the very top and very bottom edges — never in the center.`,
   };
 
   return styles[styleId] ?? styles[1];
@@ -99,11 +131,12 @@ STYLE RULE: artisanal, farmers-market, trustworthy. Warm but sophisticated.`,
 export async function POST(req: NextRequest) {
   try {
     const {
-      recipeName, type, language,
+      recipeName, type, language, character,
       stepTitle, stepDescription, stepNumber, stepTime, totalSteps,
       ingredients, steps, kickSteps, highlight,
       uploadedImageBase64, uploadedImageMimeType,
       cookingTime, servings, taste, pairings, kickPoints,
+      styleId,
     } = await req.json();
 
     const isEn = language === "en";
@@ -296,14 +329,17 @@ Step badge number = ${stepNumber}.
 
 Do NOT invent a new card layout. Copy the structure from Image 1 exactly.`;
 
-    // ── Reel thumbnail — 5가지 스타일 중 랜덤 선택 ──────────────────────────────
+    // ── Reel thumbnail — styleId 우선, 없으면 랜덤 ──────────────────────────────
     } else if (type === "reel-thumbnail") {
       const pairingText = Array.isArray(pairings) && pairings.length > 0
         ? pairings.slice(0, 2).join(" · ")
         : "";
 
-      // 랜덤 스타일 선택
-      selectedStyle = THUMBNAIL_STYLES[Math.floor(Math.random() * THUMBNAIL_STYLES.length)];
+      // styleId가 지정된 경우 해당 스타일 사용, 없으면 랜덤
+      const picked = styleId != null
+        ? THUMBNAIL_STYLES.find(s => s.id === Number(styleId))
+        : undefined;
+      selectedStyle = picked ?? THUMBNAIL_STYLES[Math.floor(Math.random() * THUMBNAIL_STYLES.length)];
       prompt = buildThumbnailPrompt(
         selectedStyle.id,
         recipeName,
@@ -459,7 +495,8 @@ Fill the entire canvas with Image 1 (food photo). Slight saturation boost (+10%)
     let contents;
     if (type === "step-instagram") {
       const templatePath = path.join(process.cwd(), "public", "step-card-template.jpeg");
-      const bearPath = path.join(process.cwd(), "public", "chef-bear-reference.png");
+      const bearFile = character === "lazy" ? "chef-bear-reference-2.png" : "chef-bear-reference.png";
+      const bearPath = path.join(process.cwd(), "public", bearFile);
       const templateBase64 = fs.readFileSync(templatePath).toString("base64");
       const bearBase64 = fs.readFileSync(bearPath).toString("base64");
       contents = [{

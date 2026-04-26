@@ -46,6 +46,7 @@ function RecipeDetailContent() {
   const [reelVideoThumbnailUrl, setReelVideoThumbnailUrl] = useState<string | null>(null);
   const [reelVideoConverting, setReelVideoConverting] = useState(false);
   const [reelStyleName, setReelStyleName] = useState<string | null>(null);
+  const [selectedStyleId, setSelectedStyleId] = useState<number | null>(null);
   // 훅 멘트 TTS
   const [hookMentLoading, setHookMentLoading] = useState(false);
   const [hookMentAudioUrl, setHookMentAudioUrl] = useState<string | null>(null);
@@ -401,6 +402,7 @@ function RecipeDetailContent() {
           taste: recipe.taste,
           pairings: recipe.pairings,
           kickPoints,
+          styleId: selectedStyleId,
         }),
       });
       const data = await res.json();
@@ -1204,6 +1206,35 @@ function RecipeDetailContent() {
                   className="hidden"
                   onChange={handleReelImageUpload}
                 />
+                {/* 썸네일 스타일 선택 */}
+                {reelUploadedImage && (
+                  <div className="mt-4">
+                    <p className="text-xs font-bold text-gray-500 mb-2">썸네일 스타일 선택</p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[
+                        { id: null, label: "🎲 랜덤" },
+                        { id: 1, label: "1. 무드" },
+                        { id: 2, label: "2. 볼드" },
+                        { id: 3, label: "3. 드라마" },
+                        { id: 4, label: "4. 인포" },
+                        { id: 5, label: "5. 오가닉" },
+                        { id: 6, label: "6. TV쇼" },
+                      ].map(({ id, label }) => (
+                        <button
+                          key={String(id)}
+                          onClick={() => setSelectedStyleId(id)}
+                          className={`py-2 px-1 rounded-xl text-xs font-bold transition-all active:scale-95 border-2 ${
+                            selectedStyleId === id
+                              ? "border-purple-500 bg-purple-50 text-purple-700"
+                              : "border-gray-200 bg-white text-gray-500 hover:border-purple-300"
+                          }`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* 버튼 행 */}
                 <div className="mt-4 flex gap-2">
                   {reelUploadedImage && (
