@@ -155,7 +155,7 @@ async function callTypecastTts(
     body: JSON.stringify({
       voice_id: voiceId,
       text: speechText,
-      model: "ssfm-v30",
+      model: character === "lazy" ? "ssfm-v21" : "ssfm-v30",
       language: "kor",
       output: {
         audio_format: "mp3",
