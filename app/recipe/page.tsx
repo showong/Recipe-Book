@@ -186,6 +186,7 @@ function RecipeDetailContent() {
           stepDescription: step.description,
           stepTime: step.time,
           totalSteps: recipe.steps.length,
+          character: characterVersion,
         }),
       });
       const data = await res.json();
