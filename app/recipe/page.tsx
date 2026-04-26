@@ -856,13 +856,43 @@ function RecipeDetailContent() {
         ...canvasStream.getVideoTracks(),
         ...dest.stream.getAudioTracks(),
       ]);
-      const mimeType =
-        ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4;codecs=avc1", "video/mp4",
-         "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"]
-          .find(m => MediaRecorder.isTypeSupported(m)) ?? "video/webm";
+
+      // ── 인코더 호환성 프로브: isTypeSupported()만으로는 실제 인코딩 실패를 잡지 못함 ──
+      // 동일 해상도의 별도 캔버스로 200ms 짧게 녹화 시도 → 동작하는 첫 번째 설정 사용
+      const candidateConfigs = [
+        { mimeType: "video/mp4",                  videoBitsPerSecond: 2_000_000 },
+        { mimeType: "video/webm;codecs=vp9,opus", videoBitsPerSecond: 2_000_000 },
+        { mimeType: "video/webm;codecs=vp8,opus", videoBitsPerSecond: 1_500_000 },
+        { mimeType: "video/webm",                 videoBitsPerSecond: 1_000_000 },
+      ].filter(c => MediaRecorder.isTypeSupported(c.mimeType));
+      if (candidateConfigs.length === 0) candidateConfigs.push({ mimeType: "video/webm", videoBitsPerSecond: 1_000_000 });
+
+      const probeCanvas = document.createElement("canvas");
+      probeCanvas.width  = CANVAS_W;
+      probeCanvas.height = CANVAS_H;
+      const probeStream  = probeCanvas.captureStream(30);
+      let chosenConfig   = candidateConfigs[candidateConfigs.length - 1];
+      for (const cfg of candidateConfigs) {
+        const ok = await new Promise<boolean>((resolve) => {
+          try {
+            const probe = new MediaRecorder(probeStream, cfg);
+            probe.ondataavailable = () => {};
+            probe.onerror = () => resolve(false);
+            setTimeout(() => {
+              try { if (probe.state === "recording") probe.stop(); } catch {}
+              resolve(true);
+            }, 250);
+            probe.start(100);
+          } catch { resolve(false); }
+        });
+        if (ok) { chosenConfig = cfg; break; }
+      }
+      probeStream.getTracks().forEach(t => t.stop());
+
+      const { mimeType, videoBitsPerSecond } = chosenConfig;
       const ext = mimeType.startsWith("video/mp4") ? "mp4" : "webm";
       setFinalVideoExt(ext);
-      const recorder = new MediaRecorder(combined, { mimeType, videoBitsPerSecond: 5_000_000 });
+      const recorder = new MediaRecorder(combined, { mimeType, videoBitsPerSecond });
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
 
