@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const VOICE_ID_CUTE = "tc_624cccbcadcd568510764d65";
-const VOICE_ID_LAZY = "tc_606c6c155e38f609c6789d2b";
+const VOICE_ID_LAZY = "tc_63622aaa4109052e8067e303";
 const TTS_ENDPOINT  = "https://api.typecast.ai/v1/text-to-speech";
 const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
 const GEMINI_URL   = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
