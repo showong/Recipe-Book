@@ -51,6 +51,9 @@ function RecipeDetailContent() {
   const [hookMentLoading, setHookMentLoading] = useState(false);
   const [hookMentAudioUrl, setHookMentAudioUrl] = useState<string | null>(null);
   const [hookMentError, setHookMentError] = useState<string | null>(null);
+  const [telegramLoading, setTelegramLoading] = useState(false);
+  const [telegramSent, setTelegramSent] = useState(false);
+  const [telegramError, setTelegramError] = useState<string | null>(null);
   // TTS (스텝별)
   const [ttsLoading, setTtsLoading] = useState<Record<number, boolean>>({});
   const [ttsAudioUrls, setTtsAudioUrls] = useState<Record<number, string>>({});
@@ -317,15 +320,21 @@ function RecipeDetailContent() {
         const chunks: BlobPart[] = [];
 
         recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-        recorder.onstop = () =>
+        recorder.onstop = () => {
+          stream.getTracks().forEach(t => t.stop());
           resolve(URL.createObjectURL(new Blob(chunks, { type: mime.split(";")[0] })));
+        };
         recorder.onerror = () => reject(new Error("MediaRecorder 오류"));
 
         recorder.start(200);
         const t0 = performance.now();
         const frame = () => {
           const elapsed = (performance.now() - t0) / 1000;
-          if (elapsed >= DURATION) { recorder.stop(); return; }
+          if (elapsed >= DURATION) {
+            recorder.requestData(); // 마지막 청크 플러시
+            recorder.stop();
+            return;
+          }
           const p = elapsed / DURATION;
           const scale = 1 + p * 0.06; // 켄번스: 서서히 줌인
           ctx.save();
@@ -340,6 +349,51 @@ function RecipeDetailContent() {
       img.onerror = () => reject(new Error("이미지 로드 실패"));
       img.src = imageDataUrl;
     });
+
+  const sendToTelegram = async () => {
+    if (!reelThumbnail || !recipe) return;
+    setTelegramLoading(true);
+    setTelegramError(null);
+    try {
+      const useVideo = reelIsVideo && !!reelVideoThumbnailUrl;
+      let base64: string;
+      let mimeType: string;
+      let filename: string;
+
+      if (useVideo && reelVideoThumbnailUrl) {
+        const response = await fetch(reelVideoThumbnailUrl);
+        const blob = await response.blob();
+        const dataUrl = await new Promise<string>((res) => {
+          const reader = new FileReader();
+          reader.onloadend = () => res(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/)!;
+        mimeType = m[1];
+        base64 = m[2];
+        filename = `${recipe.name}-reel.webm`;
+      } else {
+        const m = reelThumbnail.match(/^data:([^;]+);base64,(.+)$/)!;
+        mimeType = m[1];
+        base64 = m[2];
+        filename = `${recipe.name}-thumbnail.jpg`;
+      }
+
+      const res = await fetch("/api/send-telegram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: base64, mimeType, filename, caption: `🐻 ${recipe.name} 릴스` }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setTelegramSent(true);
+      setTimeout(() => setTelegramSent(false), 3000);
+    } catch (err) {
+      setTelegramError(err instanceof Error ? err.message : "전송 실패");
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
 
   const generateHookMent = async () => {
     if (!recipe) return;
@@ -1350,28 +1404,49 @@ function RecipeDetailContent() {
                     </div>
                   )}
                 </div>
-                <div className="px-5 py-4 flex gap-3"
+                <div className="px-5 py-4 flex flex-col gap-2"
                   style={{ background: "linear-gradient(135deg, #faf5ff, #fdf2f8)" }}>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        const a = document.createElement("a");
+                        const useVideo = reelIsVideo && !!reelVideoThumbnailUrl;
+                        a.href = useVideo ? reelVideoThumbnailUrl! : reelThumbnail;
+                        a.download = useVideo
+                          ? `${recipe.name}-reel-thumbnail.webm`
+                          : `${recipe.name}-reel-thumbnail.png`;
+                        a.click();
+                      }}
+                      className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
+                      style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
+                      ⬇️ 썸네일 저장
+                    </button>
+                    <button
+                      onClick={generateReelThumbnail}
+                      className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-purple-50"
+                      style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>
+                      🔄 재생성
+                    </button>
+                  </div>
+                  {/* 텔레그램 전송 */}
                   <button
-                    onClick={() => {
-                      const a = document.createElement("a");
-                      const useVideo = reelIsVideo && !!reelVideoThumbnailUrl;
-                      a.href = useVideo ? reelVideoThumbnailUrl! : reelThumbnail;
-                      a.download = useVideo
-                        ? `${recipe.name}-reel-thumbnail.webm`
-                        : `${recipe.name}-reel-thumbnail.png`;
-                      a.click();
-                    }}
-                    className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
-                    style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
-                    ⬇️ 썸네일 저장
+                    onClick={sendToTelegram}
+                    disabled={telegramLoading || telegramSent}
+                    className="w-full py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90 disabled:opacity-60 active:scale-95"
+                    style={{ background: telegramSent ? "linear-gradient(135deg, #22c55e, #16a34a)" : "linear-gradient(135deg, #0ea5e9, #2563eb)" }}>
+                    {telegramLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        전송 중...
+                      </span>
+                    ) : telegramSent ? "✅ 전송 완료!" : "✈️ 텔레그램으로 전송"}
                   </button>
-                  <button
-                    onClick={generateReelThumbnail}
-                    className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-purple-50"
-                    style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>
-                    🔄 재생성
-                  </button>
+                  {telegramError && (
+                    <p className="text-xs text-red-500 text-center">⚠️ {telegramError}</p>
+                  )}
                 </div>
               </div>
             )}
