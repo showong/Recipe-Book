@@ -11,6 +11,7 @@ function RecipeDetailContent() {
   const searchParams = useSearchParams();
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [ingredients, setIngredients] = useState<string[]>([]);
+  const [character, setCharacter] = useState<string>("cute");
   const [activeSection, setActiveSection] = useState<"ingredients" | "steps" | "summary" | "reel">("ingredients");
   const summaryRef = useRef<HTMLDivElement>(null);
   const reelRef = useRef<HTMLDivElement>(null);
@@ -77,6 +78,7 @@ function RecipeDetailContent() {
       const parsed = JSON.parse(decodeURIComponent(data));
       setRecipe(parsed.recipe);
       setIngredients(parsed.ingredients || []);
+      if (parsed.character) setCharacter(parsed.character);
       // Hero image stored in sessionStorage to avoid oversized URL
       if (parsed.heroImageKey) {
         const stored = sessionStorage.getItem(parsed.heroImageKey);
@@ -171,6 +173,7 @@ function RecipeDetailContent() {
           stepDescription: step.description,
           stepTime: step.time,
           totalSteps: recipe.steps.length,
+          character,
         }),
       });
       const data = await res.json();
@@ -415,6 +418,7 @@ function RecipeDetailContent() {
           taste: recipe.taste,
           kickPoints,
           pairings: (recipe.pairings ?? []).slice(0, 2).join(", "),
+          character,
         }),
       });
       const data = await res.json();
@@ -604,7 +608,7 @@ function RecipeDetailContent() {
       const res = await fetch("/api/generate-tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, character }),
       });
       const data = await res.json();
       if (data.error) {

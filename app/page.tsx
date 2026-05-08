@@ -24,6 +24,7 @@ export default function HomePage() {
   const [prefStyle, setPrefStyle] = useState("");
   const [prefPairing, setPrefPairing] = useState("");
   const [prefType, setPrefType] = useState("");
+  const [character, setCharacter] = useState<"cute" | "lazy">("cute");
 
   const addIngredient = (value: string) => {
     const trimmed = value.trim();
@@ -72,7 +73,7 @@ export default function HomePage() {
       const response = await fetch("/api/generate-recipes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ingredients, preferences }),
+        body: JSON.stringify({ ingredients, preferences, character }),
       });
 
       const data = await response.json();
@@ -84,6 +85,7 @@ export default function HomePage() {
       const encoded = encodeURIComponent(JSON.stringify({
         recipes: data.recipes,
         ingredients,
+        character,
       }));
       router.push(`/recipes?data=${encoded}`);
     } catch (err) {
@@ -111,6 +113,61 @@ export default function HomePage() {
 
       {/* Main Content */}
       <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-10">
+        {/* Character Selector */}
+        <div className="mb-5">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 text-center">
+            👨‍🍳 요리 캐릭터 선택
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => setCharacter("cute")}
+              className="relative flex flex-col items-center gap-2 p-4 rounded-3xl border-2 transition-all active:scale-95"
+              style={character === "cute" ? {
+                borderColor: "#ff6b35",
+                background: "linear-gradient(135deg, #fff7ed, #fef3c7)",
+                boxShadow: "0 4px 16px rgba(255,107,53,0.25)",
+              } : {
+                borderColor: "#e5e7eb",
+                background: "white",
+              }}>
+              <span className="text-4xl">🐻</span>
+              <div className="text-center">
+                <p className="font-extrabold text-sm" style={{ color: character === "cute" ? "#ea580c" : "#374151" }}>
+                  귀여운 곰돌이
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">친절하고 상세한 레시피</p>
+              </div>
+              {character === "cute" && (
+                <span className="absolute top-2 right-2 text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "#ff6b35", color: "white" }}>선택됨</span>
+              )}
+            </button>
+            <button
+              onClick={() => setCharacter("lazy")}
+              className="relative flex flex-col items-center gap-2 p-4 rounded-3xl border-2 transition-all active:scale-95"
+              style={character === "lazy" ? {
+                borderColor: "#6366f1",
+                background: "linear-gradient(135deg, #eef2ff, #f5f3ff)",
+                boxShadow: "0 4px 16px rgba(99,102,241,0.25)",
+              } : {
+                borderColor: "#e5e7eb",
+                background: "white",
+              }}>
+              <span className="text-4xl">🐨</span>
+              <div className="text-center">
+                <p className="font-extrabold text-sm" style={{ color: character === "lazy" ? "#4f46e5" : "#374151" }}>
+                  귀차니즘 곰돌이
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">빠르고 간단한 레시피</p>
+              </div>
+              {character === "lazy" && (
+                <span className="absolute top-2 right-2 text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "#6366f1", color: "white" }}>선택됨</span>
+              )}
+            </button>
+          </div>
+        </div>
+
         {/* Input Section */}
         <div className="bg-white rounded-3xl shadow-lg p-6 mb-6">
           <h2 className="text-lg font-bold mb-4 text-gray-700 flex items-center gap-2">
