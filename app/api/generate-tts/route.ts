@@ -6,13 +6,13 @@ const TTS_ENDPOINT  = "https://api.typecast.ai/v1/text-to-speech";
 const GEMINI_MODEL  = "gemini-2.0-flash";
 const GEMINI_URL    = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-async function callGemini(prompt: string, googleApiKey: string, maxTokens = 64): Promise<string> {
+async function callGemini(prompt: string, googleApiKey: string, maxTokens = 80): Promise<string> {
   const res = await fetch(`${GEMINI_URL}?key=${googleApiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens },
+      generationConfig: { temperature: 0.4, maxOutputTokens: maxTokens },
     }),
   });
   if (!res.ok) return "";
@@ -21,30 +21,63 @@ async function callGemini(prompt: string, googleApiKey: string, maxTokens = 64):
   return parts.map((p) => p.text ?? "").join("").trim();
 }
 
-// 전체 나레이션 → 핵심 동작 요약 한 문장
+// 구어체로 변환된 텍스트를 절반 이하로 압축
+async function compressSpeechText(converted: string, googleApiKey: string, character: string): Promise<string> {
+  const targetLen = Math.floor(converted.length / 2);
+  const prompt = `다음 한국어 구어체 문장을 절반 이하 길이로 압축해 주세요.
+
+압축 규칙:
+1. 목표 길이: ${targetLen}자 이하 (현재 ${converted.length}자의 절반)
+2. 핵심 동작과 핵심 재료/수치만 남기고 나머지 생략
+3. 구어체 어미 유지 (예: "~해요", "~하면 돼요")
+4. 완전한 문장 형태 유지 — 단어 하나·조각 표현 금지
+5. 한국어 텍스트만 출력 (설명 없이)
+
+원문:
+${converted}
+
+압축된 텍스트:`;
+
+  const result = await callGemini(prompt, googleApiKey, 128);
+  console.log("[TTS] 압축 완료 (길이:", result.length, "/목표:", targetLen, "):", result);
+  return result || converted;
+}
+
+// 나레이션 → 구어체 변환 → 절반 압축
 async function toSpeechText(raw: string, googleApiKey: string, character: string): Promise<string> {
   const isLazy = character === "lazy";
-  const ending = isLazy
-    ? '"~하세요" 또는 "~하면 됩니다" 로 끝맺음'
-    : '"~해주세요" 또는 "~하면 돼요" 로 끝맺음';
 
-  const prompt = `다음 요리 단계 설명에서 핵심 동작을 한 문장으로 요약하세요.
+  const promptOpening = isLazy
+    ? `다음 요리 레시피 조리 단계를 귀차니즘 곰돌이 스타일의 TTS 음성 낭독에 적합하도록 변환해 주세요.\n\n변환 목표:\n- 핵심 동작만 짧게 요약, 군더더기 설명 없음\n- 낭독 시 3~5초 분량 (약 40자 이내)`
+    : `다음 요리 레시피 조리 단계를 TTS 음성 낭독에 적합하도록 변환해 주세요.\n\n변환 목표:\n- 원문의 핵심 내용을 요약하고, 용량이나 시간과 같이 불필요한 반복·부연 설명은 생략\n- 낭독 시 5~6초 분량 (약 50자이내)`;
 
-규칙:
-1. 15~30자 이내의 짧은 한 문장
-2. 이 단계에서 가장 중요한 동작과 핵심 재료·수치만 포함
-3. ${ending}
-4. 숫자+단위는 한국어로 (예: 2큰술 → 두 큰술, 180°C → 백팔십 도)
-5. 한국어 텍스트만 출력 (설명·번호 없이)
+  const rule3 = isLazy
+    ? `3. 건조하고 직접적인 구어체 어미 (예: "~하세요", "~해요", "그냥 ~하면 됩니다")`
+    : `3. 자연스러운 구어체 어미 사용 (예: "~해줘요", "~하면 돼요", "~해주세요")`;
 
+  const rule5 = isLazy
+    ? `5. 문장은 반드시 "~하세요" 또는 "하면 됩니다"로 끝맺음`
+    : `5. 문장은 반드시 "~하세요"이나 "해주세요"로 끝맺음을 해야한다.`;
+
+  const prompt = `${promptOpening}
+
+변환 규칙:
+1. 숫자+단위 → 한국어 발음 (예: 200g → 이백 그램, 2큰술 → 두 큰술, 180°C → 백팔십 도)
+2. 특수문자 제거 또는 구어화 (예: ~ → 정도, / → 또는, → → 넣어)
+${rule3}
+4. 한국어 텍스트만 출력 (설명·번호 없이)
+${rule5}
 원문:
 ${raw}
 
-핵심 요약:`;
+변환된 구어체:`;
 
-  const result = await callGemini(prompt, googleApiKey, 64);
-  console.log("[TTS] 핵심 요약:", result);
-  return result || raw;
+  const converted = await callGemini(prompt, googleApiKey, 256);
+  console.log("[TTS] 구어체 변환 (길이:", converted.length, "):", converted.slice(0, 150));
+  if (!converted) return raw;
+
+  const compressed = await compressSpeechText(converted, googleApiKey, character);
+  return compressed || converted;
 }
 
 async function generateHookMentText(
