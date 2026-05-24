@@ -1,172 +1,262 @@
-import { GoogleGenAI } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
 
 const VOICE_ID_CUTE = "tc_624cccbcadcd568510764d65";
 const VOICE_ID_LAZY = "tc_63622aaa4109052e8067e303";
-const TYPECAST_API = "https://typecast.ai/api/speak";
+const TTS_ENDPOINT  = "https://api.typecast.ai/v1/text-to-speech";
+const GEMINI_MODEL  = "gemini-2.0-flash";
+const GEMINI_URL    = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
+async function callGemini(prompt: string, googleApiKey: string, maxTokens = 80): Promise<string> {
+  const res = await fetch(`${GEMINI_URL}?key=${googleApiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.4, maxOutputTokens: maxTokens },
+    }),
+  });
+  if (!res.ok) return "";
+  const data = await res.json();
+  const parts: { text?: string }[] = data?.candidates?.[0]?.content?.parts ?? [];
+  return parts.map((p) => p.text ?? "").join("").trim();
+}
+
+// 구어체로 변환된 텍스트를 절반 이하로 압축
+async function compressSpeechText(converted: string, googleApiKey: string, character: string): Promise<string> {
+  const targetLen = Math.floor(converted.length / 2);
+  const prompt = `다음 한국어 구어체 문장을 절반 이하 길이로 압축해 주세요.
+
+압축 규칙:
+1. 목표 길이: ${targetLen}자 이하 (현재 ${converted.length}자의 절반)
+2. 핵심 동작과 핵심 재료/수치만 남기고 나머지 생략
+3. 구어체 어미 유지 (예: "~해요", "~하면 돼요")
+4. 완전한 문장 형태 유지 — 단어 하나·조각 표현 금지
+5. 한국어 텍스트만 출력 (설명 없이)
+
+원문:
+${converted}
+
+압축된 텍스트:`;
+
+  const result = await callGemini(prompt, googleApiKey, 128);
+  console.log("[TTS] 압축 완료 (길이:", result.length, "/목표:", targetLen, "):", result);
+  return result || converted;
+}
+
+// 나레이션 → 구어체 변환 → 절반 압축
+async function toSpeechText(raw: string, googleApiKey: string, character: string): Promise<string> {
+  const isLazy = character === "lazy";
+
+  const promptOpening = isLazy
+    ? `다음 요리 레시피 조리 단계를 귀차니즘 곰돌이 스타일의 TTS 음성 낭독에 적합하도록 변환해 주세요.\n\n변환 목표:\n- 핵심 동작만 짧게 요약, 군더더기 설명 없음\n- 낭독 시 3~5초 분량 (약 40자 이내)`
+    : `다음 요리 레시피 조리 단계를 TTS 음성 낭독에 적합하도록 변환해 주세요.\n\n변환 목표:\n- 원문의 핵심 내용을 요약하고, 용량이나 시간과 같이 불필요한 반복·부연 설명은 생략\n- 낭독 시 5~6초 분량 (약 50자이내)`;
+
+  const rule3 = isLazy
+    ? `3. 건조하고 직접적인 구어체 어미 (예: "~하세요", "~해요", "그냥 ~하면 됩니다")`
+    : `3. 자연스러운 구어체 어미 사용 (예: "~해줘요", "~하면 돼요", "~해주세요")`;
+
+  const rule5 = isLazy
+    ? `5. 문장은 반드시 "~하세요" 또는 "하면 됩니다"로 끝맺음`
+    : `5. 문장은 반드시 "~하세요"이나 "해주세요"로 끝맺음을 해야한다.`;
+
+  const prompt = `${promptOpening}
+
+변환 규칙:
+1. 숫자+단위 → 한국어 발음 (예: 200g → 이백 그램, 2큰술 → 두 큰술, 180°C → 백팔십 도)
+2. 특수문자 제거 또는 구어화 (예: ~ → 정도, / → 또는, → → 넣어)
+${rule3}
+4. 한국어 텍스트만 출력 (설명·번호 없이)
+${rule5}
+원문:
+${raw}
+
+변환된 구어체:`;
+
+  const converted = await callGemini(prompt, googleApiKey, 256);
+  console.log("[TTS] 구어체 변환 (길이:", converted.length, "):", converted.slice(0, 150));
+  if (!converted) return raw;
+
+  const compressed = await compressSpeechText(converted, googleApiKey, character);
+  return compressed || converted;
+}
+
+async function generateHookMentText(
+  recipeName: string,
+  highlight: string,
+  taste: string,
+  kickPoints: string,
+  pairings: string,
+  googleApiKey: string,
+  character: string,
+): Promise<string> {
+  const isLazy = character === "lazy";
+
+  const rule3 = isLazy
+    ? `3. 엄청난 요리 내공이 느껴지면서도 귀찮음을 이겨낸 장인의 감성 — 집에 있는 재료만으로 아내를 위해 몰래 만든 비밀 레시피 느낌`
+    : `3. FOMO + 궁금증 자극 — "이거 뭐야?", "어떻게 이래?" 반응 유도`;
+
+  const examples = isLazy
+    ? `좋은 예시:\n"마트 안 가도 됩니다. 집에 있는 거로 충분해요."\n"귀찮아서 만든 건데, 아내가 맛집이냐고 물어봤어요."\n"어차피 먹을 건데, 이왕이면 제대로 먹어야죠."\n"재료 없어도 됩니다. 다 필요 없어요, 이것만 있으면 됩니다."`
+    : `좋은 예시:\n"이거 한 번만 봐봐, 진짜 미쳐버려."\n"오늘 저녁은 무조건 이거야, 후회 없어."\n"이 맛 알면 다른 거 못 먹어, 진짜로."\n"뭔데 이게 이렇게 맛있어, 말도 안 돼."`;
+
+  const lazyPersona = isLazy
+    ? `당신은 엄청난 요리 내공을 가진 장인인데 너무너무 귀찮습니다. 아내를 위해 마트에 가기 싫어서 집에 있는 재료만 가지고 몰래 레시피를 만들었지만, 그 결과물이 놀라울 정도로 맛있습니다. 이 비밀이 들키지 않게 하되, 요리에 대한 진심과 내공이 느껴지는 임팩트 있는 훅 멘트를 작성하세요.\n\n`
+    : "";
+
+  const prompt = `${lazyPersona}다음 레시피 정보를 바탕으로 시청자의 궁금함을 즉시 자극하는 한국어 훅 멘트 한문장을 생성하세요.
+
+레시피: ${recipeName}
+특징: ${highlight}
+맛: ${taste}
+킥포인트: ${kickPoints}
+어울리는 것: ${pairings}
+
+훅 멘트 규칙:
+1. 낭독 시 3~4초 분량 (약 20자)
+2. 완전한 문장 1~2개로 구성 — 단어 하나만 쓰면 안 됨
+${rule3}
+4. 자연스러운 구어체, 이모지 없음
+5. 훅 멘트 텍스트만 출력 (설명 없이)
+
+${examples}
+
+훅 멘트:`;
+
+  const result = await callGemini(prompt, googleApiKey, 128);
+  console.log("[TTS] 훅 멘트:", result);
+  return result || `${recipeName}, 지금 바로 만들어봐요.`;
+}
 
 async function callTypecastTts(
   speechText: string,
   typecastKey: string,
+  extraData: Record<string, unknown> = {},
   character = "cute",
-  speedBoost = false,
-): Promise<string> {
+): Promise<NextResponse> {
   const voiceId = character === "lazy" ? VOICE_ID_LAZY : VOICE_ID_CUTE;
-  const model   = character === "lazy" ? "ssfm-v21" : "ssfm-v30";
-
-  const startRes = await fetch(TYPECAST_API, {
+  const ttsRes = await fetch(TTS_ENDPOINT, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${typecastKey}`,
       "Content-Type": "application/json",
+      "X-API-KEY": typecastKey,
     },
     body: JSON.stringify({
-      actor_id: voiceId,
+      voice_id: voiceId,
       text: speechText,
-      lang: "auto",
-      xfaststyle: speedBoost ? "1.15" : "1",
-      emotion: speedBoost ? "excited" : "neutral",
-      xspeed: speedBoost ? "1.1" : "1.0",
-      pitch: "0",
-      model,
-      sample_rate: "48000",
-      max_seconds: "60",
-      codec: "mp3",
+      model: character === "lazy" ? "ssfm-v21" : "ssfm-v30",
+      language: "kor",
+      output: {
+        audio_format: "mp3",
+        audio_pitch: 0,
+        audio_tempo: 1.3,
+        volume: 100,
+      },
     }),
   });
 
-  if (!startRes.ok) {
-    const err = await startRes.text();
-    throw new Error(`Typecast API ${startRes.status}: ${err}`);
+  const contentType = ttsRes.headers.get("content-type") ?? "";
+  console.log("[TTS] status:", ttsRes.status, "content-type:", contentType);
+
+  if (!ttsRes.ok) {
+    const errBody = await ttsRes.text();
+    console.error("[TTS] error body:", errBody.slice(0, 400));
+    return NextResponse.json({ error: `Typecast ${ttsRes.status}: ${errBody}` });
   }
 
-  const startData = await startRes.json();
-  const speakV2Url: string | undefined = startData.result?.speak_v2_url;
-  if (!speakV2Url) throw new Error("Typecast API가 speak_v2_url을 반환하지 않았습니다.");
+  if (contentType.includes("audio/")) {
+    const buffer = await ttsRes.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    const CHUNK = 8192;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode(...bytes.slice(i, i + CHUNK));
+    }
+    const mimeType = contentType.split(";")[0].trim();
+    return NextResponse.json({ audioUrl: `data:${mimeType};base64,${btoa(binary)}`, ...extraData });
+  }
 
-  // Poll until done (max 30s)
-  for (let i = 0; i < 30; i++) {
-    await new Promise(r => setTimeout(r, 1000));
-    const pollRes = await fetch(speakV2Url, {
-      headers: { "Authorization": `Bearer ${typecastKey}` },
-    });
+  const json = await ttsRes.json() as Record<string, unknown>;
+  const result = (json?.result ?? json) as Record<string, unknown>;
+
+  if (result?.audio_download_url) {
+    return NextResponse.json({ audioUrl: result.audio_download_url, ...extraData });
+  }
+
+  const speakUrl = (result?.speak_v2_url ?? json?.speak_v2_url) as string | undefined;
+  if (!speakUrl) {
+    return NextResponse.json({ error: `알 수 없는 응답: ${JSON.stringify(json).slice(0, 200)}` });
+  }
+
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    const pollRes = await fetch(speakUrl, { headers: { "X-API-KEY": typecastKey } });
     if (!pollRes.ok) continue;
-    const pollData = await pollRes.json();
-    const status: string = pollData.result?.status ?? "";
-    if (status === "done") {
-      const audioUrl: string = pollData.result?.audio_download_url ?? "";
-      if (!audioUrl) throw new Error("audio_download_url 없음");
-      const audioRes = await fetch(audioUrl);
-      if (!audioRes.ok) throw new Error(`오디오 다운로드 실패: ${audioRes.status}`);
-      const buf = Buffer.from(await audioRes.arrayBuffer());
-      return `data:audio/mpeg;base64,${buf.toString("base64")}`;
+    const pd = await pollRes.json() as Record<string, unknown>;
+    const r2 = (pd?.result ?? pd) as Record<string, unknown>;
+    if (r2?.status === "done" && r2?.audio_download_url) {
+      return NextResponse.json({ audioUrl: r2.audio_download_url, ...extraData });
     }
-    if (status === "failed" || status === "error") {
-      throw new Error(`Typecast 합성 실패: ${status}`);
+    if (r2?.status === "error") {
+      return NextResponse.json({ error: "Typecast 변환 실패" });
     }
   }
-  throw new Error("Typecast 합성 타임아웃");
+
+  return NextResponse.json({ error: "음성 변환 시간 초과 (40초)" });
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const typecastKey = process.env.TYPECAST_API_KEY;
-    if (!typecastKey) {
-      return NextResponse.json({ error: "TYPECAST_API_KEY가 설정되지 않았습니다." }, { status: 500 });
-    }
-
     const body = await req.json();
-    const { mode, text, character = "cute" } = body as {
+    const { mode, text, recipeName, highlight, taste, kickPoints, pairings, character } = body as {
       mode?: string;
       text?: string;
-      character?: string;
       recipeName?: string;
       highlight?: string;
       taste?: string;
       kickPoints?: string;
       pairings?: string;
+      character?: string;
     };
 
-    // ── 훅 멘트 생성 모드 ──────────────────────────────────────────────────────
-    if (mode === "hook") {
-      const { recipeName, highlight, taste, kickPoints, pairings } = body as Record<string, string>;
-      if (!recipeName) {
-        return NextResponse.json({ error: "recipeName이 필요합니다." }, { status: 400 });
-      }
-
-      const characterStyle = character === "lazy"
-        ? "귀차니즘 곰돌이 스타일: 처음엔 귀찮은 듯 담담하게 시작, 한 박자 쉬고 반전 한 방으로 끝냄. 무심하지만 맛에는 자신감 100%."
-        : "귀여운 곰돌이 스타일: 살짝 흥분, 따뜻한 감탄사, 시청자를 끌어당기는 설레는 어조.";
-
-      const scriptPrompt = `당신은 한국 푸드 릴스·틱톡 전문 크리에이터입니다.
-시청자가 0.5초 만에 스크롤을 멈추게 만드는, 날 것의 감정이 담긴 3초짜리 훅 음성 스크립트를 작성하세요.
-
-레시피: ${recipeName}
-맛 특징: ${taste ?? ""}
-핵심 포인트: ${highlight ?? ""}
-성공 킥포인트: ${kickPoints ?? ""}
-페어링: ${pairings ?? ""}
-캐릭터: ${characterStyle}
-
-━━━━━━━━━━━━━━━━━━━━
-★ 반드시 지켜야 할 규칙 ★
-
-[길이] 한국어 35~55자 (공백 포함) — 읽으면 딱 2.5~3초
-
-[첫 마디] 감탄·충격·질문으로 무조건 시작
-절대 금지: "안녕하세요" / "오늘은" / "소개할게요" / "만들어볼게요" / 음식 이름으로 시작
-
-[구조] 짧고 강하게 — (반 박자 쉬고) — 클리프행어 or 반전
-
-[감정 트리거 중 하나를 극대화]
-• FOMO형: "이거 모르면 진짜 손해야..."
-• 의외성형: "이게 집밥이라고요?!"
-• 욕구 자극형: "이 냄새가... 진짜로"
-• 공감형: "저만 이거 매일 만들어요?"
-• 반전형: "실패인 줄 알았는데..."
-• 도전형: "이것만 알면 식당 안 가도 돼"
-
-[비유·감각 묘사 적극 활용]
-소리(지글지글, 촤악), 향(고소한 냄새가), 식감(사르르) 등으로 청각적 욕구 자극
-
-[예시 분위기만 참고 — 그대로 사용 금지]
-• "이거 먹고 진짜 눈물 났어요... 집밥이 어떻게 이래요"
-• "5분인데 이 맛이 나온다고요? 말이 돼요?!"
-• "솔직히 귀찮아서 대충 했는데요. 왜 이게 더 맛있죠?"
-• "지글지글 소리 들리죠? 이거 지금 우리 집 이야기예요"
-• "한 입 먹고 바로 레시피 물어봤어요"
-━━━━━━━━━━━━━━━━━━━━
-
-반드시 유효한 JSON만 반환하세요. 마크다운 블록 없이:
-{"script": "훅 텍스트 (35~55자)"}`;
-
-      const geminiResult = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: scriptPrompt,
-      });
-
-      let scriptText = geminiResult.text ?? "";
-      scriptText = scriptText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      const { script } = JSON.parse(scriptText) as { script: string };
-      if (!script) throw new Error("훅 스크립트 생성 실패");
-
-      const audioUrl = await callTypecastTts(script, typecastKey, character, true);
-      return NextResponse.json({ audioUrl, script });
+    const typecastKey = process.env.TYPECAST_API_KEY;
+    if (!typecastKey) {
+      return NextResponse.json(
+        { error: "TYPECAST_API_KEY 환경변수를 .env.local에 추가해주세요." },
+        { status: 500 },
+      );
     }
 
-    // ── 단계별 TTS 모드 (기본) ──────────────────────────────────────────────
-    if (!text) {
+    const googleKey = process.env.GOOGLE_API_KEY;
+    if (!googleKey) {
+      return NextResponse.json(
+        { error: "GOOGLE_API_KEY 환경변수가 설정되지 않았습니다." },
+        { status: 500 },
+      );
+    }
+
+    if (mode === "hook") {
+      const hookText = await generateHookMentText(
+        recipeName ?? "",
+        highlight ?? "",
+        taste ?? "",
+        kickPoints ?? "",
+        pairings ?? "",
+        googleKey,
+        character ?? "cute",
+      );
+      return await callTypecastTts(hookText, typecastKey, {}, character ?? "cute");
+    }
+
+    if (!text || typeof text !== "string") {
       return NextResponse.json({ error: "text가 필요합니다." }, { status: 400 });
     }
 
-    const audioUrl = await callTypecastTts(text, typecastKey, character);
-    return NextResponse.json({ audioUrl });
+    const speechText = await toSpeechText(text, googleKey, character ?? "cute");
+    return await callTypecastTts(speechText, typecastKey, { speechText }, character ?? "cute");
 
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("TTS generation error:", message);
-    return NextResponse.json({ error: `TTS 생성 오류: ${message}` }, { status: 500 });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[TTS] error:", msg);
+    return NextResponse.json({ error: msg });
   }
 }
