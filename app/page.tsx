@@ -2,6 +2,8 @@
 
 import { useState, useRef, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
+import { CharacterType } from "@/types/character";
+import { CHARACTERS } from "@/lib/constants/characters";
 
 const EXAMPLE_INGREDIENTS = [
   "당근", "양파", "마늘", "달걀", "두부", "삼겹살",
@@ -24,7 +26,7 @@ export default function HomePage() {
   const [prefStyle, setPrefStyle] = useState("");
   const [prefPairing, setPrefPairing] = useState("");
   const [prefType, setPrefType] = useState("");
-  const [characterVersion, setCharacterVersion] = useState<"cute" | "lazy">("cute");
+  const [characterVersion, setCharacterVersion] = useState<CharacterType>("cute_bear");
 
   const addIngredient = (value: string) => {
     const trimmed = value.trim();
@@ -162,26 +164,7 @@ export default function HomePage() {
             <span>🐻</span> 캐릭터 선택
           </h2>
           <div className="grid grid-cols-2 gap-3">
-            {([
-              {
-                id: "cute" as const,
-                emoji: "🐻",
-                name: "귀여운 곰돌이",
-                desc: "따뜻하고 친절한\n요리 가이드",
-                accent: "#ea580c",
-                bg: "#fff7ed",
-                border: "#fed7aa",
-              },
-              {
-                id: "lazy" as const,
-                emoji: "🐨",
-                name: "귀차니즘 곰돌이",
-                desc: "노력 최소, 맛 최대\n효율 요리사",
-                accent: "#4f46e5",
-                bg: "#eef2ff",
-                border: "#a5b4fc",
-              },
-            ] as const).map((ch) => (
+            {CHARACTERS.slice(0, 2).map((ch) => (
               <button
                 key={ch.id}
                 onClick={() => setCharacterVersion(ch.id)}
@@ -205,6 +188,37 @@ export default function HomePage() {
               </button>
             ))}
           </div>
+          {/* 트렌드곰 - 전체 너비 */}
+          {CHARACTERS.slice(2).map((ch) => (
+            <button
+              key={ch.id}
+              onClick={() => setCharacterVersion(ch.id)}
+              className="relative w-full mt-3 p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-3"
+              style={{
+                borderColor: characterVersion === ch.id ? ch.accent : "#e5e7eb",
+                background: characterVersion === ch.id ? ch.bg : "white",
+              }}
+            >
+              <div className="text-3xl flex-shrink-0">{ch.emoji}</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm flex items-center gap-2"
+                  style={{ color: characterVersion === ch.id ? ch.accent : "#374151" }}>
+                  {ch.name}
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium"
+                    style={{ background: "#f5f3ff", color: "#7c3aed", border: "1px solid #c4b5fd" }}>
+                    🔍 웹 검색
+                  </span>
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5 whitespace-pre-line">{ch.desc}</div>
+              </div>
+              {characterVersion === ch.id && (
+                <span
+                  className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                  style={{ background: ch.accent }}
+                >✓</span>
+              )}
+            </button>
+          ))}
         </div>
 
         {/* Quick Add Examples */}

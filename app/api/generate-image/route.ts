@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { generateImageWithOpenAI } from "@/lib/services/openai-image";
+import { buildRecipeCardPrompt } from "@/lib/prompts/image-prompts";
 
 const GEMINI_MODEL = "gemini-3.1-flash-image-preview";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -234,8 +236,25 @@ export async function POST(req: NextRequest) {
     let prompt = "";
     let selectedStyle: typeof THUMBNAIL_STYLES[number] | null = null;
 
-    // ── Recipe card ──────────────────────────────────────────────────────────
+    // ── Recipe card (OpenAI gpt-image) ───────────────────────────────────────
     if (type === "recipe-card") {
+      const openaiKey = process.env.OPENAI_API_KEY;
+      if (openaiKey) {
+        try {
+          const cardPrompt = buildRecipeCardPrompt({
+            recipeName,
+            taste: taste ?? undefined,
+            highlight: highlight ?? undefined,
+            ingredients: Array.isArray(ingredients) ? ingredients : [],
+            character: character ?? "cute_bear",
+          });
+          const result = await generateImageWithOpenAI(cardPrompt, openaiKey);
+          return NextResponse.json({ imageUrl: result.imageUrl, provider: result.provider, model: result.model });
+        } catch (openaiErr) {
+          console.error("[generate-image] OpenAI fallback to Gemini:", openaiErr);
+        }
+      }
+      // Fallback: Gemini
       prompt = `A beautiful, appetizing professional food photography of Korean dish "${recipeName}".
 Overhead shot, natural lighting, minimal props, clean white background, restaurant quality presentation.
 Highly detailed, vibrant colors, mouth-watering. 4K quality.`;

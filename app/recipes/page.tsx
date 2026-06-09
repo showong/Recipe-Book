@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RecipeSuggestion } from "@/types/recipe";
+import { CharacterType, normalizeCharacter } from "@/types/character";
 import { Suspense } from "react";
 import Image from "next/image";
 
@@ -11,7 +12,7 @@ function RecipesContent() {
   const searchParams = useSearchParams();
   const [recipes, setRecipes] = useState<RecipeSuggestion[]>([]);
   const [ingredients, setIngredients] = useState<string[]>([]);
-  const [character, setCharacter] = useState<"cute" | "lazy">("cute");
+  const [character, setCharacter] = useState<CharacterType>("cute_bear");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -30,9 +31,10 @@ function RecipesContent() {
       const loadedRecipes: RecipeSuggestion[] = parsed.recipes || [];
       setRecipes(loadedRecipes);
       setIngredients(parsed.ingredients || []);
-      setCharacter(parsed.character === "lazy" ? "lazy" : "cute");
+      const char = normalizeCharacter(parsed.character);
+      setCharacter(char);
       // Start generating images for all recipe cards in parallel
-      loadedRecipes.forEach((r) => generateRecipeImage(r));
+      loadedRecipes.forEach((r) => generateRecipeImage(r, char));
     } catch {
       router.push("/");
     } finally {
@@ -40,20 +42,40 @@ function RecipesContent() {
     }
   }, [searchParams, router]);
 
-  const generateRecipeImage = async (recipe: RecipeSuggestion) => {
+  const generateRecipeImage = async (recipe: RecipeSuggestion, char?: CharacterType) => {
+    const activeChar = char ?? character;
+    const cacheKey = `recipe-card-image:${activeChar}:${recipe.name}:${recipe.ownedIngredients.slice(0, 3).join(",")}`;
+
+    // Check sessionStorage cache first
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        setRecipeImages((prev) => ({ ...prev, [recipe.id]: cached }));
+        return;
+      }
+    } catch { /* ignore */ }
+
     setImageLoadingIds((prev) => new Set(prev).add(recipe.id));
     try {
       const res = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipeName: recipe.name, type: "recipe-card" }),
+        body: JSON.stringify({
+          recipeName: recipe.name,
+          type: "recipe-card",
+          character: activeChar,
+          taste: recipe.taste,
+          highlight: recipe.highlight,
+          ingredients: recipe.ownedIngredients.slice(0, 6).map((name) => ({ name })),
+        }),
       });
       const data = await res.json();
       if (data.imageUrl) {
         setRecipeImages((prev) => ({ ...prev, [recipe.id]: data.imageUrl }));
+        try { sessionStorage.setItem(cacheKey, data.imageUrl); } catch { /* ignore */ }
       }
     } catch {
-      // silently fail — card shows without image
+      // silently fail — card shows emoji fallback
     } finally {
       setImageLoadingIds((prev) => {
         const next = new Set(prev);
@@ -77,6 +99,8 @@ function RecipesContent() {
           ownedIngredients: recipe.ownedIngredients,
           additionalIngredients: recipe.additionalIngredients,
           character,
+          taste: recipe.taste,
+          highlight: recipe.highlight,
         }),
       });
 

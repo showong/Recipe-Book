@@ -11,9 +11,8 @@ function RecipeDetailContent() {
   const searchParams = useSearchParams();
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [ingredients, setIngredients] = useState<string[]>([]);
-  const [activeSection, setActiveSection] = useState<"ingredients" | "steps" | "summary" | "reel">("ingredients");
+  const [activeSection, setActiveSection] = useState<"ingredients" | "steps" | "summary">("ingredients");
   const summaryRef = useRef<HTMLDivElement>(null);
-  const reelRef = useRef<HTMLDivElement>(null);
 
   // Images from Imagen
   const [heroImage, setHeroImage] = useState<string | null>(null);
@@ -78,7 +77,7 @@ function RecipeDetailContent() {
   const [postCoverEnError, setPostCoverEnError] = useState<string | null>(null);
   const [postCoverEnStyleName, setPostCoverEnStyleName] = useState<string | null>(null);
   // 캐릭터 버전
-  const [characterVersion, setCharacterVersion] = useState<"cute" | "lazy">("cute");
+  const [characterVersion, setCharacterVersion] = useState<string>("cute_bear");
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -90,7 +89,7 @@ function RecipeDetailContent() {
       const parsed = JSON.parse(decodeURIComponent(data));
       setRecipe(parsed.recipe);
       setIngredients(parsed.ingredients || []);
-      setCharacterVersion(parsed.character === "lazy" ? "lazy" : "cute");
+      setCharacterVersion(parsed.character ?? "cute_bear");
       // Hero image stored in sessionStorage to avoid oversized URL
       if (parsed.heroImageKey) {
         const stored = sessionStorage.getItem(parsed.heroImageKey);
@@ -998,8 +997,19 @@ function RecipeDetailContent() {
           {!heroImage && <div className="text-5xl mb-3">{recipe.emoji}</div>}
           <div className="flex justify-center mb-2">
             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold"
-              style={{ background: characterVersion === "lazy" ? "rgba(79,70,229,0.85)" : "rgba(234,88,12,0.85)", backdropFilter: "blur(4px)" }}>
-              {characterVersion === "lazy" ? "🐨 귀차니즘 곰돌이" : "🐻 귀여운 곰돌이"}
+              style={{
+              background: characterVersion === "lazy_bear" || characterVersion === "lazy"
+                ? "rgba(79,70,229,0.85)"
+                : characterVersion === "trend_bear" || characterVersion === "trend"
+                ? "rgba(124,58,237,0.85)"
+                : "rgba(234,88,12,0.85)",
+              backdropFilter: "blur(4px)"
+            }}>
+              {characterVersion === "lazy_bear" || characterVersion === "lazy"
+                ? "🐨 귀차니즘 곰돌이"
+                : characterVersion === "trend_bear" || characterVersion === "trend"
+                ? "🐼 트렌드곰"
+                : "🐻 귀여운 곰돌이"}
             </span>
           </div>
           <h1 className="text-3xl font-extrabold mb-2 drop-shadow">{recipe.name}</h1>
@@ -1033,12 +1043,11 @@ function RecipeDetailContent() {
       <div className="max-w-3xl mx-auto px-4">
         {/* Section Tabs */}
         <div className="flex gap-2 mb-6 bg-white rounded-2xl p-1.5 shadow-sm">
-          {(["ingredients", "steps", "summary", "reel"] as const).map((section) => {
+          {(["ingredients", "steps", "summary"] as const).map((section) => {
             const labels: Record<string, string> = {
               ingredients: "🛒 재료",
               steps: "👨‍🍳 조리법",
               summary: "📋 요약",
-              reel: "🎬 릴스",
             };
             return (
               <button
@@ -1216,49 +1225,6 @@ function RecipeDetailContent() {
                   </div>
                 </div>
 
-                {/* 성공 포인트 인스타 이미지 — 한국어 / 영어 */}
-                {(["ko", "en"] as const).map((lang) => {
-                  const img = lang === "ko" ? kickInstagramImage : kickInstagramImageEn;
-                  const loading = lang === "ko" ? kickInstagramImageLoading : kickInstagramImageEnLoading;
-                  const btnLabel = lang === "ko" ? "🇰🇷 성공 포인트 이미지 생성" : "🌎 English Version";
-                  const dlName = `${recipe.name}-kick-${lang}.png`;
-                  return (
-                    <div key={lang}>
-                      {img && (
-                        <div>
-                          <div className="relative w-full mx-auto overflow-hidden"
-                            style={{ aspectRatio: "1 / 1", maxWidth: "400px", margin: "0 auto" }}>
-                            <Image src={img} alt="성공 포인트 이미지" fill className="object-cover" unoptimized />
-                          </div>
-                          <div className="px-4 py-2 flex gap-2" style={{ background: "#fff7ed" }}>
-                            <button onClick={() => { const a = document.createElement("a"); a.href = img; a.download = dlName; a.click(); }}
-                              className="flex-1 py-2 rounded-xl text-white text-xs font-bold hover:opacity-90"
-                              style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>⬇️ 저장</button>
-                            <button onClick={() => generateKickInstagramImage(lang)}
-                              className="px-4 py-2 rounded-xl text-xs font-bold border-2 hover:bg-orange-50"
-                              style={{ borderColor: "#ff6b35", color: "#ff6b35" }}>🔄 재생성</button>
-                          </div>
-                        </div>
-                      )}
-                      {!img && (
-                        <div className="px-4 py-2 flex justify-end" style={{ background: "#fff7ed" }}>
-                          {loading ? (
-                            <div className="flex items-center gap-2 text-xs text-gray-400 py-1">
-                              <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                              생성 중...
-                            </div>
-                          ) : (
-                            <button onClick={() => generateKickInstagramImage(lang)}
-                              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-80"
-                              style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
-                              📸 {btnLabel}
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
               </div>
             )}
 
@@ -1362,52 +1328,6 @@ function RecipeDetailContent() {
                     )}
                   </div>
 
-                  {/* 단계 이미지 — 한국어 / 영어 */}
-                  <div className="border-t" style={{ borderColor: step.isKick ? "rgba(255,107,53,0.15)" : "#f3f4f6" }}>
-                    {(["ko", "en"] as const).map((lang) => {
-                      const img = lang === "ko" ? stepImages[step.number] : stepImagesEn[step.number];
-                      const loading = lang === "ko" ? stepImagesLoading[step.number] : stepImagesEnLoading[step.number];
-                      const gradientKo = step.isKick ? "linear-gradient(135deg,#ff6b35,#ffc857)" : "linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)";
-                      const gradientEn = "linear-gradient(135deg,#0ea5e9,#6366f1)";
-                      const gradient = lang === "ko" ? gradientKo : gradientEn;
-                      const btnText = lang === "ko" ? "🇰🇷 한국어 이미지" : "🌎 English Image";
-                      return (
-                        <div key={lang} className={lang === "en" ? "border-t border-dashed" : ""} style={{ borderColor: "#e5e7eb" }}>
-                          {img && (
-                            <div>
-                              <div className="relative w-full" style={{ aspectRatio: "1 / 1" }}>
-                                <Image src={img} alt={`${step.title} ${lang}`} fill className="object-cover" unoptimized />
-                              </div>
-                              <div className="px-4 py-2 flex gap-2">
-                                <button onClick={() => { const a = document.createElement("a"); a.href = img; a.download = `${recipe.name}-step${step.number}-${lang}.png`; a.click(); }}
-                                  className="flex-1 py-2 rounded-xl text-white text-xs font-bold hover:opacity-90"
-                                  style={{ background: gradient }}>⬇️ 저장</button>
-                                <button onClick={() => generateStepInstagramImage(step, lang)}
-                                  className="px-4 py-2 rounded-xl text-xs font-bold border-2 hover:bg-gray-50"
-                                  style={{ borderColor: lang === "ko" ? "#fd1d1d" : "#6366f1", color: lang === "ko" ? "#fd1d1d" : "#6366f1" }}>🔄</button>
-                              </div>
-                            </div>
-                          )}
-                          {!img && (
-                            <div className="px-4 py-2 flex justify-end">
-                              {loading ? (
-                                <div className="flex items-center gap-2 text-xs text-gray-400 py-1">
-                                  <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                                  생성 중...
-                                </div>
-                              ) : (
-                                <button onClick={() => generateStepInstagramImage(step, lang)}
-                                  className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-white hover:opacity-80"
-                                  style={{ background: gradient }}>
-                                  📸 {btnText}
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
               ))}
             </div>
@@ -1429,12 +1349,26 @@ function RecipeDetailContent() {
               </div>
             )}
 
+            {/* 음성 조리 모드 */}
+            <button
+              onClick={() => {
+                const encoded = encodeURIComponent(JSON.stringify({
+                  recipe,
+                  character: characterVersion,
+                }));
+                router.push(`/cook-mode?data=${encoded}`);
+              }}
+              className="w-full mt-4 py-4 rounded-2xl text-white font-bold text-lg transition-all hover:opacity-90 flex items-center justify-center gap-2"
+              style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
+              🎙️ 음성 조리 모드 시작
+            </button>
+
             <button
               onClick={() => {
                 setActiveSection("summary");
                 setTimeout(() => summaryRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
               }}
-              className="w-full mt-6 py-4 rounded-2xl text-white font-bold text-lg transition-all hover:opacity-90"
+              className="w-full mt-3 py-4 rounded-2xl text-white font-bold text-lg transition-all hover:opacity-90"
               style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
               최종 요약 보기 →
             </button>
@@ -1450,46 +1384,18 @@ function RecipeDetailContent() {
               summaryImageLoading={summaryImageLoading}
             />
 
-            {/* 한국어 게시글 */}
-            <InstagramPostCard
-              lang="ko"
-              recipeName={recipe.name}
-              post={instagramPost}
-              loading={instagramPostLoading}
-              copied={postCopied}
-              onGenerate={() => generateInstagramPost("ko")}
-              onCopy={async () => {
-                if (!instagramPost) return;
-                await navigator.clipboard.writeText(instagramPost);
-                setPostCopied(true);
-                setTimeout(() => setPostCopied(false), 2000);
-              }}
-            />
-
-            {/* 영어 게시글 */}
-            <InstagramPostCard
-              lang="en"
-              recipeName={recipe.name}
-              post={instagramPostEn}
-              loading={instagramPostEnLoading}
-              copied={postEnCopied}
-              onGenerate={() => generateInstagramPost("en")}
-              onCopy={async () => {
-                if (!instagramPostEn) return;
-                await navigator.clipboard.writeText(instagramPostEn);
-                setPostEnCopied(true);
-                setTimeout(() => setPostEnCopied(false), 2000);
-              }}
-            />
-
+            {/* 음성 조리 모드 */}
             <button
               onClick={() => {
-                setActiveSection("reel");
-                setTimeout(() => reelRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+                const encoded = encodeURIComponent(JSON.stringify({
+                  recipe,
+                  character: characterVersion,
+                }));
+                router.push(`/cook-mode?data=${encoded}`);
               }}
-              className="w-full mt-6 py-4 rounded-2xl text-white font-bold text-lg transition-all hover:opacity-90"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
-              🎬 릴스 썸네일 만들기 →
+              className="w-full mt-6 py-4 rounded-2xl text-white font-bold text-lg transition-all hover:opacity-90 flex items-center justify-center gap-2"
+              style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
+              🎙️ 음성 조리 모드로 요리하기
             </button>
 
             <div className="mt-3 flex gap-3">
@@ -1508,745 +1414,7 @@ function RecipeDetailContent() {
             </div>
           </div>
         )}
-        {/* =========== REEL SECTION =========== */}
-        {activeSection === "reel" && (
-          <div className="fade-in-up space-y-5" ref={reelRef}>
-            {/* Header */}
-            <div className="rounded-3xl overflow-hidden shadow-xl"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
-              <div className="p-6 text-white text-center">
-                <div className="text-4xl mb-2">🎬</div>
-                <h2 className="text-xl font-extrabold mb-1">릴스 썸네일 생성</h2>
-                <p className="text-sm opacity-80">완성된 요리 사진을 업로드하면<br/>AI가 릴스용 썸네일을 만들어드려요</p>
-              </div>
-            </div>
 
-            {/* Upload area */}
-            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
-              <div className="px-5 py-4"
-                style={{ background: "linear-gradient(135deg, #faf5ff, #fdf2f8)" }}>
-                <p className="text-sm font-bold text-purple-700">📸 완성된 요리 사진 / 동영상 업로드</p>
-                <p className="text-xs text-gray-500 mt-0.5">사진(JPG·PNG·WEBP) 또는 동영상(MP4·MOV) — 동영상은 애니메이션 썸네일로 변환돼요</p>
-              </div>
-              <div className="p-5">
-                <label
-                  htmlFor="reel-upload"
-                  className="flex flex-col items-center justify-center w-full rounded-2xl border-2 border-dashed cursor-pointer transition-all hover:bg-purple-50"
-                  style={{ borderColor: reelUploadedImage ? "#7c3aed" : "#d1d5db", minHeight: "160px" }}>
-                  {reelUploadedImage ? (
-                    <div className="relative w-full" style={{ aspectRatio: "4/3" }}>
-                      <Image
-                        src={reelUploadedImage}
-                        alt="업로드된 요리 사진"
-                        fill
-                        className="object-cover rounded-2xl"
-                        unoptimized
-                      />
-                      {reelIsVideo && (
-                        <div className="absolute top-2 left-2 bg-black/70 text-white text-xs font-bold px-2.5 py-1 rounded-full">
-                          🎬 동영상
-                        </div>
-                      )}
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-2xl opacity-0 hover:opacity-100 transition-opacity">
-                        <span className="text-white text-sm font-bold bg-black/50 px-3 py-1.5 rounded-full">📷 변경</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 py-10 text-center px-4">
-                      <span className="text-5xl">📤</span>
-                      <p className="text-sm font-bold text-gray-600">여기를 눌러 사진/동영상 업로드</p>
-                      <p className="text-xs text-gray-400">완성된 {recipe.name} 사진 또는 동영상 파일</p>
-                    </div>
-                  )}
-                </label>
-                <input
-                  id="reel-upload"
-                  type="file"
-                  accept="image/*,video/*"
-                  className="hidden"
-                  onChange={handleReelImageUpload}
-                />
-
-                {/* 썸네일 양식 선택 */}
-                <div className="mt-4">
-                  <p className="text-xs font-bold text-gray-500 mb-2">🎨 썸네일 양식 선택</p>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {[
-                      { id: null,  emoji: "🎲", name: "랜덤" },
-                      { id: 1,     emoji: "🌙", name: "무드 에디토리얼" },
-                      { id: 2,     emoji: "🎨", name: "볼드 포스터" },
-                      { id: 3,     emoji: "🎬", name: "드라마틱" },
-                      { id: 4,     emoji: "📋", name: "인포그래픽" },
-                      { id: 5,     emoji: "🌿", name: "내추럴" },
-                      { id: 6,     emoji: "📺", name: "TV 요리쇼" },
-                    ].map((s) => {
-                      const active = selectedStyleId === s.id;
-                      return (
-                        <button
-                          key={String(s.id)}
-                          onClick={() => setSelectedStyleId(s.id as number | null)}
-                          className="py-2 px-1.5 rounded-xl text-xs font-bold transition-all text-center leading-tight"
-                          style={active
-                            ? { background: "linear-gradient(135deg,#7c3aed,#ec4899)", color: "#fff" }
-                            : { background: "#f3f4f6", color: "#6b7280" }}>
-                          <span className="block text-base leading-none mb-0.5">{s.emoji}</span>
-                          {s.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 버튼 행 */}
-                <div className="mt-4 flex gap-2">
-                  {reelUploadedImage && (
-                    <button
-                      onClick={generateReelThumbnail}
-                      disabled={reelThumbnailLoading}
-                      className="flex-1 py-4 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
-                      style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
-                      {reelThumbnailLoading ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                          </svg>
-                          생성 중...
-                        </span>
-                      ) : reelThumbnail ? "🔄 재생성" : "✨ 썸네일 생성"}
-                    </button>
-                  )}
-                  <button
-                    onClick={generateHookMent}
-                    disabled={hookMentLoading}
-                    className={`${reelUploadedImage ? "" : "flex-1"} py-4 px-5 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90 disabled:opacity-50 active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap`}
-                    style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
-                    {hookMentLoading ? (
-                      <>
-                        <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                        생성 중...
-                      </>
-                    ) : (
-                      <>{hookMentAudioUrl ? "🔄" : "🎙️"} 3초 훅 멘트</>
-                    )}
-                  </button>
-                </div>
-
-                {/* 훅 멘트 오디오 플레이어 */}
-                {hookMentError && (
-                  <p className="mt-2 text-xs text-red-500 px-1">⚠️ {hookMentError}</p>
-                )}
-                {hookMentAudioUrl && !hookMentLoading && (
-                  <div className="mt-3 flex items-center gap-2 px-1">
-                    <audio controls src={hookMentAudioUrl} className="flex-1 h-9" />
-                    <a
-                      href={hookMentAudioUrl}
-                      download={`${recipe?.name ?? "recipe"}-hook-ment.mp3`}
-                      className="flex-shrink-0 px-3 py-2 rounded-xl text-white text-xs font-bold"
-                      style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
-                      ⬇️
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 훅 멘트 영상 클립 업로드 */}
-            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
-              <div className="px-5 py-4"
-                style={{ background: "linear-gradient(135deg, #fef3c7, #fde68a)" }}>
-                <p className="text-sm font-bold text-amber-700">🎬 훅 멘트용 영상 클립 업로드</p>
-                <p className="text-xs text-gray-500 mt-0.5">3초 훅 멘트 중 썸네일(1초) 이후 재생될 영상 클립 — 없으면 썸네일 이미지로 대체됩니다</p>
-              </div>
-              <div className="p-5">
-                <label
-                  htmlFor="hook-video-upload"
-                  className="flex flex-col items-center justify-center w-full rounded-2xl border-2 border-dashed cursor-pointer transition-all hover:bg-amber-50"
-                  style={{ borderColor: hookMentVideoUrl ? "#d97706" : "#d1d5db", minHeight: "120px" }}>
-                  {hookMentVideoUrl ? (
-                    <div className="relative w-full" style={{ aspectRatio: "16/9" }}>
-                      <video
-                        src={hookMentVideoUrl}
-                        className="w-full h-full object-cover rounded-2xl"
-                        muted
-                        playsInline
-                        onMouseEnter={e => (e.currentTarget as HTMLVideoElement).play()}
-                        onMouseLeave={e => { const v = e.currentTarget as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-2xl opacity-0 hover:opacity-100 transition-opacity">
-                        <span className="text-white text-sm font-bold bg-black/50 px-3 py-1.5 rounded-full">🎬 변경</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 py-8 text-center px-4">
-                      <span className="text-4xl">🎬</span>
-                      <p className="text-sm font-bold text-gray-600">훅 멘트용 영상 클립 업로드</p>
-                      <p className="text-xs text-gray-400">MP4, MOV 등 — 약 2초 분량 권장</p>
-                    </div>
-                  )}
-                </label>
-                <input
-                  id="hook-video-upload"
-                  type="file"
-                  accept="video/*"
-                  className="hidden"
-                  onChange={handleHookMentVideoUpload}
-                />
-                {hookMentVideoUrl && (
-                  <button
-                    onClick={() => { URL.revokeObjectURL(hookMentVideoUrl); setHookMentVideoUrl(null); }}
-                    className="mt-3 w-full py-2 rounded-xl text-xs font-bold text-amber-700 border border-amber-300 hover:bg-amber-50 transition-all">
-                    ✕ 영상 제거
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Generated thumbnail */}
-            {reelThumbnailLoading && (
-              <div className="bg-white rounded-3xl shadow-md p-10 flex flex-col items-center gap-4">
-                <svg className="spinner w-10 h-10 text-purple-500" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-                <p className="text-sm font-semibold text-gray-500">AI가 릴스 썸네일을 만들고 있어요...</p>
-                <p className="text-xs text-gray-400">사진과 레시피 정보를 분석 중</p>
-              </div>
-            )}
-
-            {reelThumbnail && !reelThumbnailLoading && (
-              <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
-                <div className="px-5 py-3 flex items-center gap-2"
-                  style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
-                  <span className="text-white text-lg">🎬</span>
-                  <p className="text-white font-extrabold text-sm">완성된 릴스 썸네일</p>
-                  {reelStyleName && (
-                    <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white">
-                      ✨ {reelStyleName}
-                    </span>
-                  )}
-                  <span className="ml-auto text-white/70 text-xs">
-                    {reelIsVideo && reelVideoThumbnailUrl ? "9:16 · 동영상" : "9:16 세로형"}
-                  </span>
-                </div>
-                <div className="relative w-full mx-auto bg-gray-900"
-                  style={{ aspectRatio: "9 / 16", maxWidth: "360px" }}>
-                  {reelIsVideo && reelVideoThumbnailUrl ? (
-                    <video
-                      src={reelVideoThumbnailUrl}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  ) : (
-                    <Image
-                      src={reelThumbnail}
-                      alt="릴스 썸네일"
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  )}
-                  {/* 동영상 변환 진행 중 배지 */}
-                  {reelVideoConverting && (
-                    <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-black/70 text-white text-xs font-bold px-2.5 py-1 rounded-full">
-                      <svg className="spinner w-3 h-3" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                      </svg>
-                      동영상 변환 중...
-                    </div>
-                  )}
-                </div>
-                <div className="px-5 py-4 flex gap-3"
-                  style={{ background: "linear-gradient(135deg, #faf5ff, #fdf2f8)" }}>
-                  <button
-                    onClick={() => {
-                      const a = document.createElement("a");
-                      const useVideo = reelIsVideo && !!reelVideoThumbnailUrl;
-                      a.href = useVideo ? reelVideoThumbnailUrl! : reelThumbnail;
-                      a.download = useVideo
-                        ? `${recipe.name}-reel-thumbnail.webm`
-                        : `${recipe.name}-reel-thumbnail.png`;
-                      a.click();
-                    }}
-                    className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
-                    style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)" }}>
-                    ⬇️ 썸네일 저장
-                  </button>
-                  <button
-                    onClick={generateReelThumbnail}
-                    className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-purple-50"
-                    style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>
-                    🔄 재생성
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── 게시글 커버 이미지 (1:1) ── */}
-            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
-              <div className="px-5 py-4 flex items-center gap-2"
-                style={{ background: "linear-gradient(135deg, #fff7ed, #fef3c7)" }}>
-                <span className="text-xl">🖼️</span>
-                <div>
-                  <p className="text-sm font-bold text-orange-700">게시글 커버 이미지 생성</p>
-                  <p className="text-xs text-gray-500">1:1 정사각형 · 피드 첫 장 · 호기심 유도</p>
-                </div>
-              </div>
-              <div className="p-5">
-                {!reelUploadedImage ? (
-                  <p className="text-sm text-center text-gray-400 py-4">
-                    위에서 요리 사진을 먼저 업로드해주세요
-                  </p>
-                ) : (
-                  <button
-                    onClick={generatePostCover}
-                    disabled={postCoverLoading}
-                    className="w-full py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
-                    style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}>
-                    {postCoverLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg className="spinner w-5 h-5" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                        커버 이미지 생성 중...
-                      </span>
-                    ) : postCoverImage ? "🔄 커버 이미지 재생성" : "✨ 게시글 커버 이미지 생성하기"}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {postCoverLoading && (
-              <div className="bg-white rounded-3xl shadow-md p-10 flex flex-col items-center gap-4">
-                <svg className="spinner w-10 h-10 text-orange-400" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-                <p className="text-sm font-semibold text-gray-500">AI가 게시글 커버를 만들고 있어요...</p>
-                <p className="text-xs text-gray-400">호기심을 자극하는 첫 장 이미지 생성 중</p>
-              </div>
-            )}
-
-            {postCoverError && !postCoverLoading && (
-              <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4">
-                <p className="text-sm font-bold text-red-600 mb-1">⚠️ 이미지 생성 실패</p>
-                <p className="text-xs text-red-500">{postCoverError}</p>
-              </div>
-            )}
-
-            {postCoverImage && !postCoverLoading && (
-              <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
-                <div className="px-5 py-3 flex items-center gap-2"
-                  style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}>
-                  <span className="text-white text-lg">🖼️</span>
-                  <p className="text-white font-extrabold text-sm">완성된 게시글 커버</p>
-                  {postCoverStyleName && (
-                    <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white">
-                      ✨ {postCoverStyleName}
-                    </span>
-                  )}
-                  <span className="ml-auto text-white/70 text-xs">1:1 정사각형</span>
-                </div>
-                <div className="relative w-full mx-auto bg-gray-900"
-                  style={{ aspectRatio: "1 / 1", maxWidth: "360px" }}>
-                  <Image
-                    src={postCoverImage}
-                    alt="게시글 커버 이미지"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-                <div className="px-5 py-4 flex gap-3"
-                  style={{ background: "linear-gradient(135deg, #fff7ed, #fef3c7)" }}>
-                  <button
-                    onClick={() => {
-                      const a = document.createElement("a");
-                      a.href = postCoverImage;
-                      a.download = `${recipe.name}-post-cover.png`;
-                      a.click();
-                    }}
-                    className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
-                    style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}>
-                    ⬇️ 커버 저장
-                  </button>
-                  <button
-                    onClick={generatePostCover}
-                    className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-orange-50"
-                    style={{ borderColor: "#f59e0b", color: "#d97706" }}>
-                    🔄 재생성
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── 영문 게시글 커버 이미지 (1:1) ── */}
-            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
-              <div className="px-5 py-4 flex items-center gap-2"
-                style={{ background: "linear-gradient(135deg, #eff6ff, #dbeafe)" }}>
-                <span className="text-xl">🌏</span>
-                <div>
-                  <p className="text-sm font-bold text-blue-700">English Post Cover</p>
-                  <p className="text-xs text-gray-500">1:1 square · Feed first image · English</p>
-                </div>
-              </div>
-              <div className="p-5">
-                {!reelUploadedImage ? (
-                  <p className="text-sm text-center text-gray-400 py-4">
-                    위에서 요리 사진을 먼저 업로드해주세요
-                  </p>
-                ) : (
-                  <button
-                    onClick={generatePostCoverEn}
-                    disabled={postCoverEnLoading}
-                    className="w-full py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
-                    style={{ background: "linear-gradient(135deg, #3b82f6, #6366f1)" }}>
-                    {postCoverEnLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg className="spinner w-5 h-5" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                        Generating English cover...
-                      </span>
-                    ) : postCoverEnImage ? "🔄 Regenerate" : "✨ Generate English Post Cover"}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {postCoverEnLoading && (
-              <div className="bg-white rounded-3xl shadow-md p-10 flex flex-col items-center gap-4">
-                <svg className="spinner w-10 h-10 text-blue-400" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-                <p className="text-sm font-semibold text-gray-500">AI is generating English cover...</p>
-                <p className="text-xs text-gray-400">Creating an English feed post cover image</p>
-              </div>
-            )}
-
-            {postCoverEnError && !postCoverEnLoading && (
-              <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4">
-                <p className="text-sm font-bold text-red-600 mb-1">⚠️ Generation failed</p>
-                <p className="text-xs text-red-500">{postCoverEnError}</p>
-              </div>
-            )}
-
-            {postCoverEnImage && !postCoverEnLoading && (
-              <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
-                <div className="px-5 py-3 flex items-center gap-2"
-                  style={{ background: "linear-gradient(135deg, #3b82f6, #6366f1)" }}>
-                  <span className="text-white text-lg">🌏</span>
-                  <p className="text-white font-extrabold text-sm">English Post Cover</p>
-                  {postCoverEnStyleName && (
-                    <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white">
-                      ✨ {postCoverEnStyleName}
-                    </span>
-                  )}
-                  <span className="ml-auto text-white/70 text-xs">1:1 square</span>
-                </div>
-                <div className="relative w-full mx-auto bg-gray-900"
-                  style={{ aspectRatio: "1 / 1", maxWidth: "360px" }}>
-                  <Image
-                    src={postCoverEnImage}
-                    alt="English post cover"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-                <div className="px-5 py-4 flex gap-3"
-                  style={{ background: "linear-gradient(135deg, #eff6ff, #dbeafe)" }}>
-                  <button
-                    onClick={() => {
-                      const a = document.createElement("a");
-                      a.href = postCoverEnImage;
-                      a.download = `${recipe.name}-post-cover-en.png`;
-                      a.click();
-                    }}
-                    className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
-                    style={{ background: "linear-gradient(135deg, #3b82f6, #6366f1)" }}>
-                    ⬇️ Save Cover
-                  </button>
-                  <button
-                    onClick={generatePostCoverEn}
-                    className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-blue-50"
-                    style={{ borderColor: "#3b82f6", color: "#2563eb" }}>
-                    🔄 Regenerate
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── 음성 파일 일괄 다운로드 ── */}
-            {(Object.keys(ttsAudioUrls).length > 0 || !!hookMentAudioUrl) && (
-              <div className="bg-white rounded-3xl shadow-md overflow-hidden">
-                <div className="px-5 py-4 flex items-center gap-2"
-                  style={{ background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)" }}>
-                  <span className="text-xl">🎙️</span>
-                  <div>
-                    <p className="text-sm font-bold text-sky-700">음성 파일 일괄 다운로드</p>
-                    <p className="text-xs text-gray-500">
-                      단계별 MP3{hookMentAudioUrl ? " + 3초 훅 멘트" : ""}를 한 번에 저장하세요
-                    </p>
-                  </div>
-                  <span className="ml-auto text-xs font-semibold text-sky-600 bg-sky-100 px-2.5 py-1 rounded-full">
-                    {Object.keys(ttsAudioUrls).length + (hookMentAudioUrl ? 1 : 0)}개
-                  </span>
-                </div>
-                <div className="p-5">
-                  <button
-                    onClick={() => {
-                      const files: { url: string; name: string }[] = [];
-                      if (hookMentAudioUrl) {
-                        files.push({ url: hookMentAudioUrl, name: `${recipe.name}-00-hook-ment.mp3` });
-                      }
-                      (Object.entries(ttsAudioUrls) as [string, string][])
-                        .sort(([a], [b]) => Number(a) - Number(b))
-                        .forEach(([num, url]) => {
-                          files.push({ url, name: `${recipe.name}-step${num}-voice.mp3` });
-                        });
-                      files.forEach(({ url, name }, idx) => {
-                        setTimeout(() => {
-                          const a = document.createElement("a");
-                          a.href = url;
-                          a.download = name;
-                          a.click();
-                        }, idx * 400);
-                      });
-                    }}
-                    className="w-full py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90 active:scale-95"
-                    style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
-                    ⬇️ 음성 파일 전체 다운로드 ({Object.keys(ttsAudioUrls).length + (hookMentAudioUrl ? 1 : 0)}개)
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── 릴스 영상 편집 ── */}
-            {(hookMentAudioUrl || Object.keys(ttsAudioUrls).length > 0) && (
-              <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
-                <div className="px-5 py-4 flex items-center gap-2"
-                  style={{ background: "linear-gradient(135deg, #1e1b4b, #4c1d95)" }}>
-                  <span className="text-white text-xl">🎞️</span>
-                  <div>
-                    <p className="text-sm font-extrabold text-white">릴스 영상 자동 편집</p>
-                    <p className="text-xs text-white/70">생성된 이미지와 음성을 하나의 영상으로 조합</p>
-                  </div>
-                </div>
-                <div className="px-5 py-4 space-y-2 bg-indigo-50/50">
-                  <p className="text-xs font-bold text-indigo-700">편집 순서</p>
-                  {hookMentAudioUrl && (
-                    <div className="flex items-start gap-2 text-xs text-gray-600">
-                      <span className="mt-0.5 w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center flex-shrink-0 font-bold text-[10px]">1</span>
-                      <span>
-                        <strong>훅 멘트</strong> — 썸네일 1초 + {hookMentVideoUrl ? "업로드 영상" : "썸네일"} {hookMentAudioUrl ? "~2초" : "—"}
-                        {!hookMentVideoUrl && <span className="text-amber-500 ml-1">(위에 영상 업로드 시 적용)</span>}
-                      </span>
-                    </div>
-                  )}
-                  {Object.keys(ttsAudioUrls).length > 0 && (
-                    <div className="flex items-start gap-2 text-xs text-gray-600">
-                      <span className="mt-0.5 w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center flex-shrink-0 font-bold text-[10px]">{hookMentAudioUrl ? 2 : 1}</span>
-                      <span>
-                        <strong>조리 단계</strong> — 이미지+음성 생성된 {Object.keys(ttsAudioUrls).filter(n => stepImages[Number(n)]).length}개 단계 (단계 사이 0.3초 간격 · 하단 자막 포함)
-                        {Object.keys(ttsAudioUrls).filter(n => !stepImages[Number(n)]).length > 0 && (
-                          <span className="text-gray-400 ml-1">(카드 이미지 없는 단계는 제외)</span>
-                        )}
-                      </span>
-                    </div>
-                  )}
-                  {(ingredientsImage || kickInstagramImage) && (
-                    <div className="flex items-start gap-2 text-xs text-gray-600">
-                      <span className="mt-0.5 w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center flex-shrink-0 font-bold text-[10px]">{(hookMentAudioUrl ? 1 : 0) + (Object.keys(ttsAudioUrls).length > 0 ? 1 : 0) + 1}</span>
-                      <span>
-                        <strong>마무리</strong> —{ingredientsImage ? " 재료 이미지 1초" : ""}{ingredientsImage && kickInstagramImage ? " +" : ""}{kickInstagramImage ? " 성공포인트 1초" : ""}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="p-5">
-                  <button
-                    onClick={createFinalVideo}
-                    disabled={finalVideoLoading}
-                    className="w-full py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90 disabled:opacity-60 active:scale-95"
-                    style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
-                    {finalVideoLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg className="spinner w-5 h-5" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                        편집 중... {finalVideoProgress}%
-                      </span>
-                    ) : "🎞️ 영상 편집하기"}
-                  </button>
-                  {finalVideoLoading && (
-                    <div className="mt-3">
-                      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-300"
-                          style={{ width: `${finalVideoProgress}%`, background: "linear-gradient(90deg, #4f46e5, #7c3aed)" }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {finalVideoUrl && !finalVideoLoading && (
-                  <div>
-                    <div className="relative w-full mx-auto bg-black" style={{ aspectRatio: "9/16", maxWidth: "320px" }}>
-                      <video
-                        src={finalVideoUrl}
-                        controls
-                        playsInline
-                        className="absolute inset-0 w-full h-full object-contain"
-                      />
-                    </div>
-                    <div className="px-5 py-4 flex gap-3"
-                      style={{ background: "linear-gradient(135deg, #ede9fe, #ddd6fe)" }}>
-                      <button
-                        onClick={() => {
-                          const a = document.createElement("a");
-                          a.href = finalVideoUrl;
-                          a.download = `${recipe.name}-reels.${finalVideoExt}`;
-                          a.click();
-                        }}
-                        className="flex-1 py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
-                        style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
-                        ⬇️ 영상 다운로드
-                      </button>
-                      <button
-                        onClick={createFinalVideo}
-                        className="px-5 py-3 rounded-2xl font-bold text-sm border-2 transition-all hover:bg-indigo-50"
-                        style={{ borderColor: "#4f46e5", color: "#4f46e5" }}>
-                        🔄 재편집
-                      </button>
-                    </div>
-                    {/* Telegram 전송 상태 */}
-                    <div className="px-5 pb-4">
-                      {telegramStatus === "sending" && (
-                        <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 rounded-2xl px-4 py-3">
-                          <svg className="spinner w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                          </svg>
-                          <span>Telegram으로 전송 중...</span>
-                        </div>
-                      )}
-                      {telegramStatus === "done" && (
-                        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-2xl px-4 py-3">
-                          <span>✅</span>
-                          <span>Telegram 전송 완료!</span>
-                        </div>
-                      )}
-                      {telegramStatus === "error" && (
-                        <div className="space-y-2">
-                          <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 rounded-2xl px-4 py-3">
-                            <span className="shrink-0">⚠️</span>
-                            <span>{telegramError ?? "Telegram 전송 실패"}</span>
-                          </div>
-                          <button
-                            onClick={() => finalVideoBlob && sendToTelegram(finalVideoBlob, finalVideoExt)}
-                            className="w-full py-2.5 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
-                            style={{ background: "linear-gradient(135deg, #0088cc, #0066aa)" }}>
-                            ✈️ Telegram 재전송
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── 콘텐츠 패키지 일괄 다운로드 ── */}
-            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
-              <div className="px-5 py-4"
-                style={{ background: "linear-gradient(135deg, #f0fdf4, #dcfce7)" }}>
-                <p className="text-sm font-bold text-green-700">📦 콘텐츠 패키지 다운로드</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  생성된 이미지 + 인스타 게시글을 언어별로 한 번에 받아보세요
-                </p>
-              </div>
-              <div className="p-5 space-y-3">
-                {/* 한국어 패키지 */}
-                {(() => {
-                  const koImages = [
-                    ingredientsImage, ...Object.values(stepImages), kickInstagramImage, summaryImage
-                  ].filter(Boolean);
-                  const koCount = koImages.length + (instagramPost ? 1 : 0);
-                  return (
-                    <button
-                      onClick={() => downloadPackage("ko")}
-                      disabled={koCount === 0}
-                      className="w-full flex items-center justify-between px-5 py-4 rounded-2xl text-white font-bold transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-                      style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
-                      <span className="flex items-center gap-2 text-sm">
-                        🇰🇷 한국어 패키지 다운로드
-                      </span>
-                      <span className="text-xs font-semibold opacity-80 bg-white/20 px-2 py-0.5 rounded-full">
-                        이미지 {koImages.length}장{instagramPost ? " + 게시글" : ""}
-                      </span>
-                    </button>
-                  );
-                })()}
-
-                {/* 영어 패키지 */}
-                {(() => {
-                  const enImages = [
-                    ingredientsImageEn, ...Object.values(stepImagesEn), kickInstagramImageEn, summaryImage
-                  ].filter(Boolean);
-                  const enCount = enImages.length + (instagramPostEn ? 1 : 0);
-                  return (
-                    <button
-                      onClick={() => downloadPackage("en")}
-                      disabled={enCount === 0}
-                      className="w-full flex items-center justify-between px-5 py-4 rounded-2xl text-white font-bold transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-                      style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
-                      <span className="flex items-center gap-2 text-sm">
-                        🌎 English Package Download
-                      </span>
-                      <span className="text-xs font-semibold opacity-80 bg-white/20 px-2 py-0.5 rounded-full">
-                        {enImages.length} images{instagramPostEn ? " + post" : ""}
-                      </span>
-                    </button>
-                  );
-                })()}
-
-                <p className="text-xs text-center text-gray-400">
-                  아직 생성되지 않은 이미지는 포함되지 않아요 · 먼저 각 섹션에서 생성해주세요
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-2 flex gap-3">
-              <button
-                onClick={() => {
-                  setActiveSection("summary");
-                  setTimeout(() => summaryRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-                }}
-                className="flex-1 py-4 rounded-2xl font-bold text-base transition-all border-2"
-                style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>
-                ← 요약으로 돌아가기
-              </button>
-              <button
-                onClick={() => router.push("/")}
-                className="flex-1 py-4 rounded-2xl text-white font-bold text-base transition-all hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
-                🏠 새 레시피
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
