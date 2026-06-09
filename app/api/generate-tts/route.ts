@@ -6,7 +6,7 @@ const TTS_ENDPOINT  = "https://api.typecast.ai/v1/text-to-speech";
 const GEMINI_MODEL  = "gemini-3.5-flash";
 const GEMINI_URL    = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-async function callGemini(prompt: string, googleApiKey: string, maxTokens = 80): Promise<string> {
+async function callGemini(prompt: string, googleApiKey: string, maxTokens = 512): Promise<string> {
   const res = await fetch(`${GEMINI_URL}?key=${googleApiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -38,7 +38,7 @@ ${converted}
 
 압축된 텍스트:`;
 
-  const result = await callGemini(prompt, googleApiKey, 128);
+  const result = await callGemini(prompt, googleApiKey, 1024);
   console.log("[TTS] 압축 완료 (길이:", result.length, "/목표:", targetLen, "):", result);
   return result || converted;
 }
@@ -72,7 +72,7 @@ ${raw}
 
 변환된 구어체:`;
 
-  const converted = await callGemini(prompt, googleApiKey, 256);
+  const converted = await callGemini(prompt, googleApiKey, 2048);
   console.log("[TTS] 구어체 변환 (길이:", converted.length, "):", converted.slice(0, 150));
   if (!converted) return raw;
 
@@ -122,7 +122,7 @@ ${examples}
 
 훅 멘트:`;
 
-  const result = await callGemini(prompt, googleApiKey, 128);
+  const result = await callGemini(prompt, googleApiKey, 1024);
   console.log("[TTS] 훅 멘트:", result);
   return result || `${recipeName}, 지금 바로 만들어봐요.`;
 }
