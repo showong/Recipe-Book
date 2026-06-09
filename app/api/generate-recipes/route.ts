@@ -15,7 +15,12 @@ async function callGemini(prompt: string, systemInstruction: string, apiKey: str
     body: JSON.stringify({
       system_instruction: { parts: [{ text: systemInstruction }] },
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 8192, responseMimeType: "application/json" },
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 8192,
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 0 },
+      },
     }),
   });
   if (!res.ok) {
@@ -23,7 +28,12 @@ async function callGemini(prompt: string, systemInstruction: string, apiKey: str
     throw new Error(`Gemini API ${res.status}: ${err}`);
   }
   const data = await res.json();
-  return (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "") as string;
+  const text = (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "") as string;
+  if (!text) {
+    const finishReason = data?.candidates?.[0]?.finishReason ?? "unknown";
+    throw new Error(`Gemini returned empty text (finishReason: ${finishReason})`);
+  }
+  return text;
 }
 
 function buildSystemInstruction(character: string): string {

@@ -12,7 +12,7 @@ async function callGemini(prompt: string, googleApiKey: string, maxTokens = 512)
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.4, maxOutputTokens: maxTokens },
+      generationConfig: { temperature: 0.4, maxOutputTokens: maxTokens, thinkingConfig: { thinkingBudget: 0 } },
     }),
   });
   if (!res.ok) return "";

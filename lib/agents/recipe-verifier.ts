@@ -16,7 +16,7 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 4096, responseMimeType: "application/json" },
+      generationConfig: { temperature: 0.2, maxOutputTokens: 4096, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } },
     }),
   });
   if (!res.ok) return "";
