@@ -5,7 +5,7 @@ import { decideSearch } from "@/lib/agents/search-decision";
 import { multiSearchTavily } from "@/lib/services/tavily";
 import { extractTrendPatterns, TrendExtractResult } from "@/lib/agents/trend-pattern-extractor";
 
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-3.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 async function callGemini(prompt: string, systemInstruction: string, apiKey: string): Promise<string> {
