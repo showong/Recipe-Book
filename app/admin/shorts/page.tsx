@@ -1,8 +1,27 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Image from "next/image";
+
+interface SavedRecipeSummary {
+  id: string;
+  name: string;
+  emoji: string;
+  character: string;
+  savedAt: string;
+  totalTime: string;
+  servings: number;
+  difficulty: string;
+  hasHeroImage: boolean;
+}
+
+// 저장소 캐릭터(cute_bear 등) → 썸네일 프롬프트용 톤(cute/lazy/trend)
+const CHARACTER_TO_TONE: Record<string, string> = {
+  cute_bear: "cute",
+  lazy_bear: "lazy",
+  trend_bear: "trend",
+};
 
 // generate-image API와 동일한 6가지 썸네일 스타일
 const THUMBNAIL_STYLES = [
@@ -73,8 +92,15 @@ function cropImageToRatio(dataUrl: string, targetW: number, targetH: number): Pr
   });
 }
 
-export default function AdminShortsPage() {
+function AdminShortsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // 저장된 레시피 목록 / 선택
+  const [savedRecipes, setSavedRecipes] = useState<SavedRecipeSummary[]>([]);
+  const [recipesLoading, setRecipesLoading] = useState(true);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  const [fillError, setFillError] = useState<string | null>(null);
 
   // 레시피 정보
   const [recipeName, setRecipeName] = useState("");
@@ -95,6 +121,71 @@ export default function AdminShortsPage() {
   const [error, setError] = useState<string | null>(null);
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [styleName, setStyleName] = useState<string | null>(null);
+
+  // 선택한 레시피로 모든 input 자동 채움
+  const fillFromRecipe = useCallback(async (id: string) => {
+    setFillError(null);
+    try {
+      const res = await fetch(`/api/recipes?id=${encodeURIComponent(id)}`);
+      const data = await res.json();
+      if (data.error || !data.recipe) {
+        setFillError(data.error ?? "레시피를 불러오지 못했습니다.");
+        return;
+      }
+      const record = data.recipe as {
+        character: string;
+        heroImage?: string | null;
+        recipe: {
+          name: string; highlight: string; taste: string; totalTime: string;
+          servings: number; pairings: string[];
+          steps: { isKick: boolean; kickReason?: string }[];
+        };
+      };
+      const r = record.recipe;
+      setSelectedRecipeId(id);
+      setRecipeName(r.name ?? "");
+      setHighlight(r.highlight ?? "");
+      setTaste(r.taste ?? "");
+      setCookingTime(r.totalTime ?? "");
+      setServings(r.servings != null ? String(r.servings) : "");
+      setPairings((r.pairings ?? []).join(", "));
+      setKickPoints(
+        (r.steps ?? [])
+          .filter((s) => s.isKick && s.kickReason)
+          .map((s) => s.kickReason)
+          .join(" / "),
+      );
+      setCharacter(CHARACTER_TO_TONE[record.character] ?? "cute");
+      // 저장된 레시피 카드 이미지를 음식 사진으로 자동 사용
+      if (record.heroImage) {
+        setUploadedImage(record.heroImage);
+      }
+      setThumbnail(null);
+      setError(null);
+    } catch {
+      setFillError("레시피를 불러오지 못했습니다.");
+    }
+  }, []);
+
+  // 저장된 레시피 목록 로드 + ?recipeId= 자동 선택
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setRecipesLoading(true);
+      try {
+        const res = await fetch("/api/recipes");
+        const data = await res.json();
+        if (!cancelled && !data.error) setSavedRecipes(data.recipes ?? []);
+      } catch {
+        /* 목록 로드 실패는 수동 입력으로 진행 가능 */
+      } finally {
+        if (!cancelled) setRecipesLoading(false);
+      }
+      const preselect = searchParams.get("recipeId");
+      if (preselect && !cancelled) void fillFromRecipe(preselect);
+    })();
+    return () => { cancelled = true; };
+  }, [searchParams, fillFromRecipe]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -182,6 +273,38 @@ export default function AdminShortsPage() {
         </div>
 
         <div className="space-y-5">
+          {/* 0. 저장된 레시피 선택 → input 자동 채움 */}
+          <div className="p-5 rounded-2xl" style={inputStyle}>
+            <label className="block text-white font-bold mb-3 text-sm">⓪ 유저 레시피 선택 (자동 채움)</label>
+            {recipesLoading ? (
+              <p className="text-white/40 text-sm">불러오는 중...</p>
+            ) : savedRecipes.length === 0 ? (
+              <p className="text-white/40 text-sm">
+                저장된 레시피가 없습니다. 아래에 직접 입력하거나, 유저가 레시피를 생성하면 여기에 표시됩니다.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {savedRecipes.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => fillFromRecipe(r.id)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all"
+                    style={selectedRecipeId === r.id
+                      ? { background: "rgba(255,107,53,0.18)", border: "1px solid rgba(255,107,53,0.5)" }
+                      : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                    <span className="text-2xl flex-shrink-0">{r.emoji || "🍽️"}</span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-white text-sm font-bold truncate">{r.name}</span>
+                      <span className="block text-white/40 text-xs">⏱ {r.totalTime} · 👤 {r.servings}인분</span>
+                    </span>
+                    {selectedRecipeId === r.id && <span className="text-orange-300 text-sm">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {fillError && <p className="text-red-300 text-xs mt-2">⚠️ {fillError}</p>}
+          </div>
+
           {/* 1. 음식 사진 업로드 */}
           <div className="p-5 rounded-2xl" style={inputStyle}>
             <label className="block text-white font-bold mb-3 text-sm">① 음식 사진 *</label>
@@ -349,5 +472,18 @@ export default function AdminShortsPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function AdminShortsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center"
+        style={{ background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)" }}>
+        <p className="text-white/50">불러오는 중...</p>
+      </div>
+    }>
+      <AdminShortsContent />
+    </Suspense>
   );
 }

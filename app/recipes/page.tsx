@@ -110,6 +110,17 @@ function RecipesContent() {
         throw new Error(data.error || "상세 레시피 생성 실패");
       }
 
+      // 유저가 생성한 레시피를 저장소에 보관 (관리자 쇼츠 생성용) — 논블로킹
+      void fetch("/api/recipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: data.recipe,
+          character,
+          heroImage: recipeImages[recipe.id] ?? null,
+        }),
+      }).catch(() => { /* 저장 실패는 사용자 흐름을 막지 않음 */ });
+
       const heroImgKey = `heroImage_${recipe.id}`;
       if (recipeImages[recipe.id]) {
         sessionStorage.setItem(heroImgKey, recipeImages[recipe.id]);
