@@ -1,4 +1,5 @@
 import { TavilyResult } from "@/lib/services/tavily";
+import { parseFirstJsonObject } from "@/lib/parse-json";
 
 export interface TrendPattern {
   patternName: string;
@@ -72,9 +73,8 @@ ${searchSummary}
 }`;
 
   try {
-    let text = await callGemini(prompt, googleApiKey);
-    text = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    return JSON.parse(text) as TrendExtractResult;
+    const text = await callGemini(prompt, googleApiKey);
+    return parseFirstJsonObject<TrendExtractResult>(text);
   } catch {
     return { trendPatterns: [], trendKeywords: [], summary: "" };
   }

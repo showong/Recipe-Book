@@ -1,4 +1,5 @@
 import { RecipeDetail } from "@/types/recipe";
+import { parseFirstJsonObject } from "@/lib/parse-json";
 
 export interface VerificationResult {
   isValid: boolean;
@@ -64,10 +65,8 @@ ${recipe.steps?.slice(0, 5).map((s) => `${s.number}. ${s.title}: ${s.description
 qualityScore는 0-10 사이 숫자. issues가 있으면 revisionRequired를 true로.`;
 
   try {
-    let text = await callGemini(prompt, googleApiKey);
-    text = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const result = JSON.parse(text) as VerificationResult;
-    return result;
+    const text = await callGemini(prompt, googleApiKey);
+    return parseFirstJsonObject<VerificationResult>(text);
   } catch {
     return { isValid: true, qualityScore: 7.0, issues: [], revisionRequired: false };
   }

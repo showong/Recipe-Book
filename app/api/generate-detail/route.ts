@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { RecipeDetail } from "@/types/recipe";
 import { normalizeCharacter } from "@/types/character";
 import { verifyRecipe } from "@/lib/agents/recipe-verifier";
+import { parseFirstJsonObject } from "@/lib/parse-json";
 
 const GEMINI_MODEL = "gemini-3.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -104,8 +105,7 @@ async function generateRecipeDetail(
 5. 단계별 emoji는 해당 조리 동작을 표현하는 이모지를 사용하세요.`;
 
   const text = await callGemini(contents, systemInstruction, apiKey);
-  const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-  return JSON.parse(cleaned) as RecipeDetail;
+  return parseFirstJsonObject<RecipeDetail>(text);
 }
 
 export async function POST(req: NextRequest) {

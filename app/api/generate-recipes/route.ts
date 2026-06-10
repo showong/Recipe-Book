@@ -4,6 +4,7 @@ import { normalizeCharacter } from "@/types/character";
 import { decideSearch } from "@/lib/agents/search-decision";
 import { multiSearchTavily } from "@/lib/services/tavily";
 import { extractTrendPatterns, TrendExtractResult } from "@/lib/agents/trend-pattern-extractor";
+import { parseFirstJsonObject } from "@/lib/parse-json";
 
 const GEMINI_MODEL = "gemini-3.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -153,8 +154,7 @@ pairings는 2-3개로 제한해주세요.`,
       googleApiKey,
     );
 
-    let textContent = result.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(textContent);
+    const parsed = parseFirstJsonObject<{ recipes: RecipeSuggestion[] }>(result);
     const recipes: RecipeSuggestion[] = parsed.recipes;
 
     return NextResponse.json({
