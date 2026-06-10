@@ -255,6 +255,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "text가 필요합니다." }, { status: 400 });
     }
 
+    // "direct" mode: text is already TTS-optimized — skip Gemini conversion
+    if (mode === "direct") {
+      return await callTypecastTts(text, typecastKey, { speechText: text }, character ?? "cute");
+    }
+
     const speechText = await toSpeechText(text, googleKey, character ?? "cute");
     return await callTypecastTts(speechText, typecastKey, { speechText }, character ?? "cute");
 
