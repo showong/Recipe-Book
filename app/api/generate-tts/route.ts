@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const VOICE_ID_CUTE  = "tc_624cccbcadcd568510764d65";
-const VOICE_ID_LAZY  = "tc_63622aaa4109052e8067e303";
+const VOICE_ID_LAZY  = "tc_63aaebf1cef3e7d6ce6d3628";
 const VOICE_ID_TREND = "tc_66596219e805ae9bb7e1338c";
 const TTS_ENDPOINT  = "https://api.typecast.ai/v1/text-to-speech";
 const GEMINI_MODEL  = "gemini-3.5-flash";
@@ -147,7 +147,7 @@ async function callTypecastTts(
     body: JSON.stringify({
       voice_id: voiceId,
       text: speechText,
-      model: character === "lazy" ? "ssfm-v21" : "ssfm-v30",
+      model: "ssfm-v30",
       language: "kor",
       output: {
         audio_format: "mp3",
