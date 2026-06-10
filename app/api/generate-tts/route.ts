@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const VOICE_ID_CUTE = "tc_624cccbcadcd568510764d65";
-const VOICE_ID_LAZY = "tc_63622aaa4109052e8067e303";
+const VOICE_ID_CUTE  = "tc_624cccbcadcd568510764d65";
+const VOICE_ID_LAZY  = "tc_63622aaa4109052e8067e303";
+const VOICE_ID_TREND = "tc_66596219e805ae9bb7e1338c";
 const TTS_ENDPOINT  = "https://api.typecast.ai/v1/text-to-speech";
 const GEMINI_MODEL  = "gemini-3.5-flash";
 const GEMINI_URL    = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -133,7 +134,10 @@ async function callTypecastTts(
   extraData: Record<string, unknown> = {},
   character = "cute",
 ): Promise<NextResponse> {
-  const voiceId = character === "lazy" ? VOICE_ID_LAZY : VOICE_ID_CUTE;
+  const voiceId =
+    character === "lazy" ? VOICE_ID_LAZY :
+    character === "trend" ? VOICE_ID_TREND :
+    VOICE_ID_CUTE;
   const ttsRes = await fetch(TTS_ENDPOINT, {
     method: "POST",
     headers: {
