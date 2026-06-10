@@ -122,14 +122,20 @@ function RecipesContent() {
       }).catch(() => { /* 저장 실패는 사용자 흐름을 막지 않음 */ });
 
       const heroImgKey = `heroImage_${recipe.id}`;
+      let heroStored = false;
       if (recipeImages[recipe.id]) {
-        sessionStorage.setItem(heroImgKey, recipeImages[recipe.id]);
+        try {
+          sessionStorage.setItem(heroImgKey, recipeImages[recipe.id]);
+          heroStored = true;
+        } catch {
+          // sessionStorage 용량 초과 시 hero 이미지 없이 진행
+        }
       }
 
       const encoded = encodeURIComponent(JSON.stringify({
         recipe: data.recipe,
         ingredients,
-        heroImageKey: recipeImages[recipe.id] ? heroImgKey : null,
+        heroImageKey: heroStored ? heroImgKey : null,
         character,
       }));
       router.push(`/recipe?data=${encoded}`);
