@@ -101,12 +101,12 @@ ${prompt}`,
       }
     }
 
-    // OpenAI fallback (text-to-image)
+    // OpenAI gpt-image-2 (text-to-image, 9:16 portrait)
     if (openaiKey) {
       const result = await generateImageWithOpenAI(prompt, openaiKey, {
-        model: process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-1",
+        model: process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-2",
         size: "1024x1536",
-        quality: process.env.OPENAI_IMAGE_QUALITY ?? "low",
+        quality: process.env.OPENAI_IMAGE_QUALITY ?? "medium",
       });
       return NextResponse.json({ imageUrl: result.imageUrl });
     }

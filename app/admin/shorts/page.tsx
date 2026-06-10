@@ -900,7 +900,7 @@ function AdminShortsContent() {
                   disabled={!keypoints || recipeMapLoading}
                   className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition-all disabled:opacity-40"
                   style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)" }}>
-                  {recipeMapLoading ? "🔄 AI 생성 중..." : "✨ AI 이미지 생성"}
+                  {recipeMapLoading ? "🔄 AI 생성 중..." : "✨ gpt-image-2 생성"}
                 </button>
               </div>
               {recipeMapError && <p className="text-red-300 text-xs">⚠️ {recipeMapError}</p>}
