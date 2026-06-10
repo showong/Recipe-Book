@@ -132,13 +132,22 @@ function RecipesContent() {
         }
       }
 
-      const encoded = encodeURIComponent(JSON.stringify({
+      // 레시피 상세 데이터가 URL에 담기엔 너무 커서 sessionStorage로 전달한다.
+      // (긴 URL은 브라우저 네비게이션 차단/오류를 유발)
+      const payloadKey = `recipeDetail_${recipe.id}_${Date.now()}`;
+      const payload = JSON.stringify({
         recipe: data.recipe,
         ingredients,
         heroImageKey: heroStored ? heroImgKey : null,
         character,
-      }));
-      router.push(`/recipe?data=${encoded}`);
+      });
+      try {
+        sessionStorage.setItem(payloadKey, payload);
+        router.push(`/recipe?key=${encodeURIComponent(payloadKey)}`);
+      } catch {
+        // sessionStorage 저장 실패 시 URL로 fallback
+        router.push(`/recipe?data=${encodeURIComponent(payload)}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다");
       setSelectedId(null);

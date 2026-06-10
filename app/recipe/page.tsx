@@ -80,13 +80,20 @@ function RecipeDetailContent() {
   const [characterVersion, setCharacterVersion] = useState<string>("cute_bear");
 
   useEffect(() => {
-    const data = searchParams.get("data");
+    // 큰 페이로드는 sessionStorage(key)로, 작은 경우만 URL(data)로 전달된다.
+    const payloadKey = searchParams.get("key");
+    const data = payloadKey
+      ? sessionStorage.getItem(payloadKey)
+      : searchParams.get("data");
     if (!data) {
       router.push("/");
       return;
     }
+    if (payloadKey) sessionStorage.removeItem(payloadKey);
     try {
-      const parsed = JSON.parse(decodeURIComponent(data));
+      const parsed = JSON.parse(
+        payloadKey ? data : decodeURIComponent(data),
+      );
       setRecipe(parsed.recipe);
       setIngredients(parsed.ingredients || []);
       setCharacterVersion(parsed.character ?? "cute_bear");
