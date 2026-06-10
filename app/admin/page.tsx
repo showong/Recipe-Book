@@ -9,9 +9,9 @@ export default function AdminPage() {
     {
       icon: "🎬",
       title: "쇼츠 생성기",
-      desc: "레시피맵 기반 SNS 쇼츠 제작",
+      desc: "음식 사진 기반 릴스 썸네일 제작",
       path: "/admin/shorts",
-      badge: "준비중",
+      badge: null,
     },
     {
       icon: "📋",
