@@ -400,11 +400,18 @@ async function createShortsVideo(
     if (url) {
       try {
         audioBuf = await audioCtx.decodeAudioData(await (await fetch(url)).arrayBuffer());
-      } catch { /* skip */ }
+      } catch (err) {
+        console.warn(`[shorts] TTS 오디오 디코딩 실패 (${seg.id}):`, err);
+      }
     }
     const dur = audioBuf ? audioBuf.duration : (seg.estimatedEndSec - seg.estimatedStartSec);
     vsegs.push({ start: cursor, dur, camera: seg.cameraSection, audioBuf });
     cursor += dur + 0.12;
+  }
+  const decodedCount = vsegs.filter((v) => v.audioBuf).length;
+  const providedCount = segments.filter((s) => ttsAudios[s.id]).length;
+  if (providedCount > 0 && decodedCount === 0) {
+    console.warn("[shorts] 모든 TTS 오디오 디코딩 실패 — 무음으로 렌더링됩니다.");
   }
   const totalDur = cursor;
 
@@ -413,13 +420,18 @@ async function createShortsVideo(
   canvas.width = CANVAS_W; canvas.height = CANVAS_H;
   const ctx2d = canvas.getContext("2d")!;
 
+  // Prefer webm/opus: Chrome's "video/mp4" MediaRecorder frequently drops the
+  // audio track (silent file). webm with an explicit opus codec reliably muxes
+  // audio; mp4 is kept only as a last resort (mainly Safari). Always set
+  // audioBitsPerSecond so an audio track is actually encoded.
   const candidateConfigs = [
-    { mimeType: "video/mp4",                  videoBitsPerSecond: 2_500_000 },
-    { mimeType: "video/webm;codecs=vp9,opus", videoBitsPerSecond: 2_000_000 },
-    { mimeType: "video/webm;codecs=vp8,opus", videoBitsPerSecond: 1_500_000 },
-    { mimeType: "video/webm",                 videoBitsPerSecond: 1_000_000 },
+    { mimeType: "video/webm;codecs=vp9,opus", videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
+    { mimeType: "video/webm;codecs=vp8,opus", videoBitsPerSecond: 2_000_000, audioBitsPerSecond: 128_000 },
+    { mimeType: "video/webm",                 videoBitsPerSecond: 2_000_000, audioBitsPerSecond: 128_000 },
+    { mimeType: "video/mp4;codecs=avc1,mp4a", videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
+    { mimeType: "video/mp4",                  videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
   ].filter((c) => MediaRecorder.isTypeSupported(c.mimeType));
-  if (candidateConfigs.length === 0) candidateConfigs.push({ mimeType: "video/webm", videoBitsPerSecond: 1_000_000 });
+  if (candidateConfigs.length === 0) candidateConfigs.push({ mimeType: "video/webm", videoBitsPerSecond: 1_000_000, audioBitsPerSecond: 128_000 });
 
   const chosenConfig = candidateConfigs[0];
   const ext: "mp4" | "webm" = chosenConfig.mimeType.startsWith("video/mp4") ? "mp4" : "webm";
