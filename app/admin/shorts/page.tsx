@@ -97,12 +97,6 @@ function cellOrigin(key: CellKey) {
   return { x: c * CELL_W, y: r * CELL_H };
 }
 
-function charFileFor(character: string): string {
-  return character === "lazy" ? "chef-bear-reference-1.png"
-       : character === "trend" ? "chef-bear-reference-2.png"
-       : "chef-bear-reference.png";
-}
-
 // Camera source rectangles over the composed grid. All 9:16 to avoid distortion;
 // "full" letterboxes the whole grid for the CTA zoom-out.
 const FULL_SH = (GRID_W * CELL_H) / CELL_W; // 5760
@@ -185,7 +179,6 @@ async function drawCell(
   bgImage: string | null,
   recipe: RecipeDetail,
   kp: ShortsKeypointResult,
-  character: string,
 ) {
   ctx.save();
   ctx.translate(ox, oy);
@@ -251,11 +244,6 @@ async function drawCell(
     ctx.font = "28px sans-serif";
     ctx.fillText("@oh_showong", CELL_W / 2, CELL_H - 50);
   } else if (key === "problem") {
-    try {
-      const ci = await loadImg(`/${charFileFor(character)}`);
-      const ch = 460, cw = ci.naturalWidth * ch / ci.naturalHeight;
-      ctx.drawImage(ci, CELL_W - cw - 30, CELL_H * 0.42 - ch + 60, cw, ch);
-    } catch { /* skip character */ }
     ctx.fillStyle = "#FF9A56";
     ctx.font = "bold 62px sans-serif";
     ctx.textBaseline = "alphabetic";
@@ -301,7 +289,6 @@ async function drawCell(
 async function composeGridCanvas(
   recipe: RecipeDetail,
   kp: ShortsKeypointResult,
-  character: string,
   cellImages: Partial<Record<CellKey, string | null>>,
 ): Promise<string> {
   const canvas = document.createElement("canvas");
@@ -314,7 +301,7 @@ async function composeGridCanvas(
 
   for (const key of CELL_ORDER) {
     const o = cellOrigin(key);
-    await drawCell(ctx, o.x, o.y, key, cellImages[key] ?? null, recipe, kp, character);
+    await drawCell(ctx, o.x, o.y, key, cellImages[key] ?? null, recipe, kp);
   }
 
   // Cell divider lines
@@ -701,7 +688,7 @@ function AdminShortsContent() {
     setRecipeMapError(null);
     try {
       const dataUrl = await composeGridCanvas(
-        loadedRecipe, keypoints, recipeCharacter,
+        loadedRecipe, keypoints,
         heroImage ? { food: heroImage } : {},
       );
       setRecipeMapImage(dataUrl);
@@ -741,7 +728,7 @@ function AdminShortsContent() {
         setRecipeMapError("이미지 생성에 실패했습니다. API 키 설정을 확인해주세요.");
         return;
       }
-      const grid = await composeGridCanvas(recipe, keypoints, recipeCharacter, cellImages);
+      const grid = await composeGridCanvas(recipe, keypoints, cellImages);
       setRecipeMapImage(grid);
     } catch (e) { setRecipeMapError(e instanceof Error ? e.message : "AI 생성 실패"); }
     finally { setRecipeMapLoading(false); }
@@ -1013,6 +1000,21 @@ function AdminShortsContent() {
                 <label className="text-white font-bold text-sm">② 레시피맵 이미지 생성</label>
                 {recipeMapImage && <span className="text-green-400 text-xs">✓ 완료</span>}
               </div>
+
+              {/* Character selector — drives image map + TTS generation */}
+              <div className="space-y-1.5">
+                <label className="block text-white/60 text-xs font-bold">캐릭터 (이미지·TTS 공통)</label>
+                <select
+                  value={recipeCharacter}
+                  onChange={(e) => setRecipeCharacter(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl text-white text-sm outline-none cursor-pointer"
+                  style={inset}>
+                  {CHARACTERS.map((c) => (
+                    <option key={c.id} value={c.id} style={{ color: "#111" }}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="flex gap-2">
                 <button
                   onClick={generateCanvasMap}
