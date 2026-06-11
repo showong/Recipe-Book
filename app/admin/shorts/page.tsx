@@ -33,6 +33,14 @@ const CHARACTERS = [
   { id: "trend", label: "🐼 트렌드곰" },
 ] as const;
 
+type SocialPlatform = "instagram" | "youtube" | "tiktok";
+
+const SOCIAL_PLATFORMS: { id: SocialPlatform; label: string }[] = [
+  { id: "instagram", label: "📸 인스타그램" },
+  { id: "youtube",   label: "▶️ 유튜브" },
+  { id: "tiktok",    label: "🎵 틱톡" },
+];
+
 const THUMBNAIL_STYLES = [
   { id: 1, name: "무드 에디토리얼" },
   { id: 2, name: "볼드 컬러 포스터" },
@@ -372,11 +380,17 @@ async function createShortsVideo(
   segments: NarrationSegment[],
   ttsAudios: Record<string, string>,
   onProgress: (p: number) => void,
+  thumbnailDataUrl: string | null,
 ): Promise<{ blob: Blob; ext: "mp4" | "webm" }> {
   const CANVAS_W = 1080, CANVAS_H = 1920;
   const TRANSITION = 0.4;
+  const THUMB_DUR = 1.0; // thumbnail intro overlay (audio plays underneath from t=0)
 
   const mapImg = await loadImg(recipeMapDataUrl);
+  let thumbImg: HTMLImageElement | null = null;
+  if (thumbnailDataUrl) {
+    try { thumbImg = await loadImg(thumbnailDataUrl); } catch { /* no intro */ }
+  }
   const audioCtx = new AudioContext();
   const dest = audioCtx.createMediaStreamDestination();
 
@@ -387,7 +401,7 @@ async function createShortsVideo(
   }
 
   // Decode audio per segment
-  interface VSeg { start: number; dur: number; camera: string; text: string; audioBuf: AudioBuffer | null }
+  interface VSeg { start: number; dur: number; camera: string; audioBuf: AudioBuffer | null }
   const vsegs: VSeg[] = [];
   let cursor = 0;
   for (const seg of segments) {
@@ -399,7 +413,7 @@ async function createShortsVideo(
       } catch { /* skip */ }
     }
     const dur = audioBuf ? audioBuf.duration : (seg.estimatedEndSec - seg.estimatedStartSec);
-    vsegs.push({ start: cursor, dur, camera: seg.cameraSection, text: seg.text, audioBuf });
+    vsegs.push({ start: cursor, dur, camera: seg.cameraSection, audioBuf });
     cursor += dur + 0.12;
   }
   const totalDur = cursor;
@@ -450,33 +464,6 @@ async function createShortsVideo(
   const lerp = (a: number, b: number, t: number) => a + (b - a) * Math.max(0, Math.min(1, t));
   const ease = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 
-  function drawSubtitle(text: string) {
-    if (!text) return;
-    const FS = 46, LINE_H = 60, PAD = 50, MAX_W = CANVAS_W - PAD * 2;
-    ctx2d.font = `bold ${FS}px sans-serif`;
-    ctx2d.textAlign = "center";
-    ctx2d.textBaseline = "top";
-    const lines: string[] = [];
-    let line = "";
-    for (const ch of Array.from(text)) {
-      const test = line + ch;
-      if (ctx2d.measureText(test).width > MAX_W && line.length > 0) {
-        lines.push(line); line = ch;
-        if (lines.length >= 2) break;
-      } else { line = test; }
-    }
-    if (line && lines.length < 2) lines.push(line);
-    const bgH = lines.length * LINE_H + 28;
-    const bgY = CANVAS_H - bgH - 60;
-    ctx2d.fillStyle = "rgba(0,0,0,0.65)";
-    ctx2d.fillRect(0, bgY, CANVAS_W, bgH + 4);
-    ctx2d.fillStyle = "#FFFFFF";
-    ctx2d.shadowColor = "rgba(0,0,0,0.8)";
-    ctx2d.shadowBlur = 3;
-    lines.forEach((l, i) => ctx2d.fillText(l, CANVAS_W / 2, bgY + 14 + i * LINE_H));
-    ctx2d.shadowBlur = 0;
-  }
-
   await new Promise<void>((resolve) => {
     const wallStart = performance.now();
     const safetyTimer = setTimeout(resolve, (START_DELAY + totalDur + 5) * 1000);
@@ -512,7 +499,13 @@ async function createShortsVideo(
         } else {
           ctx2d.drawImage(mapImg, curR.sx, curR.sy, curR.sw, curR.sh, 0, 0, CANVAS_W, CANVAS_H);
         }
-        drawSubtitle(cur.text);
+
+        // Thumbnail intro: cover the first second while audio already plays
+        if (thumbImg && elapsed < THUMB_DUR) {
+          const r = Math.max(CANVAS_W / thumbImg.naturalWidth, CANVAS_H / thumbImg.naturalHeight);
+          const w = thumbImg.naturalWidth * r, h = thumbImg.naturalHeight * r;
+          ctx2d.drawImage(thumbImg, (CANVAS_W - w) / 2, (CANVAS_H - h) / 2, w, h);
+        }
       }
       requestAnimationFrame(animate);
     };
@@ -580,6 +573,12 @@ function AdminShortsContent() {
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderError, setRenderError] = useState<string | null>(null);
 
+  // ── Social posts (Instagram / YouTube / TikTok) ──
+  const [socialPosts, setSocialPosts] = useState<Record<SocialPlatform, string>>({ instagram: "", youtube: "", tiktok: "" });
+  const [socialLoading, setSocialLoading] = useState<Record<SocialPlatform, boolean>>({ instagram: false, youtube: false, tiktok: false });
+  const [socialErrors, setSocialErrors] = useState<Record<SocialPlatform, string>>({ instagram: "", youtube: "", tiktok: "" });
+  const [copiedPlatform, setCopiedPlatform] = useState<SocialPlatform | null>(null);
+
   // ── Thumbnail tab (existing) ──
   const [recipeName, setRecipeName] = useState("");
   const [highlight, setHighlight] = useState("");
@@ -631,6 +630,8 @@ function AdminShortsContent() {
       setFinalVideoUrl(null);
       finalVideoBlobRef.current = null;
       setRenderError(null);
+      setSocialPosts({ instagram: "", youtube: "", tiktok: "" });
+      setSocialErrors({ instagram: "", youtube: "", tiktok: "" });
 
       // Thumbnail tab fields
       setRecipeName(r.name ?? "");
@@ -789,6 +790,7 @@ function AdminShortsContent() {
         narrationSegments,
         ttsAudios,
         setRenderProgress,
+        thumbnail,
       );
       finalVideoBlobRef.current = { blob, ext };
       setFinalVideoUrl(URL.createObjectURL(blob));
@@ -812,6 +814,41 @@ function AdminShortsContent() {
     if (hashtags.length) {
       setTimeout(() => downloadText(hashtags.join("\n"), `${name}-hashtags.txt`), 1200);
     }
+  };
+
+  // ── Pipeline: Step 6 — platform-formatted recipe posts ───────────────────
+  const generateSocialPost = async (platform: SocialPlatform) => {
+    if (!loadedRecipe) return;
+    setSocialLoading((p) => ({ ...p, [platform]: true }));
+    setSocialErrors((p) => ({ ...p, [platform]: "" }));
+    try {
+      const res = await fetch("/api/generate-social-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe: loadedRecipe,
+          platform,
+          character: recipeCharacter,
+          caption,
+          hashtags,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) { setSocialErrors((p) => ({ ...p, [platform]: data.error })); }
+      else { setSocialPosts((p) => ({ ...p, [platform]: data.post ?? "" })); }
+    } catch (e) {
+      setSocialErrors((p) => ({ ...p, [platform]: e instanceof Error ? e.message : "게시글 생성 실패" }));
+    } finally {
+      setSocialLoading((p) => ({ ...p, [platform]: false }));
+    }
+  };
+
+  const copySocialPost = async (platform: SocialPlatform) => {
+    try {
+      await navigator.clipboard.writeText(socialPosts[platform]);
+      setCopiedPlatform(platform);
+      setTimeout(() => setCopiedPlatform((cur) => (cur === platform ? null : cur)), 1500);
+    } catch { /* clipboard unavailable */ }
   };
 
   // ── Thumbnail tab handlers ────────────────────────────────────────────────
@@ -1071,6 +1108,11 @@ function AdminShortsContent() {
                   </span>
                 ))}
               </div>
+              <p className="text-white/40 text-xs">
+                {thumbnail
+                  ? "🖼️ 썸네일 탭 이미지가 인트로 1초로 삽입됩니다 (시작과 동시에 TTS 재생)."
+                  : "🖼️ 썸네일 탭에서 썸네일을 만들면 인트로 1초로 자동 삽입됩니다."}
+              </p>
               <button
                 onClick={renderVideo}
                 disabled={!recipeMapImage || renderLoading}
@@ -1089,9 +1131,53 @@ function AdminShortsContent() {
               )}
             </div>
 
-            {/* STEP 5: Download package */}
+            {/* STEP 5: Platform-formatted recipe posts */}
             <div className="p-5 rounded-2xl space-y-3" style={card}>
-              <label className="block text-white font-bold text-sm">⑤ 패키지 다운로드</label>
+              <label className="block text-white font-bold text-sm">⑤ SNS 게시글 생성 (gemini-3.5-flash)</label>
+              <p className="text-white/40 text-xs">플랫폼별 형식에 맞춰 자세한 레시피 게시글을 생성합니다.</p>
+              {!loadedRecipe && <p className="text-white/40 text-sm">⓪ 레시피를 먼저 선택해주세요.</p>}
+              {loadedRecipe && (
+                <div className="space-y-3">
+                  {SOCIAL_PLATFORMS.map(({ id, label }) => (
+                    <div key={id} className="p-3 rounded-xl space-y-2" style={inset}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-white text-sm font-bold">{label}</span>
+                        <div className="flex items-center gap-2">
+                          {socialPosts[id] && (
+                            <button
+                              onClick={() => copySocialPost(id)}
+                              className="text-xs px-3 py-1 rounded-lg text-white font-bold transition-all"
+                              style={{ background: "rgba(255,255,255,0.12)" }}>
+                              {copiedPlatform === id ? "✓ 복사됨" : "📋 복사"}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => generateSocialPost(id)}
+                            disabled={socialLoading[id]}
+                            className="text-xs px-3 py-1 rounded-lg text-white font-bold transition-all disabled:opacity-40"
+                            style={orangeGrad}>
+                            {socialLoading[id] ? "🔄 생성 중..." : socialPosts[id] ? "🔁 재생성" : "✍️ 생성"}
+                          </button>
+                        </div>
+                      </div>
+                      {socialErrors[id] && <p className="text-red-300 text-xs">⚠️ {socialErrors[id]}</p>}
+                      {socialPosts[id] && (
+                        <textarea
+                          readOnly
+                          value={socialPosts[id]}
+                          className="w-full h-44 px-3 py-2 rounded-lg text-white text-xs leading-relaxed outline-none resize-y whitespace-pre-wrap"
+                          style={{ background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.10)" }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* STEP 6: Download package */}
+            <div className="p-5 rounded-2xl space-y-3" style={card}>
+              <label className="block text-white font-bold text-sm">⑥ 패키지 다운로드</label>
               <div className="grid grid-cols-2 gap-2">
                 {([
                   ["🎬 final.mp4", !!finalVideoUrl],
