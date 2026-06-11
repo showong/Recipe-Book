@@ -474,7 +474,12 @@ async function createShortsVideo(
           const progress = (elapsed - cur.start) / cur.dur;
           const tStart = Math.max(0, 1 - TRANSITION / cur.dur);
           if (progress >= tStart) {
-            const t = ease((progress - tStart) / (1 - tStart));
+            // Clamp the interpolation input to [0,1] BEFORE easing — past the
+            // segment end (inter-segment gap, progress > 1) the easing curve
+            // bends back down and would make the camera bounce. Clamping holds
+            // it steady on the next cell instead.
+            const localT = Math.min(1, Math.max(0, (progress - tStart) / (1 - tStart)));
+            const t = ease(localT);
             const nextR = getCameraRect(next.camera);
             ctx2d.drawImage(mapImg,
               lerp(curR.sx, nextR.sx, t), lerp(curR.sy, nextR.sy, t),
