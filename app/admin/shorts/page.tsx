@@ -58,14 +58,17 @@ const GRID_COLS = 3, GRID_ROWS = 2;
 const GRID_W = CELL_W * GRID_COLS; // 3240
 const GRID_H = CELL_H * GRID_ROWS; // 3840
 
-// cell → [column, row]
+// cell → [column, row]. Bottom row is reversed so the camera snakes
+// (boustrophedon): top L→R, then bottom R→L with no diagonal jump.
+//   [ food(0,0)   problem(1,0)   point1(2,0) ]
+//   [ ingred(0,1) point3(1,1)    point2(2,1) ]
 const CELL_GRID: Record<CellKey, [number, number]> = {
   food:        [0, 0],
   problem:     [1, 0],
   point1:      [2, 0],
-  point2:      [0, 1],
+  point2:      [2, 1],
   point3:      [1, 1],
-  ingredients: [2, 1],
+  ingredients: [0, 1],
 };
 
 const CELL_ORDER: CellKey[] = ["food", "problem", "point1", "point2", "point3", "ingredients"];
