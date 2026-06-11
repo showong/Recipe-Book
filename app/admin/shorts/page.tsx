@@ -420,16 +420,21 @@ async function createShortsVideo(
   canvas.width = CANVAS_W; canvas.height = CANVAS_H;
   const ctx2d = canvas.getContext("2d")!;
 
-  // Prefer webm/opus: Chrome's "video/mp4" MediaRecorder frequently drops the
-  // audio track (silent file). webm with an explicit opus codec reliably muxes
-  // audio; mp4 is kept only as a last resort (mainly Safari). Always set
-  // audioBitsPerSecond so an audio track is actually encoded.
+  // The recorded blob plays in-browser (which decodes webm/opus), but external
+  // players often can't decode opus, so a downloaded .webm appears silent.
+  // Prefer MP4 with an EXPLICIT AAC codec (mp4a) — naming the audio codec is
+  // what makes Chrome actually mux audio into the mp4 (bare "video/mp4" can
+  // produce a silent file). Fall back to webm/opus only when mp4 recording is
+  // unavailable. Always set audioBitsPerSecond so an audio track is encoded.
   const candidateConfigs = [
-    { mimeType: "video/webm;codecs=vp9,opus", videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
-    { mimeType: "video/webm;codecs=vp8,opus", videoBitsPerSecond: 2_000_000, audioBitsPerSecond: 128_000 },
-    { mimeType: "video/webm",                 videoBitsPerSecond: 2_000_000, audioBitsPerSecond: 128_000 },
-    { mimeType: "video/mp4;codecs=avc1,mp4a", videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
-    { mimeType: "video/mp4",                  videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
+    { mimeType: "video/mp4;codecs=avc1.640029,mp4a.40.2", videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
+    { mimeType: "video/mp4;codecs=avc1.42E01E,mp4a.40.2", videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
+    { mimeType: "video/mp4;codecs=avc1,mp4a",             videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
+    { mimeType: "video/mp4;codecs=h264,aac",              videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
+    { mimeType: "video/webm;codecs=vp9,opus",             videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
+    { mimeType: "video/webm;codecs=vp8,opus",             videoBitsPerSecond: 2_000_000, audioBitsPerSecond: 128_000 },
+    { mimeType: "video/webm",                             videoBitsPerSecond: 2_000_000, audioBitsPerSecond: 128_000 },
+    { mimeType: "video/mp4",                              videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
   ].filter((c) => MediaRecorder.isTypeSupported(c.mimeType));
   if (candidateConfigs.length === 0) candidateConfigs.push({ mimeType: "video/webm", videoBitsPerSecond: 1_000_000, audioBitsPerSecond: 128_000 });
 
@@ -1203,7 +1208,14 @@ function AdminShortsContent() {
               )}
               {renderError && <p className="text-red-300 text-xs">⚠️ {renderError}</p>}
               {finalVideoUrl && (
-                <video controls src={finalVideoUrl} className="w-full rounded-xl mt-2" style={{ maxHeight: "320px" }} />
+                <>
+                  <video controls src={finalVideoUrl} className="w-full rounded-xl mt-2" style={{ maxHeight: "320px" }} />
+                  <p className="text-white/40 text-xs">
+                    출력 포맷: <span className="text-white/70 font-bold uppercase">{finalVideoBlobRef.current?.ext ?? "—"}</span>
+                    {finalVideoBlobRef.current?.ext === "webm" &&
+                      " · 이 브라우저는 MP4 녹화를 지원하지 않아 webm으로 저장됩니다. 외부 플레이어에서 소리가 안 나면 MP4로 변환해 주세요."}
+                  </p>
+                </>
               )}
             </div>
 
