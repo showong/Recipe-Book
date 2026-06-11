@@ -574,6 +574,10 @@ function AdminShortsContent() {
   const [socialErrors, setSocialErrors] = useState<Record<SocialPlatform, string>>({ instagram: "", youtube: "", tiktok: "" });
   const [copiedPlatform, setCopiedPlatform] = useState<SocialPlatform | null>(null);
 
+  // ── Telegram delivery ──
+  const [telegramLoading, setTelegramLoading] = useState(false);
+  const [telegramStatus, setTelegramStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+
   // ── Thumbnail tab (existing) ──
   const [recipeName, setRecipeName] = useState("");
   const [highlight, setHighlight] = useState("");
@@ -627,6 +631,7 @@ function AdminShortsContent() {
       setRenderError(null);
       setSocialPosts({ instagram: "", youtube: "", tiktok: "" });
       setSocialErrors({ instagram: "", youtube: "", tiktok: "" });
+      setTelegramStatus(null);
 
       // Thumbnail tab fields
       setRecipeName(r.name ?? "");
@@ -856,6 +861,42 @@ function AdminShortsContent() {
       setCopiedPlatform(platform);
       setTimeout(() => setCopiedPlatform((cur) => (cur === platform ? null : cur)), 1500);
     } catch { /* clipboard unavailable */ }
+  };
+
+  // ── Pipeline: send the final video + platform posts to Telegram ───────────
+  const sendToTelegram = async () => {
+    const hasVideo = !!finalVideoBlobRef.current;
+    const hasPosts = SOCIAL_PLATFORMS.some(({ id }) => socialPosts[id].trim());
+    if (!hasVideo && !hasPosts) {
+      setTelegramStatus({ ok: false, msg: "전송할 영상이나 게시글이 없습니다." });
+      return;
+    }
+    setTelegramLoading(true);
+    setTelegramStatus(null);
+    try {
+      const name = loadedRecipe?.name ?? "recipe";
+      const fd = new FormData();
+      if (finalVideoBlobRef.current) {
+        const { blob, ext } = finalVideoBlobRef.current;
+        fd.append("video", blob, `${name}-shorts.${ext}`);
+        fd.append("caption", `🎬 ${name} 쇼츠`);
+      }
+      SOCIAL_PLATFORMS.forEach(({ id }) => {
+        if (socialPosts[id].trim()) fd.append(id, socialPosts[id]);
+      });
+
+      const res = await fetch("/api/send-telegram", { method: "POST", body: fd });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setTelegramStatus({ ok: false, msg: data.error ?? "전송에 실패했습니다." });
+      } else {
+        setTelegramStatus({ ok: true, msg: "텔레그램으로 전송했습니다." });
+      }
+    } catch (e) {
+      setTelegramStatus({ ok: false, msg: e instanceof Error ? e.message : "전송 실패" });
+    } finally {
+      setTelegramLoading(false);
+    }
   };
 
   // ── Thumbnail tab handlers ────────────────────────────────────────────────
@@ -1223,6 +1264,25 @@ function AdminShortsContent() {
                 style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
                 ⬇️ 전체 패키지 다운로드
               </button>
+
+              {/* Telegram delivery */}
+              <div className="pt-2 mt-1 space-y-2" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                <p className="text-white/40 text-xs">
+                  합성 영상과 SNS 게시글(인스타·유튜브·틱톡)을 텔레그램으로 전송합니다.
+                </p>
+                <button
+                  onClick={sendToTelegram}
+                  disabled={telegramLoading || (!finalVideoUrl && !SOCIAL_PLATFORMS.some(({ id }) => socialPosts[id].trim()))}
+                  className="w-full py-3 rounded-xl text-white font-bold transition-all hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #229ED9, #2AABEE)" }}>
+                  {telegramLoading ? "📨 전송 중..." : "✈️ 텔레그램으로 전송"}
+                </button>
+                {telegramStatus && (
+                  <p className={`text-xs ${telegramStatus.ok ? "text-green-300" : "text-red-300"}`}>
+                    {telegramStatus.ok ? "✓ " : "⚠️ "}{telegramStatus.msg}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}
