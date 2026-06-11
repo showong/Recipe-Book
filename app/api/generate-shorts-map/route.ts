@@ -16,21 +16,34 @@ function characterDesc(character: string): string {
 }
 
 // Each cell is one full 9:16 frame of the 6-cell recipe grid.
+// Every cell includes the dish name and its main ingredients so the AI
+// generates visuals that are unambiguously tied to this specific recipe.
 function buildCellPrompt(cell: CellKey, recipeName: string, kp: ShortsKeypointResult, character: string): string {
   const base = "한국 요리 SNS 쇼츠용 세로 9:16 이미지. 사실적이고 선명한 비주얼, 영화 같은 조명, 딥 다크 톤 배경. 이미지 안에 글자/텍스트/자막/워터마크는 절대 넣지 마세요.";
+  const mainIngredients = kp.saveCard.ingredients.slice(0, 6).join(", ");
+  const dishCtx = `요리: "${recipeName}" (주요 재료: ${mainIngredients}).`;
+
   switch (cell) {
     case "food":
-      return `"${recipeName}" 완성 요리의 먹음직스러운 클로즈업 음식 사진. 김이 모락모락, 식욕을 자극하는 플레이팅. ${base}`;
+      return `${dishCtx} 완성된 "${recipeName}"의 먹음직스러운 클로즈업 사진. 김이 모락모락, 식욕을 자극하는 플레이팅. ${base}`;
+
     case "problem":
-      return `"${recipeName}"를 만들다 흔히 겪는 실패/고민 상황을 표현한 장면: "${kp.problem}". ${characterDesc(character)}가 곤란해하거나 걱정하는 표정으로 등장. ${base}`;
-    case "point1":
-      return `요리 핵심 포인트 "${kp.keyPoints[0]?.title}: ${kp.keyPoints[0]?.description}"를 보여주는 조리 과정 클로즈업 장면. ${base}`;
-    case "point2":
-      return `요리 핵심 포인트 "${kp.keyPoints[1]?.title}: ${kp.keyPoints[1]?.description}"를 보여주는 조리 과정 클로즈업 장면. ${base}`;
-    case "point3":
-      return `요리 핵심 포인트 "${kp.keyPoints[2]?.title}: ${kp.keyPoints[2]?.description}"를 보여주는 조리 과정 클로즈업 장면. ${base}`;
+      return `${dishCtx} "${recipeName}"를 만들다 흔히 겪는 실패/고민 상황: "${kp.problem}". ${characterDesc(character)}가 곤란해하거나 걱정하는 표정으로 등장. 배경에 ${recipeName} 관련 조리 도구나 재료가 보여야 합니다. ${base}`;
+
+    case "point1": {
+      const pt = kp.keyPoints[0];
+      return `${dishCtx} "${recipeName}" 조리 중 핵심 포인트 장면: "${pt?.title} — ${pt?.description}". 이 동작 또는 재료(${mainIngredients})가 실제로 등장하는 클로즈업 조리 과정 사진. ${base}`;
+    }
+    case "point2": {
+      const pt = kp.keyPoints[1];
+      return `${dishCtx} "${recipeName}" 조리 중 핵심 포인트 장면: "${pt?.title} — ${pt?.description}". 이 동작 또는 재료(${mainIngredients})가 실제로 등장하는 클로즈업 조리 과정 사진. ${base}`;
+    }
+    case "point3": {
+      const pt = kp.keyPoints[2];
+      return `${dishCtx} "${recipeName}" 조리 중 핵심 포인트 장면: "${pt?.title} — ${pt?.description}". 이 동작 또는 재료(${mainIngredients})가 실제로 등장하는 클로즈업 조리 과정 사진. ${base}`;
+    }
     case "ingredients":
-      return `"${recipeName}"의 핵심 재료들을 가지런히 늘어놓은 플랫레이(flat lay overhead) 사진. 재료: ${kp.saveCard.ingredients.slice(0, 6).join(", ")}. ${base}`;
+      return `${dishCtx} "${recipeName}"에 실제로 사용하는 재료들만 가지런히 늘어놓은 플랫레이(flat lay, overhead) 사진. 반드시 이 재료들이 화면에 보여야 합니다: ${mainIngredients}. 다른 요리의 재료는 절대 포함하지 마세요. ${base}`;
   }
 }
 

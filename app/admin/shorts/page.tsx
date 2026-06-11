@@ -664,6 +664,18 @@ function AdminShortsContent() {
     return () => { cancelled = true; };
   }, [searchParams, fillFromRecipe]);
 
+  // Clear TTS cache whenever the character changes so that audio is always
+  // re-generated with the correct voice. Track the previous value so the
+  // initial load (recipeCharacter set from the recipe) doesn't also clear.
+  const prevCharacterRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevCharacterRef.current !== null && prevCharacterRef.current !== recipeCharacter) {
+      setTtsAudios({});
+      setTtsErrors({});
+    }
+    prevCharacterRef.current = recipeCharacter;
+  }, [recipeCharacter]);
+
   // ── Pipeline: Step 1 — extract keypoints + narration ─────────────────────
   const extractKeypoints = async () => {
     if (!loadedRecipe) return;
@@ -1021,6 +1033,7 @@ function AdminShortsContent() {
                     <option key={c.id} value={c.id} style={{ color: "#111" }}>{c.label}</option>
                   ))}
                 </select>
+                <p className="text-white/35 text-xs">캐릭터 변경 시 TTS 캐시가 초기화되어 올바른 목소리로 재생성됩니다.</p>
               </div>
 
               <div className="flex gap-2">
