@@ -11,12 +11,12 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GE
 
 // Fixed camera timing per spec §11.7
 const SEGMENT_DEFS = [
-  { id: "hook",        label: "후킹",    start: 0,  end: 3,  camera: "top" },
-  { id: "problem",     label: "문제제기", start: 3,  end: 6,  camera: "problem" },
-  { id: "point1",      label: "포인트 1", start: 6,  end: 10, camera: "point1" },
-  { id: "point2",      label: "포인트 2", start: 10, end: 14, camera: "point2" },
-  { id: "point3",      label: "포인트 3", start: 14, end: 18, camera: "point3" },
-  { id: "ingredients", label: "재료",    start: 18, end: 25, camera: "bottom" },
+  { id: "hook",        label: "후킹",    start: 0,  end: 3,  camera: "cell_food" },
+  { id: "problem",     label: "문제제기", start: 3,  end: 6,  camera: "cell_problem" },
+  { id: "point1",      label: "포인트 1", start: 6,  end: 10, camera: "cell_point1" },
+  { id: "point2",      label: "포인트 2", start: 10, end: 14, camera: "cell_point2" },
+  { id: "point3",      label: "포인트 3", start: 14, end: 18, camera: "cell_point3" },
+  { id: "ingredients", label: "재료",    start: 18, end: 25, camera: "cell_ingredients" },
   { id: "cta",         label: "CTA",    start: 25, end: 30, camera: "full" },
 ] as const;
 

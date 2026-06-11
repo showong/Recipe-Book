@@ -4,5 +4,12 @@ export interface NarrationSegment {
   text: string;
   estimatedStartSec: number;
   estimatedEndSec: number;
-  cameraSection: "top" | "problem" | "point1" | "point2" | "point3" | "bottom" | "full";
+  cameraSection:
+    | "cell_food"
+    | "cell_problem"
+    | "cell_point1"
+    | "cell_point2"
+    | "cell_point3"
+    | "cell_ingredients"
+    | "full";
 }

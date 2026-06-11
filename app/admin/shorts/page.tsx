@@ -42,15 +42,74 @@ const THUMBNAIL_STYLES = [
   { id: 6, name: "TV 요리쇼" },
 ] as const;
 
-// Camera zoompan positions for the recipe map (1080×1920 source)
-const CAMERA_POS: Record<string, { cx: number; cy: number; zoom: number }> = {
-  top:         { cx: 540, cy: 190,  zoom: 1.5 },
-  problem:     { cx: 540, cy: 420,  zoom: 1.3 },
-  point1:      { cx: 540, cy: 860,  zoom: 1.9 },
-  point2:      { cx: 540, cy: 1060, zoom: 1.9 },
-  point3:      { cx: 540, cy: 1260, zoom: 1.9 },
-  bottom:      { cx: 540, cy: 1650, zoom: 1.5 },
-  full:        { cx: 540, cy: 960,  zoom: 1.0 },
+// ── Grid map layout: 3 columns × 2 rows, each cell a full 9:16 frame ──────────
+type CellKey = "food" | "problem" | "point1" | "point2" | "point3" | "ingredients";
+
+const CELL_W = 1080, CELL_H = 1920;
+const GRID_COLS = 3, GRID_ROWS = 2;
+const GRID_W = CELL_W * GRID_COLS; // 3240
+const GRID_H = CELL_H * GRID_ROWS; // 3840
+
+// cell → [column, row]
+const CELL_GRID: Record<CellKey, [number, number]> = {
+  food:        [0, 0],
+  problem:     [1, 0],
+  point1:      [2, 0],
+  point2:      [0, 1],
+  point3:      [1, 1],
+  ingredients: [2, 1],
+};
+
+const CELL_ORDER: CellKey[] = ["food", "problem", "point1", "point2", "point3", "ingredients"];
+
+const CELL_ACCENT: Record<CellKey, string> = {
+  food:        "#0D1B2A",
+  problem:     "#7A1F1F",
+  point1:      "#1E3A8A",
+  point2:      "#5B21B6",
+  point3:      "#0F766E",
+  ingredients: "#92400E",
+};
+
+const CELL_CHIP: Record<CellKey, string> = {
+  food:        "🍽 완성",
+  problem:     "❗ 이런 실수",
+  point1:      "① 포인트",
+  point2:      "② 포인트",
+  point3:      "③ 포인트",
+  ingredients: "📌 저장 재료",
+};
+
+const CELL_EMOJI: Record<CellKey, string> = {
+  food: "🍽️", problem: "😵", point1: "1️⃣", point2: "2️⃣", point3: "3️⃣", ingredients: "🧺",
+};
+
+function cellOrigin(key: CellKey) {
+  const [c, r] = CELL_GRID[key];
+  return { x: c * CELL_W, y: r * CELL_H };
+}
+
+function charFileFor(character: string): string {
+  return character === "lazy" ? "chef-bear-reference-1.png"
+       : character === "trend" ? "chef-bear-reference-2.png"
+       : "chef-bear-reference.png";
+}
+
+// Camera source rectangles over the composed grid. All 9:16 to avoid distortion;
+// "full" letterboxes the whole grid for the CTA zoom-out.
+const FULL_SH = (GRID_W * CELL_H) / CELL_W; // 5760
+function camRect(key: CellKey) {
+  const o = cellOrigin(key);
+  return { sx: o.x, sy: o.y, sw: CELL_W, sh: CELL_H };
+}
+const CAMERA_RECTS: Record<string, { sx: number; sy: number; sw: number; sh: number }> = {
+  cell_food:        camRect("food"),
+  cell_problem:     camRect("problem"),
+  cell_point1:      camRect("point1"),
+  cell_point2:      camRect("point2"),
+  cell_point3:      camRect("point3"),
+  cell_ingredients: camRect("ingredients"),
+  full:             { sx: 0, sy: (GRID_H - FULL_SH) / 2, sw: GRID_W, sh: FULL_SH },
 };
 
 // ── Canvas helpers ────────────────────────────────────────────────────────────
@@ -108,136 +167,159 @@ function wrapText(
   if (line) ctx.fillText(line, x, y + drawn * lineHeight);
 }
 
-// Client-side canvas recipe map generation (instant, no API cost)
-async function drawRecipeMapCanvas(
+// Draw one grid cell (content anchored to its bottom) at (ox, oy).
+// `bgImage` supplies optional background art; missing art falls back to an
+// accent gradient + emoji so the cell is still legible.
+async function drawCell(
+  ctx: CanvasRenderingContext2D,
+  ox: number, oy: number,
+  key: CellKey,
+  bgImage: string | null,
   recipe: RecipeDetail,
   kp: ShortsKeypointResult,
-  foodImage: string | null,
   character: string,
+) {
+  ctx.save();
+  ctx.translate(ox, oy);
+  ctx.beginPath();
+  ctx.rect(0, 0, CELL_W, CELL_H);
+  ctx.clip();
+
+  // Background — cover-fit art, else accent gradient + emoji watermark
+  let hasArt = false;
+  if (bgImage) {
+    try {
+      const img = await loadImg(bgImage);
+      const r = Math.max(CELL_W / img.naturalWidth, CELL_H / img.naturalHeight);
+      const w = img.naturalWidth * r, h = img.naturalHeight * r;
+      ctx.drawImage(img, (CELL_W - w) / 2, (CELL_H - h) / 2, w, h);
+      hasArt = true;
+    } catch { /* fall through to gradient */ }
+  }
+  if (!hasArt) {
+    const g = ctx.createLinearGradient(0, 0, 0, CELL_H);
+    g.addColorStop(0, CELL_ACCENT[key]);
+    g.addColorStop(1, "#0A0F1A");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, CELL_W, CELL_H);
+    ctx.font = "320px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.globalAlpha = 0.9;
+    ctx.fillText(key === "food" ? (recipe.emoji ?? "🍽️") : CELL_EMOJI[key], CELL_W / 2, CELL_H / 2 - 160);
+    ctx.globalAlpha = 1;
+  }
+
+  // Bottom scrim for text legibility
+  const scrim = ctx.createLinearGradient(0, CELL_H * 0.42, 0, CELL_H);
+  scrim.addColorStop(0, "rgba(8,12,20,0)");
+  scrim.addColorStop(1, "rgba(8,12,20,0.94)");
+  ctx.fillStyle = scrim;
+  ctx.fillRect(0, CELL_H * 0.42, CELL_W, CELL_H * 0.58);
+
+  // Top chip
+  ctx.font = "bold 36px sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  const chipW = ctx.measureText(CELL_CHIP[key]).width + 52;
+  ctx.fillStyle = CELL_ACCENT[key];
+  roundRect(ctx, 44, 44, chipW, 68, 34);
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.fillText(CELL_CHIP[key], 70, 80);
+
+  // Per-cell foreground content
+  const idx = key === "point1" ? 0 : key === "point2" ? 1 : key === "point3" ? 2 : -1;
+  if (key === "food") {
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 70px sans-serif";
+    ctx.textBaseline = "alphabetic";
+    wrapText(ctx, kp.hook, CELL_W / 2, CELL_H - 260, CELL_W - 120, 84, 2);
+    ctx.fillStyle = "rgba(255,255,255,0.72)";
+    ctx.font = "40px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(recipe.name.slice(0, 18), CELL_W / 2, CELL_H - 110);
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.font = "28px sans-serif";
+    ctx.fillText("@oh_showong", CELL_W / 2, CELL_H - 50);
+  } else if (key === "problem") {
+    try {
+      const ci = await loadImg(`/${charFileFor(character)}`);
+      const ch = 460, cw = ci.naturalWidth * ch / ci.naturalHeight;
+      ctx.drawImage(ci, CELL_W - cw - 30, CELL_H * 0.42 - ch + 60, cw, ch);
+    } catch { /* skip character */ }
+    ctx.fillStyle = "#FF9A56";
+    ctx.font = "bold 62px sans-serif";
+    ctx.textBaseline = "alphabetic";
+    wrapText(ctx, kp.problem, 56, CELL_H - 330, CELL_W - 112, 76, 3, "left");
+  } else if (idx >= 0) {
+    const pt = kp.keyPoints[idx];
+    ctx.beginPath();
+    ctx.arc(96, CELL_H - 300, 56, 0, Math.PI * 2);
+    ctx.fillStyle = CELL_ACCENT[key];
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 56px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(idx + 1), 96, CELL_H - 300);
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 58px sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText((pt?.title ?? "").slice(0, 14), 180, CELL_H - 282);
+    ctx.fillStyle = "rgba(255,255,255,0.74)";
+    ctx.font = "38px sans-serif";
+    wrapText(ctx, pt?.description ?? "", 56, CELL_H - 200, CELL_W - 112, 50, 3, "left");
+  } else if (key === "ingredients") {
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 50px sans-serif";
+    ctx.textBaseline = "alphabetic";
+    wrapText(ctx, kp.saveCard.title, 56, CELL_H - 470, CELL_W - 112, 60, 2, "left");
+    ctx.font = "38px sans-serif";
+    kp.saveCard.ingredients.slice(0, 8).forEach((it, i) => {
+      const col = i % 2, row = Math.floor(i / 2);
+      ctx.fillStyle = "rgba(255,255,255,0.82)";
+      ctx.textAlign = "left";
+      ctx.fillText(`• ${it}`.slice(0, 20), col === 0 ? 56 : CELL_W / 2 + 10, CELL_H - 360 + row * 70);
+    });
+  }
+
+  ctx.restore();
+}
+
+// Compose the full 6-cell recipe grid (3240×3840). `cellImages` supplies optional
+// per-cell background art; cells without art render an accent gradient card.
+async function composeGridCanvas(
+  recipe: RecipeDetail,
+  kp: ShortsKeypointResult,
+  character: string,
+  cellImages: Partial<Record<CellKey, string | null>>,
 ): Promise<string> {
-  const W = 1080, H = 1920;
   const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
+  canvas.width = GRID_W;
+  canvas.height = GRID_H;
   const ctx = canvas.getContext("2d")!;
 
-  // Background
-  ctx.fillStyle = "#0D1B2A";
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#0A0F1A";
+  ctx.fillRect(0, 0, GRID_W, GRID_H);
 
-  // TOP SECTION: food photo or emoji (0-620px)
-  if (foodImage) {
-    try {
-      const img = await loadImg(foodImage);
-      const srcRatio = img.naturalWidth / img.naturalHeight;
-      const dstRatio = W / 620;
-      let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
-      if (srcRatio > dstRatio) { sw = Math.round(sh * dstRatio); sx = Math.round((img.naturalWidth - sw) / 2); }
-      else { sh = Math.round(sw / dstRatio); sy = Math.round((img.naturalHeight - sh) / 2); }
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, 620);
-    } catch { /* skip, show emoji */ }
-  }
-  if (!foodImage) {
-    ctx.font = "160px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(recipe.emoji ?? "🍽️", W / 2, 310);
+  for (const key of CELL_ORDER) {
+    const o = cellOrigin(key);
+    await drawCell(ctx, o.x, o.y, key, cellImages[key] ?? null, recipe, kp, character);
   }
 
-  // Dark gradient over food area
-  const grad = ctx.createLinearGradient(0, 300, 0, 620);
-  grad.addColorStop(0, "rgba(13,27,42,0)");
-  grad.addColorStop(1, "rgba(13,27,42,0.93)");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, 620);
+  // Cell divider lines
+  ctx.strokeStyle = "rgba(255,255,255,0.10)";
+  ctx.lineWidth = 4;
+  for (let c = 1; c < GRID_COLS; c++) {
+    ctx.beginPath(); ctx.moveTo(c * CELL_W, 0); ctx.lineTo(c * CELL_W, GRID_H); ctx.stroke();
+  }
+  for (let r = 1; r < GRID_ROWS; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r * CELL_H); ctx.lineTo(GRID_W, r * CELL_H); ctx.stroke();
+  }
 
-  // Hook text
-  ctx.font = "bold 52px sans-serif";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.textBaseline = "top";
-  wrapText(ctx, kp.hook, W / 2, 490, W - 80, 64, 2);
-
-  // MIDDLE: Problem text
-  ctx.font = "bold 32px sans-serif";
-  ctx.fillStyle = "#FF9A56";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  wrapText(ctx, kp.problem, W / 2, 648, W - 80, 40, 2);
-
-  // 3 Keypoint cards (y: 760-1440)
-  const CARD_H = 210, CARD_GAP = 18;
-  kp.keyPoints.slice(0, 3).forEach((pt, i) => {
-    const y = 760 + i * (CARD_H + CARD_GAP);
-    ctx.fillStyle = "rgba(255,255,255,0.06)";
-    roundRect(ctx, 36, y, W - 72, CARD_H, 24);
-    ctx.fill();
-    ctx.fillStyle = "#FF6B35";
-    roundRect(ctx, 36, y, 8, CARD_H, 4);
-    ctx.fill();
-    // Number circle
-    ctx.beginPath();
-    ctx.arc(102, y + CARD_H / 2, 34, 0, Math.PI * 2);
-    ctx.fillStyle = "#FF6B35";
-    ctx.fill();
-    ctx.font = "bold 28px sans-serif";
-    ctx.fillStyle = "#FFF";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(String(i + 1), 102, y + CARD_H / 2);
-    // Title
-    ctx.font = "bold 36px sans-serif";
-    ctx.fillStyle = "#FFFFFF";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    ctx.fillText(pt.title.slice(0, 16), 155, y + 38);
-    // Description
-    ctx.font = "26px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.65)";
-    wrapText(ctx, pt.description, 155, y + 98, W - 210, 34, 2, "left");
-  });
-
-  // BOTTOM: Ingredient save card (1462-1880px)
-  ctx.fillStyle = "rgba(255,255,255,0.04)";
-  ctx.fillRect(0, 1462, W, 418);
-
-  ctx.font = "22px sans-serif";
-  ctx.fillStyle = "#FF6B35";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  ctx.fillText("📌 저장용 재료카드", 48, 1478);
-
-  ctx.font = "bold 36px sans-serif";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.fillText(kp.saveCard.title.slice(0, 22), 48, 1516);
-
-  ctx.font = "26px sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
-  const ingList = kp.saveCard.ingredients.slice(0, 8);
-  ingList.forEach((item, i) => {
-    const col = i % 2;
-    const row = Math.floor(i / 2);
-    ctx.fillText(`• ${item}`, col === 0 ? 48 : W / 2 + 20, 1570 + row * 44);
-  });
-
-  // Character image
-  const charFile = character === "lazy" ? "chef-bear-reference-1.png"
-                 : character === "trend" ? "chef-bear-reference-2.png"
-                 : "chef-bear-reference.png";
-  try {
-    const charImg = await loadImg(`/${charFile}`);
-    const charH = 280;
-    const charW = Math.round(charImg.naturalWidth * charH / charImg.naturalHeight);
-    ctx.drawImage(charImg, W - charW - 16, 1600, charW, charH);
-  } catch { /* skip */ }
-
-  // Brand handle
-  ctx.font = "22px sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.3)";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  ctx.fillText("@oh_showong", W / 2, 1890);
-
-  return canvas.toDataURL("image/jpeg", 0.92);
+  return canvas.toDataURL("image/jpeg", 0.9);
 }
 
 // ── Image utilities ───────────────────────────────────────────────────────────
@@ -298,13 +380,10 @@ async function createShortsVideo(
   const audioCtx = new AudioContext();
   const dest = audioCtx.createMediaStreamDestination();
 
+  // Camera rects are absolute coordinates over the 3240×3840 grid (mapImg).
+  // "full" extends beyond the grid vertically so the zoom-out letterboxes it.
   function getCameraRect(camKey: string) {
-    const pos = CAMERA_POS[camKey] ?? CAMERA_POS.full;
-    const sw = mapImg.naturalWidth / pos.zoom;
-    const sh = mapImg.naturalHeight / pos.zoom;
-    const sx = Math.max(0, Math.min(mapImg.naturalWidth - sw, pos.cx - sw / 2));
-    const sy = Math.max(0, Math.min(mapImg.naturalHeight - sh, pos.cy - sh / 2));
-    return { sx, sy, sw, sh };
+    return CAMERA_RECTS[camKey] ?? CAMERA_RECTS.full;
   }
 
   // Decode audio per segment
@@ -614,45 +693,55 @@ function AdminShortsContent() {
   };
 
   // ── Pipeline: Step 2 — generate recipe map ────────────────────────────────
+  // Instant grid: food cell uses the hero photo, others render accent cards.
   const generateCanvasMap = async () => {
     if (!loadedRecipe || !keypoints) return;
     setRecipeMapLoading(true);
     setRecipeMapError(null);
     try {
-      const dataUrl = await drawRecipeMapCanvas(loadedRecipe, keypoints, heroImage, recipeCharacter);
+      const dataUrl = await composeGridCanvas(
+        loadedRecipe, keypoints, recipeCharacter,
+        heroImage ? { food: heroImage } : {},
+      );
       setRecipeMapImage(dataUrl);
     } catch (e) { setRecipeMapError(e instanceof Error ? e.message : "생성 실패"); }
     finally { setRecipeMapLoading(false); }
   };
 
+  // AI grid: generate per-cell art (problem/points/ingredients) and composite.
+  // The food cell reuses the hero photo when available; failures fall back to a card.
   const generateAiMap = async () => {
     if (!loadedRecipe || !keypoints) return;
     setRecipeMapLoading(true);
     setRecipeMapError(null);
     try {
-      let heroBase64: string | undefined;
-      let heroMime: string | undefined;
-      if (heroImage) {
-        const match = heroImage.match(/^data:([^;]+);base64,(.+)$/);
-        if (match) { heroMime = match[1]; heroBase64 = match[2]; }
-      }
-      const res = await fetch("/api/generate-shorts-map", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipeName: loadedRecipe.name,
-          keypoints,
-          character: recipeCharacter,
-          heroImageBase64: heroBase64,
-          heroImageMimeType: heroMime,
+      const recipe = loadedRecipe;
+      const results = await Promise.all(
+        CELL_ORDER.map(async (cell): Promise<readonly [CellKey, string | null]> => {
+          if (cell === "food" && heroImage) return [cell, heroImage] as const;
+          try {
+            const res = await fetch("/api/generate-shorts-map", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                cell,
+                recipeName: recipe.name,
+                keypoints,
+                character: recipeCharacter,
+              }),
+            });
+            const data = await res.json();
+            return [cell, data.imageUrl ?? null] as const;
+          } catch { return [cell, null] as const; }
         }),
-      });
-      const data = await res.json();
-      if (data.error) { setRecipeMapError(data.error); return; }
-      if (data.imageUrl) {
-        const cropped = await cropImageToRatio(data.imageUrl, 1080, 1920);
-        setRecipeMapImage(cropped);
+      );
+      const cellImages = Object.fromEntries(results) as Partial<Record<CellKey, string | null>>;
+      if (CELL_ORDER.every((c) => !cellImages[c])) {
+        setRecipeMapError("이미지 생성에 실패했습니다. API 키 설정을 확인해주세요.");
+        return;
       }
+      const grid = await composeGridCanvas(recipe, keypoints, recipeCharacter, cellImages);
+      setRecipeMapImage(grid);
     } catch (e) { setRecipeMapError(e instanceof Error ? e.message : "AI 생성 실패"); }
     finally { setRecipeMapLoading(false); }
   };
@@ -900,14 +989,17 @@ function AdminShortsContent() {
                   disabled={!keypoints || recipeMapLoading}
                   className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition-all disabled:opacity-40"
                   style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)" }}>
-                  {recipeMapLoading ? "🔄 AI 생성 중..." : "✨ gpt-image-2 생성"}
+                  {recipeMapLoading ? "🔄 6셀 생성 중..." : "✨ AI 6셀 생성"}
                 </button>
               </div>
               {recipeMapError && <p className="text-red-300 text-xs">⚠️ {recipeMapError}</p>}
               {recipeMapImage && (
-                <div className="relative w-40 mx-auto rounded-xl overflow-hidden" style={{ aspectRatio: "9/16" }}>
-                  <Image src={recipeMapImage} alt="레시피맵" fill className="object-cover" unoptimized />
-                </div>
+                <>
+                  <div className="relative w-52 mx-auto rounded-xl overflow-hidden" style={{ aspectRatio: "27/32", background: "#0A0F1A" }}>
+                    <Image src={recipeMapImage} alt="레시피맵 그리드" fill className="object-contain" unoptimized />
+                  </div>
+                  <p className="text-white/40 text-xs text-center">6셀 그리드 · 구간별 셀 이동 + CTA 줌아웃</p>
+                </>
               )}
             </div>
 
