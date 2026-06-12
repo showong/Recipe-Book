@@ -577,6 +577,7 @@ function AdminShortsContent() {
   const [recipeMapImage, setRecipeMapImage] = useState<string | null>(null);
   const [recipeMapLoading, setRecipeMapLoading] = useState(false);
   const [recipeMapError, setRecipeMapError] = useState<string | null>(null);
+  const [foodCellImage, setFoodCellImage] = useState<string | null>(null);
 
   const [ttsAudios, setTtsAudios] = useState<Record<string, string>>({});
   const [ttsLoading, setTtsLoading] = useState<Record<string, boolean>>({});
@@ -645,6 +646,7 @@ function AdminShortsContent() {
       setShortsError(null);
       setRecipeMapImage(null);
       setRecipeMapError(null);
+      setFoodCellImage(null);
       setTtsAudios({});
       setTtsErrors({});
       setFinalVideoUrl(null);
@@ -738,6 +740,7 @@ function AdminShortsContent() {
         heroImage ? { food: heroImage } : {},
       );
       setRecipeMapImage(dataUrl);
+      setFoodCellImage(heroImage ?? null);
     } catch (e) { setRecipeMapError(e instanceof Error ? e.message : "생성 실패"); }
     finally { setRecipeMapLoading(false); }
   };
@@ -776,6 +779,7 @@ function AdminShortsContent() {
       }
       const grid = await composeGridCanvas(recipe, keypoints, cellImages);
       setRecipeMapImage(grid);
+      setFoodCellImage(cellImages.food ?? heroImage ?? null);
     } catch (e) { setRecipeMapError(e instanceof Error ? e.message : "AI 생성 실패"); }
     finally { setRecipeMapLoading(false); }
   };
@@ -930,10 +934,11 @@ function AdminShortsContent() {
 
   const generateThumbnail = async () => {
     if (!recipeName.trim()) { setThumbError("레시피 이름을 입력해주세요."); return; }
-    if (!uploadedImage) { setThumbError("음식 사진을 업로드해주세요."); return; }
+    const sourceImage = uploadedImage ?? foodCellImage;
+    if (!sourceImage) { setThumbError("음식 사진을 업로드하거나 레시피맵을 먼저 생성해주세요."); return; }
     setThumbLoading(true); setThumbError(null); setThumbnail(null); setStyleName(null);
     try {
-      const matches = uploadedImage.match(/^data:([^;]+);base64,(.+)$/);
+      const matches = sourceImage.match(/^data:([^;]+);base64,(.+)$/);
       if (!matches) { setThumbError("이미지 형식 오류입니다."); return; }
       const res = await fetch("/api/generate-image", {
         method: "POST",
@@ -1322,16 +1327,26 @@ function AdminShortsContent() {
 
             {/* 1. 음식 사진 */}
             <div className="p-5 rounded-2xl" style={card}>
-              <label className="block text-white font-bold mb-3 text-sm">① 음식 사진 *</label>
+              <label className="block text-white font-bold mb-1 text-sm">① 음식 사진</label>
+              <p className="text-white/40 text-xs mb-3">
+                미업로드 시 파이프라인 탭에서 생성한 레시피맵의 첫 번째(음식) 이미지를 자동 사용합니다.
+              </p>
               <input
                 type="file" accept="image/*" onChange={handleUpload}
                 className="block w-full text-sm text-white/70 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-orange-500/80 file:text-white hover:file:bg-orange-500 cursor-pointer"
               />
-              {uploadedImage && (
+              {uploadedImage ? (
                 <div className="mt-4 relative w-32 h-32 rounded-xl overflow-hidden">
                   <Image src={uploadedImage} alt="미리보기" fill className="object-cover" unoptimized />
                 </div>
-              )}
+              ) : foodCellImage ? (
+                <div className="mt-4 space-y-1">
+                  <p className="text-white/40 text-xs">레시피맵 food 셀 자동 사용 중</p>
+                  <div className="relative w-32 h-32 rounded-xl overflow-hidden">
+                    <Image src={foodCellImage} alt="food 셀 미리보기" fill className="object-cover" unoptimized />
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             {/* 2. 레시피 정보 */}
