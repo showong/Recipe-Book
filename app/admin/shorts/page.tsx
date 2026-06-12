@@ -298,6 +298,8 @@ async function composeGridCanvas(
   canvas.width = GRID_W;
   canvas.height = GRID_H;
   const ctx = canvas.getContext("2d")!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
 
   ctx.fillStyle = "#0A0F1A";
   ctx.fillRect(0, 0, GRID_W, GRID_H);
@@ -317,7 +319,7 @@ async function composeGridCanvas(
     ctx.beginPath(); ctx.moveTo(0, r * CELL_H); ctx.lineTo(GRID_W, r * CELL_H); ctx.stroke();
   }
 
-  return canvas.toDataURL("image/jpeg", 0.9);
+  return canvas.toDataURL("image/png");
 }
 
 // ── Image utilities ───────────────────────────────────────────────────────────
@@ -419,6 +421,8 @@ async function createShortsVideo(
   const canvas = document.createElement("canvas");
   canvas.width = CANVAS_W; canvas.height = CANVAS_H;
   const ctx2d = canvas.getContext("2d")!;
+  ctx2d.imageSmoothingEnabled = true;
+  ctx2d.imageSmoothingQuality = "high";
 
   // The recorded blob plays in-browser (which decodes webm/opus), but external
   // players often can't decode opus, so a downloaded .webm appears silent.
