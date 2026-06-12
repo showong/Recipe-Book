@@ -219,10 +219,34 @@ STYLE RULE: artisanal, farmers-market, trustworthy. Warm but sophisticated.`,
 // ── 상세 레시피 가이드 (일러스트 1장, gpt-image-2) ─────────────────────────────
 const CIRCLED_NUM = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩", "⑪", "⑫"];
 
+const GUIDE_BEARS = [
+  {
+    id: "cute",
+    file: "chef-bear-reference.png",
+    medallion: "cute chubby amber-brown bear chef mascot wearing a tiny white chef's hat, rosy cheeks, big warm eyes, friendly smile",
+    bottom: "two tiny cute chubby bear chef mascots with chef hats",
+  },
+  {
+    id: "lazy",
+    file: "chef-bear-reference-1.png",
+    medallion: "lazy panda bear mascot, black-and-white, slightly droopy sleepy eyes, simple chef outfit, relaxed expression",
+    bottom: "two tiny lazy panda mascots with droopy eyes",
+  },
+  {
+    id: "trend",
+    file: "chef-bear-reference-2.png",
+    medallion: "trendy stylish panda mascot, black-and-white, cool confident expression, fashionable modern chef look",
+    bottom: "two tiny trendy stylish panda mascots",
+  },
+] as const;
+
+type GuideBear = typeof GUIDE_BEARS[number];
+
 function buildRecipeGuidePrompt(
   recipeName: string,
   steps: { number: number; title: string; description: string }[],
   tip: string,
+  bear: GuideBear,
 ): string {
   const panels = steps
     .map((s, i) => {
@@ -242,7 +266,7 @@ TITLE (two centered lines under the handle):
   Line 2: a small pink heart, then "[상세 조리법] ${steps.length}단계 가이드", then a small pink heart.
 
 === GRID ===
-${steps.length} panels arranged in a 2-column grid, separated by thin hand-drawn divider lines. In the exact center where the panels meet, draw a small circular medallion containing a cute pig face.
+${steps.length} panels arranged in a 2-column grid, separated by thin hand-drawn divider lines. In the exact center where the panels meet, draw a small circular medallion containing: ${bear.medallion}.
 Each panel, top to bottom: circled number badge → bracketed Korean title → cute illustrations with flow arrows → short Korean caption.
 
 PANELS:
@@ -252,7 +276,7 @@ ${panels}
 Near the bottom, a full-width rounded-rectangle outline box. Small bold heading "푸드 팁:" followed by the tip text in Korean: "${tip}".
 
 === BOTTOM ===
-Centered: two tiny pig mascots flanking the handwritten handle "@oh_showong".
+Centered: ${bear.bottom} flanking the handwritten handle "@oh_showong".
 
 === TEXT RULES ===
 - Render every Korean string EXACTLY as provided, neatly and legibly.
@@ -308,7 +332,8 @@ Highly detailed, vibrant colors, mouth-watering. 4K quality.`;
     } else if (type === "recipe-guide") {
       const guideSteps = Array.isArray(steps) ? steps : [];
       const tip = (Array.isArray(proTips) && proTips[0]) || highlight || "마무리에 신경 쓰면 더 맛있어요!";
-      prompt = buildRecipeGuidePrompt(recipeName, guideSteps, tip);
+      const guideBear = GUIDE_BEARS[Math.floor(Math.random() * GUIDE_BEARS.length)];
+      prompt = buildRecipeGuidePrompt(recipeName, guideSteps, tip, guideBear);
       const openaiKey = process.env.OPENAI_API_KEY;
       if (openaiKey) {
         try {
@@ -317,12 +342,37 @@ Highly detailed, vibrant colors, mouth-watering. 4K quality.`;
             size: "1024x1536",
             quality: process.env.OPENAI_IMAGE_QUALITY ?? "high",
           });
-          return NextResponse.json({ imageUrl: result.imageUrl, provider: result.provider, model: result.model });
+          return NextResponse.json({ imageUrl: result.imageUrl, provider: result.provider, model: result.model, bearId: guideBear.id });
         } catch (openaiErr) {
           console.error("[generate-image] recipe-guide OpenAI 실패, Gemini fallback:", openaiErr);
         }
       }
-      // OpenAI 사용 불가 시 Gemini 텍스트-이미지로 폴백 (prompt 유지)
+      // OpenAI 사용 불가 시 Gemini에 캐릭터 레퍼런스 이미지를 함께 전달
+      const bearRefPath = path.join(process.cwd(), "public", guideBear.file);
+      if (fs.existsSync(bearRefPath)) {
+        const bearBase64 = fs.readFileSync(bearRefPath).toString("base64");
+        const bearContents = [{
+          parts: [
+            { inlineData: { mimeType: "image/png", data: bearBase64 } },
+            { text: `위 이미지의 곰 캐릭터를 중앙 메달리온과 하단 마스코트에 그대로 사용하세요.\n\n${prompt}` },
+          ],
+        }];
+        const gRes = await fetch(`${GEMINI_ENDPOINT}?key=${process.env.GOOGLE_API_KEY}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: bearContents, generationConfig: { responseModalities: ["IMAGE", "TEXT"] } }),
+        });
+        if (gRes.ok) {
+          const gData = await gRes.json();
+          const gParts = gData?.candidates?.[0]?.content?.parts ?? [];
+          const gImg = gParts.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData?.data);
+          if (gImg) {
+            const { mimeType: gMime, data: gB64 } = gImg.inlineData;
+            return NextResponse.json({ imageUrl: `data:${gMime};base64,${gB64}`, bearId: guideBear.id });
+          }
+        }
+      }
+      // 최후 폴백: 텍스트 프롬프트만으로 Gemini 요청 (아래 공통 경로 사용)
 
     // ── Ingredients (1:1, 한/영 공통 구조) ────────────────────────────────────
     } else if (type === "ingredients") {
