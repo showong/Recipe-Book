@@ -79,7 +79,14 @@ function RecipeDetailContent() {
   // 캐릭터 버전
   const [characterVersion, setCharacterVersion] = useState<string>("cute_bear");
 
+  // 페이로드는 sessionStorage에서 한 번만 소비한다. effect가 재실행되면
+  // (Strict Mode 이중 호출 등) 이미 제거된 키를 읽어 홈으로 튕기므로 가드한다.
+  const payloadConsumed = useRef(false);
+
   useEffect(() => {
+    if (payloadConsumed.current) return;
+    payloadConsumed.current = true;
+
     // 큰 페이로드는 sessionStorage(key)로, 작은 경우만 URL(data)로 전달된다.
     const payloadKey = searchParams.get("key");
     const data = payloadKey
