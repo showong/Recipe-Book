@@ -54,6 +54,13 @@ function RecipeDetailContent() {
   const [recipeGuideImage, setRecipeGuideImage] = useState<string | null>(null);
   const [recipeGuideLoading, setRecipeGuideLoading] = useState(false);
   const [recipeGuideError, setRecipeGuideError] = useState<string | null>(null);
+  // 가이드 이미지 + TTS 음성 게시물 영상 (정지 이미지, 릴스 아님)
+  const [guidePostUrl, setGuidePostUrl] = useState<string | null>(null);
+  const [guidePostBlob, setGuidePostBlob] = useState<Blob | null>(null);
+  const [guidePostExt, setGuidePostExt] = useState<"mp4" | "webm">("mp4");
+  const [guidePostLoading, setGuidePostLoading] = useState(false);
+  const [guidePostProgress, setGuidePostProgress] = useState(0);
+  const [guidePostError, setGuidePostError] = useState<string | null>(null);
   // 훅 멘트 영상 클립 (영상 편집용)
   const [hookMentVideoUrl, setHookMentVideoUrl] = useState<string | null>(null);
   // 릴스 최종 편집 영상
@@ -439,6 +446,139 @@ function RecipeDetailContent() {
       setRecipeGuideError(err instanceof Error ? err.message : "이미지 생성 실패");
     } finally {
       setRecipeGuideLoading(false);
+    }
+  };
+
+  // 가이드 이미지를 정지 화면으로 노출하면서 모든 TTS 음성을 이어 재생하는
+  // 게시물(피드)용 영상을 만든다. 릴스와 달리 화면 전환·자막이 없다.
+  const createGuidePostVideo = async () => {
+    if (!recipe || !recipeGuideImage) return;
+    setGuidePostLoading(true);
+    setGuidePostProgress(0);
+    setGuidePostError(null);
+    if (guidePostUrl) URL.revokeObjectURL(guidePostUrl);
+    setGuidePostUrl(null);
+    setGuidePostBlob(null);
+
+    // 4:5 세로 (인스타 피드 최대 세로비). 가이드 이미지(3:4)는 잘림 없이 contain.
+    const CANVAS_W = 1080, CANVAS_H = 1350;
+    const BG = "#E8F0DD"; // 가이드 배경(세이지 그린)과 어울리는 레터박스 색
+    const GAP = 0.35;     // 음성 사이 간격(초)
+
+    try {
+      const loadImg = (src: string): Promise<HTMLImageElement> =>
+        new Promise((res, rej) => {
+          const el = new window.Image();
+          el.onload = () => res(el);
+          el.onerror = rej;
+          el.src = src;
+        });
+      const decodeAudio = async (url: string, ctx: AudioContext): Promise<AudioBuffer> => {
+        const buf = await (await fetch(url)).arrayBuffer();
+        return ctx.decodeAudioData(buf);
+      };
+
+      const guideImg = await loadImg(recipeGuideImage);
+
+      // 재생 순서: 훅 멘트(있으면) → 단계별 음성(번호순)
+      const audioUrls: string[] = [];
+      if (hookMentAudioUrl) audioUrls.push(hookMentAudioUrl);
+      [...recipe.steps]
+        .sort((a, b) => a.number - b.number)
+        .forEach((s) => { if (ttsAudioUrls[s.number]) audioUrls.push(ttsAudioUrls[s.number]); });
+      if (audioUrls.length === 0) throw new Error("재생할 음성이 없습니다. 단계 음성을 먼저 생성해주세요.");
+
+      const audioCtx = new AudioContext();
+      const dest = audioCtx.createMediaStreamDestination();
+
+      const scheduled: { buf: AudioBuffer; start: number }[] = [];
+      let cursor = 0;
+      for (const url of audioUrls) {
+        const buf = await decodeAudio(url, audioCtx);
+        scheduled.push({ buf, start: cursor });
+        cursor += buf.duration + GAP;
+      }
+      const totalDur = cursor + 0.4; // 마지막 음성 뒤 여운
+
+      // 캔버스: 가이드 이미지를 contain 배치 (전체가 보이도록)
+      const canvas = document.createElement("canvas");
+      canvas.width = CANVAS_W; canvas.height = CANVAS_H;
+      const ctx2d = canvas.getContext("2d")!;
+      ctx2d.imageSmoothingEnabled = true;
+      ctx2d.imageSmoothingQuality = "high";
+
+      const iw = guideImg.naturalWidth, ih = guideImg.naturalHeight;
+      const scale = Math.min(CANVAS_W / iw, CANVAS_H / ih);
+      const dw = iw * scale, dh = ih * scale;
+      const dx = (CANVAS_W - dw) / 2, dy = (CANVAS_H - dh) / 2;
+      const drawFrame = () => {
+        ctx2d.fillStyle = BG;
+        ctx2d.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        ctx2d.drawImage(guideImg, dx, dy, dw, dh);
+      };
+      drawFrame();
+
+      // 외부 플레이어 호환을 위해 명시적 AAC 코덱(mp4a) 우선 → webm 폴백
+      const candidateConfigs = [
+        { mimeType: "video/mp4;codecs=avc1.640029,mp4a.40.2", videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
+        { mimeType: "video/mp4;codecs=avc1.42E01E,mp4a.40.2", videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
+        { mimeType: "video/mp4;codecs=avc1,mp4a",             videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
+        { mimeType: "video/webm;codecs=vp9,opus",             videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 },
+        { mimeType: "video/webm;codecs=vp8,opus",             videoBitsPerSecond: 2_000_000, audioBitsPerSecond: 128_000 },
+        { mimeType: "video/webm",                             videoBitsPerSecond: 2_000_000, audioBitsPerSecond: 128_000 },
+      ].filter((c) => MediaRecorder.isTypeSupported(c.mimeType));
+      if (candidateConfigs.length === 0) candidateConfigs.push({ mimeType: "video/webm", videoBitsPerSecond: 1_000_000, audioBitsPerSecond: 128_000 });
+      const chosenConfig = candidateConfigs[0];
+      const ext: "mp4" | "webm" = chosenConfig.mimeType.startsWith("video/mp4") ? "mp4" : "webm";
+      setGuidePostExt(ext);
+
+      const combined = new MediaStream([
+        ...canvas.captureStream(30).getVideoTracks(),
+        ...dest.stream.getAudioTracks(),
+      ]);
+      const recorder = new MediaRecorder(combined, chosenConfig);
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      const stopPromise = new Promise<void>((res, rej) => {
+        recorder.onstop = () => res();
+        recorder.onerror = (e) => rej(new Error(`MediaRecorder 오류: ${(e as { error?: { message?: string } }).error?.message ?? "Unknown"}`));
+      });
+
+      await audioCtx.resume();
+      const START_DELAY = 0.2;
+      const t0 = audioCtx.currentTime + START_DELAY;
+      for (const s of scheduled) {
+        const src = audioCtx.createBufferSource();
+        src.buffer = s.buf;
+        src.connect(dest);
+        src.start(t0 + s.start);
+      }
+
+      recorder.start(100);
+      await new Promise<void>((resolve) => {
+        const wallStart = performance.now();
+        const safetyTimer = setTimeout(resolve, (START_DELAY + totalDur + 5) * 1000);
+        const animate = () => {
+          const elapsed = (performance.now() - wallStart) / 1000 - START_DELAY;
+          if (elapsed >= totalDur + 0.3) { clearTimeout(safetyTimer); resolve(); return; }
+          setGuidePostProgress(Math.round(Math.max(0, Math.min(99, (Math.max(0, elapsed) / totalDur) * 100))));
+          drawFrame(); // 정지 이미지 — 매 프레임 동일하게 그려 캡처 스트림 유지
+          requestAnimationFrame(animate);
+        };
+        requestAnimationFrame(animate);
+      });
+
+      recorder.stop();
+      await stopPromise;
+      const blob = new Blob(chunks, { type: chosenConfig.mimeType });
+      setGuidePostUrl(URL.createObjectURL(blob));
+      setGuidePostBlob(blob);
+      setGuidePostProgress(100);
+      await audioCtx.close();
+    } catch (err) {
+      setGuidePostError(err instanceof Error ? err.message : "게시물 영상 생성 실패");
+    } finally {
+      setGuidePostLoading(false);
     }
   };
 
@@ -948,7 +1088,7 @@ function RecipeDetailContent() {
       // onstop/onerror 핸들러는 stop() 호출 전에 등록 (race condition 방지)
       const stopPromise = new Promise<void>((res, rej) => {
         recorder.onstop  = () => res();
-        recorder.onerror = (e) => rej(new Error(`MediaRecorder 오류: ${(e as any).error?.message || 'Unknown Error'}`));
+        recorder.onerror = (e) => rej(new Error(`MediaRecorder 오류: ${(e as { error?: { message?: string } }).error?.message || 'Unknown Error'}`));
       });
 
       // ── 오디오 스케줄 ─────────────────────────────────────────────────────
@@ -1426,6 +1566,46 @@ function RecipeDetailContent() {
                         style={{ background: "linear-gradient(135deg, #16a34a, #84cc16)" }}>
                         ⬇️ 이미지 다운로드
                       </a>
+
+                      {/* 게시물(피드)용 영상 — 정지 이미지 + TTS 음성 연속 재생 */}
+                      <div className="pt-3 mt-1 border-t" style={{ borderColor: "#f3f4f6" }}>
+                        <p className="text-xs text-gray-500 mb-3">
+                          이미지를 그대로 띄운 채 모든 단계 음성이 이어서 재생되는 게시물용 영상을 만들어요. (릴스 ✕ · 피드 4:5)
+                        </p>
+                        <button
+                          onClick={createGuidePostVideo}
+                          disabled={guidePostLoading}
+                          className="w-full py-3 rounded-2xl text-white font-bold transition-all hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
+                          style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
+                          {guidePostLoading ? `🎬 만드는 중... ${guidePostProgress}%` : guidePostUrl ? "🔄 게시물 영상 다시 만들기" : "🔊 음성 게시물 영상 만들기"}
+                        </button>
+                        {guidePostLoading && (
+                          <div className="w-full h-2 mt-2 rounded-full overflow-hidden bg-gray-100">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${guidePostProgress}%`, background: "linear-gradient(90deg,#0ea5e9,#6366f1)" }} />
+                          </div>
+                        )}
+                        {guidePostError && <p className="text-xs text-red-500 mt-2">⚠️ {guidePostError}</p>}
+                        {guidePostUrl && (
+                          <div className="mt-3 space-y-2">
+                            <video controls src={guidePostUrl} className="w-full rounded-2xl" style={{ maxHeight: "420px", background: "#000" }} />
+                            <div className="flex gap-2">
+                              <a
+                                href={guidePostUrl}
+                                download={`${recipe.name}-게시물.${guidePostExt}`}
+                                className="flex-1 text-center py-3 rounded-2xl text-white font-bold transition-all hover:opacity-90"
+                                style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
+                                ⬇️ 영상 다운로드
+                              </a>
+                              <button
+                                onClick={() => guidePostBlob && sendToTelegram(guidePostBlob, guidePostExt)}
+                                className="flex-1 py-3 rounded-2xl text-white font-bold transition-all hover:opacity-90"
+                                style={{ background: "linear-gradient(135deg, #229ED9, #2AABEE)" }}>
+                                ✈️ 텔레그램 전송
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
