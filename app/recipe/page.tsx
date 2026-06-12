@@ -50,6 +50,10 @@ function RecipeDetailContent() {
   const [hookMentLoading, setHookMentLoading] = useState(false);
   const [hookMentAudioUrl, setHookMentAudioUrl] = useState<string | null>(null);
   const [hookMentError, setHookMentError] = useState<string | null>(null);
+  // 상세 레시피 가이드 이미지 (gpt-image-2)
+  const [recipeGuideImage, setRecipeGuideImage] = useState<string | null>(null);
+  const [recipeGuideLoading, setRecipeGuideLoading] = useState(false);
+  const [recipeGuideError, setRecipeGuideError] = useState<string | null>(null);
   // 훅 멘트 영상 클립 (영상 편집용)
   const [hookMentVideoUrl, setHookMentVideoUrl] = useState<string | null>(null);
   // 릴스 최종 편집 영상
@@ -403,6 +407,38 @@ function RecipeDetailContent() {
       setHookMentError(err instanceof Error ? err.message : "훅 멘트 생성 실패");
     } finally {
       setHookMentLoading(false);
+    }
+  };
+
+  // 모든 단계 음성을 생성한 뒤, 첨부 예시와 같은 일러스트 상세 레시피 이미지를 생성한다.
+  const generateRecipeGuide = async () => {
+    if (!recipe) return;
+    setRecipeGuideLoading(true);
+    setRecipeGuideError(null);
+    setRecipeGuideImage(null);
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipeName: recipe.name,
+          type: "recipe-guide",
+          steps: recipe.steps.map((s) => ({ number: s.number, title: s.title, description: s.description })),
+          proTips: recipe.proTips,
+          highlight: recipe.highlight,
+          servings: recipe.servings,
+          cookingTime: recipe.totalTime,
+          character: characterVersion,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) setRecipeGuideError(data.error);
+      else if (data.imageUrl) setRecipeGuideImage(data.imageUrl);
+      else setRecipeGuideError("이미지를 생성하지 못했습니다.");
+    } catch (err) {
+      setRecipeGuideError(err instanceof Error ? err.message : "이미지 생성 실패");
+    } finally {
+      setRecipeGuideLoading(false);
     }
   };
 
@@ -1345,6 +1381,56 @@ function RecipeDetailContent() {
                 </div>
               ))}
             </div>
+
+            {/* 상세 레시피 한장 이미지 (gpt-image-2) — 모든 단계 음성 생성 후 활성화 */}
+            {(() => {
+              const allStepTtsReady =
+                recipe.steps.length > 0 && recipe.steps.every((s) => ttsAudioUrls[s.number]);
+              return (
+                <div className="mt-6 bg-white rounded-3xl shadow-md p-6">
+                  <h3 className="font-bold text-gray-700 mb-1 flex items-center gap-2">
+                    <span>🖼️</span> 상세 레시피 한장 이미지
+                  </h3>
+                  <p className="text-xs text-gray-500 mb-4">
+                    모든 단계의 음성을 생성하면 일러스트 스타일 상세 조리법 이미지를 만들 수 있어요. (gpt-image-2)
+                  </p>
+                  <button
+                    onClick={generateRecipeGuide}
+                    disabled={!allStepTtsReady || recipeGuideLoading}
+                    className="w-full py-3.5 rounded-2xl text-white font-bold transition-all hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
+                    style={{ background: "linear-gradient(135deg, #16a34a, #84cc16)" }}>
+                    {recipeGuideLoading
+                      ? "🎨 생성 중... (약 20~40초)"
+                      : !allStepTtsReady
+                        ? "🔒 모든 단계 음성을 먼저 생성해주세요"
+                        : recipeGuideImage
+                          ? "🔄 이미지 재생성"
+                          : "🖼️ 상세 레시피 이미지 생성"}
+                  </button>
+                  {recipeGuideError && <p className="text-xs text-red-500 mt-2">⚠️ {recipeGuideError}</p>}
+                  {recipeGuideImage && (
+                    <div className="mt-4 space-y-3">
+                      <div className="relative w-full rounded-2xl overflow-hidden" style={{ aspectRatio: "3 / 4" }}>
+                        <Image
+                          src={recipeGuideImage}
+                          alt={`${recipe.name} 상세 조리법`}
+                          fill
+                          className="object-contain"
+                          unoptimized
+                        />
+                      </div>
+                      <a
+                        href={recipeGuideImage}
+                        download={`${recipe.name}-상세조리법.png`}
+                        className="block w-full text-center py-3 rounded-2xl text-white font-bold transition-all hover:opacity-90"
+                        style={{ background: "linear-gradient(135deg, #16a34a, #84cc16)" }}>
+                        ⬇️ 이미지 다운로드
+                      </a>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Pro Tips */}
             {recipe.proTips.length > 0 && (

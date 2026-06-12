@@ -216,12 +216,57 @@ STYLE RULE: artisanal, farmers-market, trustworthy. Warm but sophisticated.`,
   return styles[styleId] ?? styles[1];
 }
 
+// ── 상세 레시피 가이드 (일러스트 1장, gpt-image-2) ─────────────────────────────
+const CIRCLED_NUM = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩", "⑪", "⑫"];
+
+function buildRecipeGuidePrompt(
+  recipeName: string,
+  steps: { number: number; title: string; description: string }[],
+  tip: string,
+): string {
+  const panels = steps
+    .map((s, i) => {
+      const badge = CIRCLED_NUM[i] ?? `(${i + 1})`;
+      return `  • Panel ${i + 1} — number badge "${badge}" in the top-left corner. Bracketed bold dark-brown Korean title: "[${s.number}. ${s.title}]". Cute hand-drawn illustrations of the ingredients, utensils, and hands performing this action, with little arrows showing the flow. Short Korean caption (1–2 lines) at the bottom of the panel: "${s.description}"`;
+    })
+    .join("\n");
+
+  return `Create a SINGLE vertical 3:4 hand-drawn illustrated Korean recipe guide infographic in a cute kawaii storybook doodle style (soft colored-pencil / marker illustration, pastel palette). It must look like one cohesive, saved-worthy recipe card.
+
+=== OVERALL COMPOSITION ===
+BACKGROUND: soft sage-green paper texture.
+DECORATION: an olive-leaf branch wreath arching across the very top; delicate leaf vines frame all four edges, dotted with small pink hearts and tiny arrow motifs.
+TOP HANDLE: centered under the wreath, casual handwritten brown text "@oh_showong".
+TITLE (two centered lines under the handle):
+  Line 1: "${recipeName} 🔥" — bold rounded Korean font, dark brown.
+  Line 2: a small pink heart, then "[상세 조리법] ${steps.length}단계 가이드", then a small pink heart.
+
+=== GRID ===
+${steps.length} panels arranged in a 2-column grid, separated by thin hand-drawn divider lines. In the exact center where the panels meet, draw a small circular medallion containing a cute pig face.
+Each panel, top to bottom: circled number badge → bracketed Korean title → cute illustrations with flow arrows → short Korean caption.
+
+PANELS:
+${panels}
+
+=== FOOD TIP BOX ===
+Near the bottom, a full-width rounded-rectangle outline box. Small bold heading "푸드 팁:" followed by the tip text in Korean: "${tip}".
+
+=== BOTTOM ===
+Centered: two tiny pig mascots flanking the handwritten handle "@oh_showong".
+
+=== TEXT RULES ===
+- Render every Korean string EXACTLY as provided, neatly and legibly.
+- Do NOT add measurement codes, color codes, pixel values, hashtags, or any English words other than "@oh_showong".
+
+STYLE: warm, friendly, consistent hand-illustrated line art, cohesive pastel green palette.`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const {
       recipeName, type, language,
       stepTitle, stepDescription, stepNumber, stepTime, totalSteps,
-      ingredients, steps, kickSteps, highlight,
+      ingredients, steps, kickSteps, highlight, proTips,
       uploadedImageBase64, uploadedImageMimeType,
       cookingTime, servings, taste, pairings, kickPoints, character,
       styleId,
@@ -258,6 +303,26 @@ export async function POST(req: NextRequest) {
       prompt = `A beautiful, appetizing professional food photography of Korean dish "${recipeName}".
 Overhead shot, natural lighting, minimal props, clean white background, restaurant quality presentation.
 Highly detailed, vibrant colors, mouth-watering. 4K quality.`;
+
+    // ── Recipe guide (illustrated single-page, gpt-image-2) ──────────────────
+    } else if (type === "recipe-guide") {
+      const guideSteps = Array.isArray(steps) ? steps : [];
+      const tip = (Array.isArray(proTips) && proTips[0]) || highlight || "마무리에 신경 쓰면 더 맛있어요!";
+      prompt = buildRecipeGuidePrompt(recipeName, guideSteps, tip);
+      const openaiKey = process.env.OPENAI_API_KEY;
+      if (openaiKey) {
+        try {
+          const result = await generateImageWithOpenAI(prompt, openaiKey, {
+            model: process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-2",
+            size: "1024x1536",
+            quality: process.env.OPENAI_IMAGE_QUALITY ?? "high",
+          });
+          return NextResponse.json({ imageUrl: result.imageUrl, provider: result.provider, model: result.model });
+        } catch (openaiErr) {
+          console.error("[generate-image] recipe-guide OpenAI 실패, Gemini fallback:", openaiErr);
+        }
+      }
+      // OpenAI 사용 불가 시 Gemini 텍스트-이미지로 폴백 (prompt 유지)
 
     // ── Ingredients (1:1, 한/영 공통 구조) ────────────────────────────────────
     } else if (type === "ingredients") {
