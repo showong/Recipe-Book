@@ -27,6 +27,7 @@ export default function HomePage() {
   const [prefPairing, setPrefPairing] = useState("");
   const [prefType, setPrefType] = useState("");
   const [characterVersion, setCharacterVersion] = useState<CharacterType>("cute_bear");
+  const [servings, setServings] = useState(2);
 
   const addIngredient = (value: string) => {
     const trimmed = value.trim();
@@ -75,7 +76,7 @@ export default function HomePage() {
       const response = await fetch("/api/generate-recipes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ingredients, preferences, character: characterVersion }),
+        body: JSON.stringify({ ingredients, preferences, character: characterVersion, servings }),
       });
 
       const data = await response.json();
@@ -88,6 +89,7 @@ export default function HomePage() {
         recipes: data.recipes,
         ingredients,
         character: characterVersion,
+        servings,
       }));
       router.push(`/recipes?data=${encoded}`);
     } catch (err) {
@@ -156,6 +158,29 @@ export default function HomePage() {
           <p className="text-xs text-gray-400 mt-2">
             Enter 또는 쉼표(,)로 재료를 추가하세요 · Backspace로 마지막 재료 삭제
           </p>
+
+          {/* Servings selector */}
+          <div className="mt-4 flex items-center gap-3">
+            <label className="text-sm font-semibold text-gray-600 flex items-center gap-1.5 whitespace-nowrap">
+              <span>👥</span> 몇 명이서 드실 건가요?
+            </label>
+            <select
+              value={servings}
+              onChange={(e) => setServings(Number(e.target.value))}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border outline-none transition-all appearance-none cursor-pointer"
+              style={{
+                borderColor: "#fed7aa",
+                background: "#fff7ed",
+                color: "#ea580c",
+              }}
+            >
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                <option key={n} value={n}>
+                  {n}인분
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* 캐릭터 선택 */}

@@ -51,15 +51,17 @@ async function generateRecipeDetail(
   additionalIngredients: string[],
   character: string,
   apiKey: string,
+  servings: number = 2,
 ): Promise<RecipeDetail> {
   const isLazy = character === "lazy_bear" || character === "lazy";
   const systemInstruction = buildSystemInstruction(character);
 
   const contents = `레시피 이름: ${recipeName}
+기준 인원수: ${servings}인분
 보유 재료: ${ownedIngredients?.join(", ") || ""}
 추가 필요 재료: ${additionalIngredients?.join(", ") || ""}
 
-위 레시피의 상세 조리법을 작성해주세요.
+위 레시피의 상세 조리법을 ${servings}인분 기준으로 작성해주세요. 재료 양은 정확히 ${servings}인분에 맞게 설정하세요.
 
 다음 JSON 형식으로 정확히 응답해주세요:
 {
@@ -67,7 +69,7 @@ async function generateRecipeDetail(
   "emoji": "🍜",
   "description": "요리 설명 (2-3문장)",
   "totalTime": "45분",
-  "servings": 2,
+  "servings": ${servings},
   "difficulty": "보통",
   "taste": "맛 설명",
   "highlight": "이 요리의 핵심 킥 포인트",
@@ -110,7 +112,8 @@ async function generateRecipeDetail(
 
 export async function POST(req: NextRequest) {
   try {
-    const { recipeName, ownedIngredients, additionalIngredients, character: rawCharacter, taste, highlight } = await req.json();
+    const { recipeName, ownedIngredients, additionalIngredients, character: rawCharacter, taste, highlight, servings: rawServings } = await req.json();
+    const servings: number = typeof rawServings === "number" && rawServings > 0 ? rawServings : 2;
 
     if (!recipeName) {
       return NextResponse.json({ error: "레시피 이름을 입력해주세요." }, { status: 400 });
@@ -126,7 +129,7 @@ export async function POST(req: NextRequest) {
     const additional: string[] = additionalIngredients ?? [];
 
     // ── 레시피 생성 ──────────────────────────────────────────────────────────
-    let recipeDetail = await generateRecipeDetail(recipeName, owned, additional, character, googleApiKey);
+    let recipeDetail = await generateRecipeDetail(recipeName, owned, additional, character, googleApiKey, servings);
 
     // ── 레시피 검증 Agent ────────────────────────────────────────────────────
     let verificationResult = null;
@@ -142,6 +145,7 @@ export async function POST(req: NextRequest) {
           additional,
           character,
           googleApiKey,
+          servings,
         );
         recipeDetail = revised;
         verificationResult = { ...verificationResult, revisionRequired: false };

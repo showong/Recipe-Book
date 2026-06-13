@@ -13,6 +13,7 @@ function RecipesContent() {
   const [recipes, setRecipes] = useState<RecipeSuggestion[]>([]);
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [character, setCharacter] = useState<CharacterType>("cute_bear");
+  const [servings, setServings] = useState(2);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -31,6 +32,7 @@ function RecipesContent() {
       const loadedRecipes: RecipeSuggestion[] = parsed.recipes || [];
       setRecipes(loadedRecipes);
       setIngredients(parsed.ingredients || []);
+      if (parsed.servings) setServings(parsed.servings);
       const char = normalizeCharacter(parsed.character);
       setCharacter(char);
       // Start generating images for all recipe cards in parallel
@@ -101,6 +103,7 @@ function RecipesContent() {
           character,
           taste: recipe.taste,
           highlight: recipe.highlight,
+          servings,
         }),
       });
 
@@ -140,6 +143,7 @@ function RecipesContent() {
         ingredients,
         heroImageKey: heroStored ? heroImgKey : null,
         character,
+        servings,
       });
       try {
         sessionStorage.setItem(payloadKey, payload);

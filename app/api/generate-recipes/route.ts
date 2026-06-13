@@ -70,7 +70,8 @@ ${patterns}
 
 export async function POST(req: NextRequest) {
   try {
-    const { ingredients, preferences, character: rawCharacter } = await req.json();
+    const { ingredients, preferences, character: rawCharacter, servings: rawServings } = await req.json();
+    const servings: number = typeof rawServings === "number" && rawServings > 0 ? rawServings : 2;
 
     if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
       return NextResponse.json({ error: "재료를 입력해주세요." }, { status: 400 });
@@ -93,6 +94,8 @@ export async function POST(req: NextRequest) {
     const preferenceSection = prefLines
       ? `\n\n선택 옵션 (반드시 반영해주세요):\n${prefLines}`
       : "";
+
+    const servingsSection = `\n\n기준 인원수: ${servings}인분 (모든 레시피의 재료 양과 servings 필드를 ${servings}인분 기준으로 설정하세요)`;
 
     // ── 조건부 웹서칭 (트렌드곰) ──────────────────────────────────────────────
     let trendData: TrendExtractResult | null = null;
@@ -123,7 +126,7 @@ export async function POST(req: NextRequest) {
       : `,\n      "searchUsed": false,\n      "trendReason": null`;
 
     const result = await callGemini(
-      `집에 있는 재료: ${ingredientList}${preferenceSection}${trendContext}
+      `집에 있는 재료: ${ingredientList}${preferenceSection}${servingsSection}${trendContext}
 
 이 재료들로 만들 수 있는 3가지 레시피를 추천해주세요.
 
