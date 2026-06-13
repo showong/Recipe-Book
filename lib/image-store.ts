@@ -1,5 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseImageStore } from "@/lib/stores/supabase-image-store";
 
 /**
  * 이미지 저장 추상화.
@@ -53,5 +55,8 @@ const fileImageStore: ImageStore = {
   },
 };
 
-// 🔌 배포 시 여기만 다른 구현으로 교체
-export const imageStore: ImageStore = fileImageStore;
+// 🔌 Supabase 환경변수가 설정되면 자동으로 Supabase Storage 구현을 사용한다.
+//    (미설정 시 로컬 파일 기반으로 동작 → 로컬 개발 흐름 유지)
+export const imageStore: ImageStore = isSupabaseConfigured()
+  ? supabaseImageStore
+  : fileImageStore;

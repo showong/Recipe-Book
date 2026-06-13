@@ -1,6 +1,8 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { RecipeDetail } from "@/types/recipe";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { supabaseRecipeRepository } from "@/lib/stores/supabase-recipe-store";
 
 /**
  * 레시피 영속 계층 (Repository).
@@ -122,5 +124,8 @@ const fileRecipeRepository: RecipeRepository = {
   },
 };
 
-// 🔌 배포 시 여기만 DB 구현으로 교체
-export const recipeRepository: RecipeRepository = fileRecipeRepository;
+// 🔌 Supabase 환경변수가 설정되면 자동으로 Supabase(Postgres) 구현을 사용한다.
+//    (미설정 시 data/recipes.json 파일 기반으로 동작 → 로컬 개발 흐름 유지)
+export const recipeRepository: RecipeRepository = isSupabaseConfigured()
+  ? supabaseRecipeRepository
+  : fileRecipeRepository;
