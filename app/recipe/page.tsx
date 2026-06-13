@@ -41,6 +41,7 @@ function RecipeDetailContent() {
   const [postEnCopied, setPostEnCopied] = useState(false);
   // 릴스 썸네일
   const [reelUploadedImage, setReelUploadedImage] = useState<string | null>(null);
+  const [reelImageIsHeroBased, setReelImageIsHeroBased] = useState(false); // true = heroImage 자동 채움, false = 유저 업로드
   const [reelIsVideo, setReelIsVideo] = useState(false);
   const [reelThumbnail, setReelThumbnail] = useState<string | null>(null);
   const [reelThumbnailLoading, setReelThumbnailLoading] = useState(false);
@@ -84,6 +85,9 @@ function RecipeDetailContent() {
         const stored = sessionStorage.getItem(parsed.heroImageKey);
         if (stored) {
           setHeroImage(stored);
+          // heroImage를 릴스 업로드 기본값으로 설정 (유저가 직접 완성본 사진 업로드 시 덮어씀)
+          setReelUploadedImage(stored);
+          setReelImageIsHeroBased(true);
           sessionStorage.removeItem(parsed.heroImageKey);
         }
       }
@@ -632,6 +636,8 @@ function RecipeDetailContent() {
     setPostCoverError(null);
     setPostCoverEnImage(null);
     setPostCoverEnError(null);
+    // 유저가 직접 업로드 → heroImage 기본값 아님으로 표시
+    setReelImageIsHeroBased(false);
 
     const isVideo = file.type.startsWith("video/");
     setReelIsVideo(isVideo);
@@ -1227,10 +1233,25 @@ function RecipeDetailContent() {
                 <p className="text-xs text-gray-500 mt-0.5">사진(JPG·PNG·WEBP) 또는 동영상(MP4·MOV) — 동영상은 애니메이션 썸네일로 변환돼요</p>
               </div>
               <div className="p-5">
+                {/* 이미지 소스 안내 배지 */}
+                {reelUploadedImage && reelImageIsHeroBased && (
+                  <div className="mb-2 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold"
+                    style={{ background: "#faf5ff", border: "1px solid #c4b5fd", color: "#7c3aed" }}>
+                    <span>🎨</span>
+                    <span>AI 레시피 카드 이미지 사용 중 — 실제 완성 요리 사진을 업로드하면 더 좋은 썸네일이 만들어져요</span>
+                  </div>
+                )}
+                {reelUploadedImage && !reelImageIsHeroBased && (
+                  <div className="mb-2 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold"
+                    style={{ background: "#f0fdf4", border: "1px solid #86efac", color: "#16a34a" }}>
+                    <span>✅</span>
+                    <span>내 완성 요리 사진 우선 적용 중</span>
+                  </div>
+                )}
                 <label
                   htmlFor="reel-upload"
                   className="flex flex-col items-center justify-center w-full rounded-2xl border-2 border-dashed cursor-pointer transition-all hover:bg-purple-50"
-                  style={{ borderColor: reelUploadedImage ? "#7c3aed" : "#d1d5db", minHeight: "160px" }}>
+                  style={{ borderColor: reelUploadedImage ? (reelImageIsHeroBased ? "#c4b5fd" : "#7c3aed") : "#d1d5db", minHeight: "160px" }}>
                   {reelUploadedImage ? (
                     <div className="relative w-full" style={{ aspectRatio: "4/3" }}>
                       <Image
@@ -1246,7 +1267,9 @@ function RecipeDetailContent() {
                         </div>
                       )}
                       <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-2xl opacity-0 hover:opacity-100 transition-opacity">
-                        <span className="text-white text-sm font-bold bg-black/50 px-3 py-1.5 rounded-full">📷 변경</span>
+                        <span className="text-white text-sm font-bold bg-black/50 px-3 py-1.5 rounded-full">
+                          {reelImageIsHeroBased ? "📸 완성 요리 사진 업로드" : "📷 변경"}
+                        </span>
                       </div>
                     </div>
                   ) : (
