@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const VOICE_ID_CUTE  = "tc_624cccbcadcd568510764d65";
-const VOICE_ID_LAZY  = "tc_63aaebf1cef3e7d6ce6d3628";
-const VOICE_ID_TREND = "tc_66596219e805ae9bb7e1338c";
+const VOICE_ID_CUTE = "tc_67513c3cf30802da48949a14";
+const VOICE_ID_LAZY = "tc_63622aaa4109052e8067e303";
 const TTS_ENDPOINT  = "https://api.typecast.ai/v1/text-to-speech";
 const GEMINI_MODEL  = "gemini-3.5-flash";
 const GEMINI_URL    = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -25,11 +24,11 @@ async function callGemini(prompt: string, googleApiKey: string, maxTokens = 512)
 // 구어체로 변환된 텍스트를 절반 이하로 압축
 async function compressSpeechText(converted: string, googleApiKey: string, character: string): Promise<string> {
   const targetLen = Math.floor(converted.length / 2);
-  const prompt = `다음 한국어 구어체 문장을 절반 이하 길이로 압축해 주세요.
+  const prompt = `다음 한국어 구어체 문장을 3분의 1이하의 길이로 압축해 주세요.
 
 압축 규칙:
 1. 목표 길이: ${targetLen}자 이하 (현재 ${converted.length}자의 절반)
-2. 핵심 동작과 핵심 재료/수치만 남기고 나머지 생략
+2. 핵심 동작과 핵심 재료/수치는 생략 금지
 3. 구어체 어미 유지 (예: "~해요", "~하면 돼요")
 4. 완전한 문장 형태 유지 — 단어 하나·조각 표현 금지
 5. 한국어 텍스트만 출력 (설명 없이)
@@ -134,10 +133,7 @@ async function callTypecastTts(
   extraData: Record<string, unknown> = {},
   character = "cute",
 ): Promise<NextResponse> {
-  const voiceId =
-    character === "lazy" ? VOICE_ID_LAZY :
-    character === "trend" ? VOICE_ID_TREND :
-    VOICE_ID_CUTE;
+  const voiceId = character === "lazy" ? VOICE_ID_LAZY : VOICE_ID_CUTE;
   const ttsRes = await fetch(TTS_ENDPOINT, {
     method: "POST",
     headers: {
@@ -147,12 +143,12 @@ async function callTypecastTts(
     body: JSON.stringify({
       voice_id: voiceId,
       text: speechText,
-      model: "ssfm-v30",
+      model: character === "lazy" ? "ssfm-v21" : "ssfm-v30",
       language: "kor",
       output: {
         audio_format: "mp3",
         audio_pitch: 0,
-        audio_tempo: 1.3,
+        audio_tempo: 1.0,
         volume: 100,
       },
     }),
@@ -253,11 +249,6 @@ export async function POST(req: NextRequest) {
 
     if (!text || typeof text !== "string") {
       return NextResponse.json({ error: "text가 필요합니다." }, { status: 400 });
-    }
-
-    // "direct" mode: text is already TTS-optimized — skip Gemini conversion
-    if (mode === "direct") {
-      return await callTypecastTts(text, typecastKey, { speechText: text }, character ?? "cute");
     }
 
     const speechText = await toSpeechText(text, googleKey, character ?? "cute");
