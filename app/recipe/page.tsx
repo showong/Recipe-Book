@@ -54,6 +54,8 @@ function RecipeDetailContent() {
   const [recipeGuideImage, setRecipeGuideImage] = useState<string | null>(null);
   const [recipeGuideLoading, setRecipeGuideLoading] = useState(false);
   const [recipeGuideError, setRecipeGuideError] = useState<string | null>(null);
+  // 실제 완성 요리 사진 — 업로드되어야 이미지 저장/영상 생성이 활성화된다
+  const [finishedDishImage, setFinishedDishImage] = useState<string | null>(null);
   // 가이드 이미지 + TTS 음성 게시물 영상 (정지 이미지, 릴스 아님)
   const [guidePostUrl, setGuidePostUrl] = useState<string | null>(null);
   const [guidePostBlob, setGuidePostBlob] = useState<Blob | null>(null);
@@ -452,7 +454,7 @@ function RecipeDetailContent() {
   // 가이드 이미지를 정지 화면으로 노출하면서 모든 TTS 음성을 이어 재생하는
   // 게시물(피드)용 영상을 만든다. 릴스와 달리 화면 전환·자막이 없다.
   const createGuidePostVideo = async () => {
-    if (!recipe || !recipeGuideImage) return;
+    if (!recipe || !recipeGuideImage || !finishedDishImage) return;
     setGuidePostLoading(true);
     setGuidePostProgress(0);
     setGuidePostError(null);
@@ -819,6 +821,33 @@ function RecipeDetailContent() {
       if (!ctx) return;
       ctx.drawImage(img, 0, 0, w, h);
       setReelUploadedImage(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => URL.revokeObjectURL(objectUrl);
+    img.src = objectUrl;
+  };
+
+  // ── 실제 완성 요리 사진 업로드 ────────────────────────────────────────────────
+  // 가이드 이미지 저장과 게시물 영상 생성은 이 사진이 업로드된 뒤에만 활성화된다.
+  const handleFinishedDishUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    const objectUrl = URL.createObjectURL(file);
+    const img = document.createElement("img");
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const MAX = 1280;
+      const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0, w, h);
+      setFinishedDishImage(canvas.toDataURL("image/jpeg", 0.85));
     };
     img.onerror = () => URL.revokeObjectURL(objectUrl);
     img.src = objectUrl;
@@ -1559,12 +1588,49 @@ function RecipeDetailContent() {
                           unoptimized
                         />
                       </div>
+
+                      {/* 실제 완성 요리 사진 업로드 — 저장/영상 생성 활성화 전제 조건 */}
+                      <div className="rounded-2xl p-4"
+                        style={{ background: finishedDishImage ? "#f0fdf4" : "#fff7ed", border: `1px solid ${finishedDishImage ? "#bbf7d0" : "#fed7aa"}` }}>
+                        <p className="text-sm font-bold flex items-center gap-2"
+                          style={{ color: finishedDishImage ? "#16a34a" : "#ea580c" }}>
+                          <span>📸</span> 실제 완성 요리 사진 업로드
+                          {finishedDishImage && <span className="text-xs">✅ 업로드 완료</span>}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1 mb-3">
+                          직접 만든 완성 요리 사진을 올려야 이미지 저장과 영상 생성을 진행할 수 있어요.
+                        </p>
+                        <label className="block">
+                          <span className="sr-only">완성 요리 사진 선택</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFinishedDishUpload}
+                            className="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:text-white file:cursor-pointer file:bg-gradient-to-r file:from-orange-400 file:to-amber-400"
+                          />
+                        </label>
+                        {finishedDishImage && (
+                          <div className="mt-3 flex items-center gap-3">
+                            <div className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0">
+                              <Image src={finishedDishImage} alt="완성 요리" fill className="object-cover" unoptimized />
+                            </div>
+                            <button
+                              onClick={() => { setFinishedDishImage(null); }}
+                              className="text-xs font-bold text-red-500 hover:text-red-600">
+                              🗑️ 사진 삭제
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
                       <a
-                        href={recipeGuideImage}
-                        download={`${recipe.name}-상세조리법.png`}
-                        className="block w-full text-center py-3 rounded-2xl text-white font-bold transition-all hover:opacity-90"
+                        href={finishedDishImage ? recipeGuideImage : undefined}
+                        download={finishedDishImage ? `${recipe.name}-상세조리법.png` : undefined}
+                        aria-disabled={!finishedDishImage}
+                        onClick={(e) => { if (!finishedDishImage) e.preventDefault(); }}
+                        className={`block w-full text-center py-3 rounded-2xl text-white font-bold transition-all ${finishedDishImage ? "hover:opacity-90 cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
                         style={{ background: "linear-gradient(135deg, #16a34a, #84cc16)" }}>
-                        ⬇️ 이미지 다운로드
+                        {finishedDishImage ? "⬇️ 이미지 다운로드" : "🔒 완성 요리 사진을 먼저 올려주세요"}
                       </a>
 
                       {/* 게시물(피드)용 영상 — 정지 이미지 + TTS 음성 연속 재생 */}
@@ -1574,10 +1640,16 @@ function RecipeDetailContent() {
                         </p>
                         <button
                           onClick={createGuidePostVideo}
-                          disabled={guidePostLoading}
+                          disabled={guidePostLoading || !finishedDishImage}
                           className="w-full py-3 rounded-2xl text-white font-bold transition-all hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
                           style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
-                          {guidePostLoading ? `🎬 만드는 중... ${guidePostProgress}%` : guidePostUrl ? "🔄 게시물 영상 다시 만들기" : "🔊 음성 게시물 영상 만들기"}
+                          {guidePostLoading
+                            ? `🎬 만드는 중... ${guidePostProgress}%`
+                            : !finishedDishImage
+                              ? "🔒 완성 요리 사진을 먼저 올려주세요"
+                              : guidePostUrl
+                                ? "🔄 게시물 영상 다시 만들기"
+                                : "🔊 음성 게시물 영상 만들기"}
                         </button>
                         {guidePostLoading && (
                           <div className="w-full h-2 mt-2 rounded-full overflow-hidden bg-gray-100">
