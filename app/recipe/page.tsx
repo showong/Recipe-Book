@@ -56,6 +56,10 @@ function RecipeDetailContent() {
   const [recipeGuideError, setRecipeGuideError] = useState<string | null>(null);
   // 실제 완성 요리 사진 — 업로드되어야 이미지 저장/영상 생성이 활성화된다
   const [finishedDishImage, setFinishedDishImage] = useState<string | null>(null);
+  const [finishedUploadStatus, setFinishedUploadStatus] = useState<"idle" | "uploading" | "done" | "error">("idle");
+  const [finishedUploadError, setFinishedUploadError] = useState<string | null>(null);
+  // 저장된 레시피 ID — app/recipes/page.tsx 가 POST /api/recipes 저장 후 전달
+  const [savedRecipeId, setSavedRecipeId] = useState<string | null>(null);
   // 가이드 이미지 + TTS 음성 게시물 영상 (정지 이미지, 릴스 아님)
   const [guidePostUrl, setGuidePostUrl] = useState<string | null>(null);
   const [guidePostBlob, setGuidePostBlob] = useState<Blob | null>(null);
@@ -117,6 +121,7 @@ function RecipeDetailContent() {
       setRecipe(parsed.recipe);
       setIngredients(parsed.ingredients || []);
       setCharacterVersion(parsed.character ?? "cute_bear");
+      if (parsed.savedRecipeId) setSavedRecipeId(parsed.savedRecipeId);
       // Hero image stored in sessionStorage to avoid oversized URL
       if (parsed.heroImageKey) {
         const stored = sessionStorage.getItem(parsed.heroImageKey);
@@ -828,9 +833,31 @@ function RecipeDetailContent() {
 
   // ── 실제 완성 요리 사진 업로드 ────────────────────────────────────────────────
   // 가이드 이미지 저장과 게시물 영상 생성은 이 사진이 업로드된 뒤에만 활성화된다.
+  // 사진이 준비되면 서버(PATCH /api/recipes)에도 저장해 관리자 쇼츠 썸네일로 활용한다.
+  const patchFinishedImage = async (dataUrl: string) => {
+    if (!savedRecipeId) return; // 저장된 레시피 ID가 없으면 서버 저장 생략
+    setFinishedUploadStatus("uploading");
+    setFinishedUploadError(null);
+    try {
+      const res = await fetch(`/api/recipes?id=${encodeURIComponent(savedRecipeId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ finishedImage: dataUrl }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error ?? "서버 저장 실패");
+      setFinishedUploadStatus("done");
+    } catch (err) {
+      setFinishedUploadStatus("error");
+      setFinishedUploadError(err instanceof Error ? err.message : "서버 저장 실패");
+    }
+  };
+
   const handleFinishedDishUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
+    setFinishedUploadStatus("idle");
+    setFinishedUploadError(null);
     const objectUrl = URL.createObjectURL(file);
     const img = document.createElement("img");
     img.onload = () => {
@@ -847,7 +874,9 @@ function RecipeDetailContent() {
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, 0, 0, w, h);
-      setFinishedDishImage(canvas.toDataURL("image/jpeg", 0.85));
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      setFinishedDishImage(dataUrl);
+      void patchFinishedImage(dataUrl);
     };
     img.onerror = () => URL.revokeObjectURL(objectUrl);
     img.src = objectUrl;
@@ -1592,14 +1621,26 @@ function RecipeDetailContent() {
                       {/* 실제 완성 요리 사진 업로드 — 저장/영상 생성 활성화 전제 조건 */}
                       <div className="rounded-2xl p-4"
                         style={{ background: finishedDishImage ? "#f0fdf4" : "#fff7ed", border: `1px solid ${finishedDishImage ? "#bbf7d0" : "#fed7aa"}` }}>
-                        <p className="text-sm font-bold flex items-center gap-2"
+                        <p className="text-sm font-bold flex items-center gap-2 flex-wrap"
                           style={{ color: finishedDishImage ? "#16a34a" : "#ea580c" }}>
                           <span>📸</span> 실제 완성 요리 사진 업로드
-                          {finishedDishImage && <span className="text-xs">✅ 업로드 완료</span>}
+                          {finishedUploadStatus === "uploading" && (
+                            <span className="text-xs text-blue-500 flex items-center gap-1">
+                              <svg className="spinner w-3 h-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                              서버에 저장 중...
+                            </span>
+                          )}
+                          {finishedUploadStatus === "done" && <span className="text-xs text-green-600">✅ 저장 완료 (관리자 썸네일 연동됨)</span>}
+                          {finishedUploadStatus === "error" && <span className="text-xs text-red-500">⚠️ 서버 저장 실패 (로컬에서만 사용)</span>}
+                          {finishedUploadStatus === "idle" && finishedDishImage && <span className="text-xs">✅ 업로드 완료</span>}
                         </p>
                         <p className="text-xs text-gray-500 mt-1 mb-3">
                           직접 만든 완성 요리 사진을 올려야 이미지 저장과 영상 생성을 진행할 수 있어요.
+                          {savedRecipeId && " 사진은 관리자 쇼츠 썸네일로도 자동 연동됩니다."}
                         </p>
+                        {finishedUploadError && (
+                          <p className="text-xs text-red-400 mb-2">⚠️ {finishedUploadError}</p>
+                        )}
                         <label className="block">
                           <span className="sr-only">완성 요리 사진 선택</span>
                           <input

@@ -627,6 +627,7 @@ function AdminShortsContent() {
       const record = data.recipe as {
         character: string;
         heroImage?: string | null;
+        finishedImage?: string | null;
         recipe: RecipeDetail;
       };
       const r = record.recipe;
@@ -670,7 +671,10 @@ function AdminShortsContent() {
           .join(" / "),
       );
       setThumbCharacter(tone);
-      if (record.heroImage) setUploadedImage(record.heroImage);
+      // 완성 요리 사진(finishedImage)이 있으면 썸네일 소스로 우선 적용,
+      // 없으면 AI 생성 hero 이미지로 fallback
+      const thumbSource = record.finishedImage ?? record.heroImage;
+      if (thumbSource) setUploadedImage(thumbSource);
       setThumbnail(null);
     } catch { setFillError("레시피를 불러오지 못했습니다."); }
   }, []);

@@ -113,16 +113,22 @@ function RecipesContent() {
         throw new Error(data.error || "상세 레시피 생성 실패");
       }
 
-      // 유저가 생성한 레시피를 저장소에 보관 (관리자 쇼츠 생성용) — 논블로킹
-      void fetch("/api/recipes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipe: data.recipe,
-          character,
-          heroImage: recipeImages[recipe.id] ?? null,
-        }),
-      }).catch(() => { /* 저장 실패는 사용자 흐름을 막지 않음 */ });
+      // 유저가 생성한 레시피를 저장소에 보관 (관리자 쇼츠 생성용)
+      // 응답의 savedRecipeId를 받아 recipe 페이지에 전달 — 완성 사진 업로드 시 PATCH에 사용
+      let savedRecipeId: string | null = null;
+      try {
+        const saveRes = await fetch("/api/recipes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            recipe: data.recipe,
+            character,
+            heroImage: recipeImages[recipe.id] ?? null,
+          }),
+        });
+        const saveData = await saveRes.json();
+        savedRecipeId = saveData.id ?? null;
+      } catch { /* 저장 실패는 사용자 흐름을 막지 않음 */ }
 
       const heroImgKey = `heroImage_${recipe.id}`;
       let heroStored = false;
@@ -144,6 +150,7 @@ function RecipesContent() {
         heroImageKey: heroStored ? heroImgKey : null,
         character,
         servings,
+        savedRecipeId,   // 완성 사진 PATCH용
       });
       try {
         sessionStorage.setItem(payloadKey, payload);

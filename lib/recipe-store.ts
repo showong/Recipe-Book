@@ -4,17 +4,6 @@ import { RecipeDetail } from "@/types/recipe";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 import { supabaseRecipeRepository } from "@/lib/stores/supabase-recipe-store";
 
-/**
- * 레시피 영속 계층 (Repository).
- *
- * - 현재(MVP): data/recipes.json 파일 기반.
- * - 배포 시: RecipeRepository 인터페이스를 DB 구현(Postgres / Supabase / Turso 등)으로
- *   교체하고, 파일 맨 아래의 `recipeRepository` export만 바꾸면 된다.
- *
- * 이미지는 여기 저장하지 않는다. base64 대신 ImageStore가 반환한 ref(heroImageRef)만
- * 보관하므로, 이미지는 오브젝트 스토리지로 따로 옮기기 쉽다.
- */
-
 export interface SavedRecipeRecord {
   id: string;
   name: string;
@@ -23,6 +12,7 @@ export interface SavedRecipeRecord {
   savedAt: string;
   recipe: RecipeDetail;
   heroImageRef?: string | null;
+  finishedImageRef?: string | null;
 }
 
 export interface SavedRecipeSummary {
@@ -35,18 +25,25 @@ export interface SavedRecipeSummary {
   servings: number;
   difficulty: string;
   hasHeroImage: boolean;
+  hasFinishedImage: boolean;
 }
 
 export interface SaveRecipeInput {
   recipe: RecipeDetail;
   character: string;
   heroImageRef?: string | null;
+  finishedImageRef?: string | null;
+}
+
+export interface PatchRecipeInput {
+  finishedImageRef?: string | null;
 }
 
 export interface RecipeRepository {
   list(): Promise<SavedRecipeSummary[]>;
   get(id: string): Promise<SavedRecipeRecord | null>;
   save(input: SaveRecipeInput): Promise<SavedRecipeRecord>;
+  patch(id: string, update: PatchRecipeInput): Promise<boolean>;
   remove(id: string): Promise<boolean>;
 }
 
@@ -81,6 +78,7 @@ function toSummary(r: SavedRecipeRecord): SavedRecipeSummary {
     servings: r.recipe.servings,
     difficulty: r.recipe.difficulty,
     hasHeroImage: Boolean(r.heroImageRef),
+    hasFinishedImage: Boolean(r.finishedImageRef),
   };
 }
 
@@ -97,7 +95,6 @@ const fileRecipeRepository: RecipeRepository = {
 
   async save(input) {
     const all = await readAll();
-    // 같은 이름 + 캐릭터 조합은 최신본으로 갱신 (중복 누적 방지)
     const filtered = all.filter(
       (r) => !(r.name === input.recipe.name && r.character === input.character),
     );
@@ -109,10 +106,20 @@ const fileRecipeRepository: RecipeRepository = {
       savedAt: new Date().toISOString(),
       recipe: input.recipe,
       heroImageRef: input.heroImageRef ?? null,
+      finishedImageRef: input.finishedImageRef ?? null,
     };
     const next = [record, ...filtered].slice(0, MAX_RECORDS);
     await writeAll(next);
     return record;
+  },
+
+  async patch(id, update) {
+    const all = await readAll();
+    const idx = all.findIndex((r) => r.id === id);
+    if (idx === -1) return false;
+    all[idx] = { ...all[idx], ...update };
+    await writeAll(all);
+    return true;
   },
 
   async remove(id) {
