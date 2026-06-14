@@ -18,6 +18,7 @@ interface SavedRecipeSummary {
   servings: number;
   difficulty: string;
   hasHeroImage: boolean;
+  hasFinishedImage?: boolean;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -563,6 +564,7 @@ function AdminShortsContent() {
   const [fillError, setFillError] = useState<string | null>(null);
   const [loadedRecipe, setLoadedRecipe] = useState<RecipeDetail | null>(null);
   const [heroImage, setHeroImage] = useState<string | null>(null);
+  const [finishedImage, setFinishedImage] = useState<string | null>(null);
   const [recipeCharacter, setRecipeCharacter] = useState<string>("cute");
 
   // ── Pipeline tab ──
@@ -636,6 +638,7 @@ function AdminShortsContent() {
       setSelectedRecipeId(id);
       setLoadedRecipe(r);
       setHeroImage(record.heroImage ?? null);
+      setFinishedImage(record.finishedImage ?? null);
       setRecipeCharacter(tone);
 
       // Reset pipeline state
@@ -739,12 +742,14 @@ function AdminShortsContent() {
     setRecipeMapLoading(true);
     setRecipeMapError(null);
     try {
+      // 유저가 올린 실제 완성 요리 사진을 우선 사용, 없으면 AI hero 이미지로 fallback
+      const foodPhoto = finishedImage ?? heroImage;
       const dataUrl = await composeGridCanvas(
         loadedRecipe, keypoints,
-        heroImage ? { food: heroImage } : {},
+        foodPhoto ? { food: foodPhoto } : {},
       );
       setRecipeMapImage(dataUrl);
-      setFoodCellImage(heroImage ?? null);
+      setFoodCellImage(foodPhoto ?? null);
     } catch (e) { setRecipeMapError(e instanceof Error ? e.message : "생성 실패"); }
     finally { setRecipeMapLoading(false); }
   };
@@ -757,9 +762,11 @@ function AdminShortsContent() {
     setRecipeMapError(null);
     try {
       const recipe = loadedRecipe;
+      // 유저가 올린 실제 완성 요리 사진을 우선 사용, 없으면 AI hero 이미지로 fallback
+      const foodPhoto = finishedImage ?? heroImage;
       const results = await Promise.all(
         CELL_ORDER.map(async (cell): Promise<readonly [CellKey, string | null]> => {
-          if (cell === "food" && heroImage) return [cell, heroImage] as const;
+          if (cell === "food" && foodPhoto) return [cell, foodPhoto] as const;
           try {
             const res = await fetch("/api/generate-shorts-map", {
               method: "POST",
@@ -783,7 +790,7 @@ function AdminShortsContent() {
       }
       const grid = await composeGridCanvas(recipe, keypoints, cellImages);
       setRecipeMapImage(grid);
-      setFoodCellImage(cellImages.food ?? heroImage ?? null);
+      setFoodCellImage(cellImages.food ?? foodPhoto ?? null);
     } catch (e) { setRecipeMapError(e instanceof Error ? e.message : "AI 생성 실패"); }
     finally { setRecipeMapLoading(false); }
   };
@@ -991,7 +998,15 @@ function AdminShortsContent() {
                 : inset}>
               <span className="text-2xl flex-shrink-0">{r.emoji || "🍽️"}</span>
               <span className="flex-1 min-w-0">
-                <span className="block text-white text-sm font-bold truncate">{r.name}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="block text-white text-sm font-bold truncate">{r.name}</span>
+                  {r.hasFinishedImage && (
+                    <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                      style={{ background: "rgba(34,197,94,0.22)", color: "#86efac" }}>
+                      📸 완성본
+                    </span>
+                  )}
+                </span>
                 <span className="block text-white/40 text-xs">⏱ {r.totalTime} · {r.servings}인분</span>
               </span>
               {selectedRecipeId === r.id && <span className="text-orange-300 text-sm">✓</span>}
