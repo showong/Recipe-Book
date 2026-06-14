@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recipeRepository } from "@/lib/recipe-store";
 import { imageStore } from "@/lib/image-store";
+import { requireAdmin } from "@/lib/auth/admin";
 
 // GET /api/recipes            → 저장된 레시피 요약 목록
 // GET /api/recipes?id=xxx     → 단일 레시피 전체 (heroImage + finishedImage URL 포함)
@@ -80,9 +81,12 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// DELETE /api/recipes?id=xxx → 레시피 + 연결된 이미지 모두 삭제
+// DELETE /api/recipes?id=xxx → 레시피 + 연결된 이미지 모두 삭제 (관리자 전용)
 export async function DELETE(req: NextRequest) {
   try {
+    const denied = requireAdmin(req);
+    if (denied) return denied;
+
     const id = req.nextUrl.searchParams.get("id");
     if (!id) {
       return NextResponse.json({ error: "id가 필요합니다." }, { status: 400 });

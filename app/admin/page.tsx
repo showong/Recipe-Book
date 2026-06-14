@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 export default function AdminPage() {
   const router = useRouter();
 
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/admin/login", { method: "DELETE" });
+    } catch {
+      /* 무시 */
+    }
+    router.replace("/admin/login");
+  };
+
   const menuItems = [
     {
       icon: "🎬",
@@ -78,12 +87,20 @@ export default function AdminPage() {
           ))}
         </div>
 
-        <button
-          onClick={() => router.push("/")}
-          className="w-full mt-8 py-3 rounded-2xl text-white/50 text-sm font-medium transition-all hover:text-white/80"
-          style={{ border: "1px solid rgba(255,255,255,0.1)" }}>
-          ← 홈으로 돌아가기
-        </button>
+        <div className="mt-8 flex gap-3">
+          <button
+            onClick={() => router.push("/")}
+            className="flex-1 py-3 rounded-2xl text-white/50 text-sm font-medium transition-all hover:text-white/80"
+            style={{ border: "1px solid rgba(255,255,255,0.1)" }}>
+            ← 홈으로 돌아가기
+          </button>
+          <button
+            onClick={handleLogout}
+            className="px-5 py-3 rounded-2xl text-sm font-medium transition-all hover:opacity-80"
+            style={{ border: "1px solid rgba(255,107,53,0.3)", color: "#ffc857" }}>
+            🔓 로그아웃
+          </button>
+        </div>
       </div>
     </div>
   );

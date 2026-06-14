@@ -17,7 +17,13 @@ export function checkAdminSecret(secret: string | null | undefined): boolean {
 }
 
 export function requireAdmin(req: NextRequest): NextResponse | null {
-  const secret = req.headers.get("x-admin-secret") ?? req.nextUrl.searchParams.get("adminSecret");
+  // ADMIN_SECRET 미설정 시 보호 비활성 (로컬 개발). 미들웨어와 동일한 정책.
+  if (!process.env.ADMIN_SECRET) return null;
+  // 인증 쿠키(admin_auth) → 헤더 → 쿼리 파라미터 순으로 확인
+  const secret =
+    req.cookies.get("admin_auth")?.value ??
+    req.headers.get("x-admin-secret") ??
+    req.nextUrl.searchParams.get("adminSecret");
   if (checkAdminSecret(secret)) return null;
   return NextResponse.json({ error: "관리자 권한이 필요합니다." }, { status: 403 });
 }
