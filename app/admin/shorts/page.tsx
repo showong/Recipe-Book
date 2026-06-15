@@ -682,7 +682,6 @@ function AdminShortsContent() {
       setRecipeCharacter(tone);
 
       // Reset pipeline state
-      setDetailImage(null);
       setKeypoints(null);
       setNarrationSegments([]);
       setSrtContent("");
