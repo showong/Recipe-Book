@@ -19,6 +19,7 @@ interface SavedRecipeSummary {
   difficulty: string;
   hasHeroImage: boolean;
   hasFinishedImage?: boolean;
+  hasDetailImage?: boolean;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -374,15 +375,21 @@ async function createShortsVideo(
   ttsAudios: Record<string, string>,
   onProgress: (p: number) => void,
   thumbnailDataUrl: string | null,
+  detailImageDataUrl: string | null = null,
 ): Promise<{ blob: Blob; ext: "mp4" | "webm" }> {
   const CANVAS_W = 1080, CANVAS_H = 1920;
   const TRANSITION = 0.4;
-  const THUMB_DUR = 1.0; // thumbnail intro overlay (audio plays underneath from t=0)
+  const THUMB_DUR = 1.0;   // thumbnail intro overlay (audio plays underneath from t=0)
+  const OUTRO_DUR = 2.0;   // detail recipe image outro at the end
 
   const mapImg = await loadImg(recipeMapDataUrl);
   let thumbImg: HTMLImageElement | null = null;
   if (thumbnailDataUrl) {
     try { thumbImg = await loadImg(thumbnailDataUrl); } catch { /* no intro */ }
+  }
+  let detailImg: HTMLImageElement | null = null;
+  if (detailImageDataUrl) {
+    try { detailImg = await loadImg(detailImageDataUrl); } catch { /* no outro */ }
   }
   const audioCtx = new AudioContext();
   const dest = audioCtx.createMediaStreamDestination();
@@ -416,7 +423,8 @@ async function createShortsVideo(
   if (providedCount > 0 && decodedCount === 0) {
     console.warn("[shorts] 모든 TTS 오디오 디코딩 실패 — 무음으로 렌더링됩니다.");
   }
-  const totalDur = cursor;
+  const contentDur = cursor;
+  const totalDur = contentDur + (detailImg ? OUTRO_DUR : 0);
 
   // Canvas + recorder
   const canvas = document.createElement("canvas");
@@ -490,38 +498,67 @@ async function createShortsVideo(
       ctx2d.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
       if (elapsed >= 0) {
-        const curIdx = vsegs.reduce((acc, s, i) => (elapsed >= s.start ? i : acc), 0);
-        const cur = vsegs[curIdx];
-        const next = vsegs[curIdx + 1];
-        const curR = getCameraRect(cur.camera);
+        if (detailImg && elapsed >= contentDur) {
+          // ── Outro: 상세 레시피 한장 이미지 (2초) ────────────────────────────
+          // Fade in over 0.3s from the last map frame.
+          const outroElapsed = elapsed - contentDur;
+          const fadeAlpha = Math.min(1, outroElapsed / 0.3);
 
-        if (next) {
-          const progress = (elapsed - cur.start) / cur.dur;
-          const tStart = Math.max(0, 1 - TRANSITION / cur.dur);
-          if (progress >= tStart) {
-            // Clamp the interpolation input to [0,1] BEFORE easing — past the
-            // segment end (inter-segment gap, progress > 1) the easing curve
-            // bends back down and would make the camera bounce. Clamping holds
-            // it steady on the next cell instead.
-            const localT = Math.min(1, Math.max(0, (progress - tStart) / (1 - tStart)));
-            const t = ease(localT);
-            const nextR = getCameraRect(next.camera);
-            ctx2d.drawImage(mapImg,
-              lerp(curR.sx, nextR.sx, t), lerp(curR.sy, nextR.sy, t),
-              lerp(curR.sw, nextR.sw, t), lerp(curR.sh, nextR.sh, t),
-              0, 0, CANVAS_W, CANVAS_H);
+          // Draw the last map frame as the under-layer for the fade.
+          const lastSeg = vsegs[vsegs.length - 1];
+          if (lastSeg) {
+            const lR = getCameraRect(lastSeg.camera);
+            ctx2d.drawImage(mapImg, lR.sx, lR.sy, lR.sw, lR.sh, 0, 0, CANVAS_W, CANVAS_H);
+          }
+
+          // Cover-fit the detail image (contain: show full image, letterbox if needed).
+          const scale = Math.min(CANVAS_W / detailImg.naturalWidth, CANVAS_H / detailImg.naturalHeight);
+          const dw = detailImg.naturalWidth * scale;
+          const dh = detailImg.naturalHeight * scale;
+          const dx = (CANVAS_W - dw) / 2;
+          const dy = (CANVAS_H - dh) / 2;
+
+          ctx2d.save();
+          ctx2d.globalAlpha = fadeAlpha;
+          ctx2d.fillStyle = "#000";
+          ctx2d.fillRect(0, 0, CANVAS_W, CANVAS_H);
+          ctx2d.drawImage(detailImg, dx, dy, dw, dh);
+          ctx2d.restore();
+        } else {
+          // ── Main content: recipe map segments ───────────────────────────────
+          const curIdx = vsegs.reduce((acc, s, i) => (elapsed >= s.start ? i : acc), 0);
+          const cur = vsegs[curIdx];
+          const next = vsegs[curIdx + 1];
+          const curR = getCameraRect(cur.camera);
+
+          if (next) {
+            const progress = (elapsed - cur.start) / cur.dur;
+            const tStart = Math.max(0, 1 - TRANSITION / cur.dur);
+            if (progress >= tStart) {
+              // Clamp the interpolation input to [0,1] BEFORE easing — past the
+              // segment end (inter-segment gap, progress > 1) the easing curve
+              // bends back down and would make the camera bounce. Clamping holds
+              // it steady on the next cell instead.
+              const localT = Math.min(1, Math.max(0, (progress - tStart) / (1 - tStart)));
+              const t = ease(localT);
+              const nextR = getCameraRect(next.camera);
+              ctx2d.drawImage(mapImg,
+                lerp(curR.sx, nextR.sx, t), lerp(curR.sy, nextR.sy, t),
+                lerp(curR.sw, nextR.sw, t), lerp(curR.sh, nextR.sh, t),
+                0, 0, CANVAS_W, CANVAS_H);
+            } else {
+              ctx2d.drawImage(mapImg, curR.sx, curR.sy, curR.sw, curR.sh, 0, 0, CANVAS_W, CANVAS_H);
+            }
           } else {
             ctx2d.drawImage(mapImg, curR.sx, curR.sy, curR.sw, curR.sh, 0, 0, CANVAS_W, CANVAS_H);
           }
-        } else {
-          ctx2d.drawImage(mapImg, curR.sx, curR.sy, curR.sw, curR.sh, 0, 0, CANVAS_W, CANVAS_H);
-        }
 
-        // Thumbnail intro: cover the first second while audio already plays
-        if (thumbImg && elapsed < THUMB_DUR) {
-          const r = Math.max(CANVAS_W / thumbImg.naturalWidth, CANVAS_H / thumbImg.naturalHeight);
-          const w = thumbImg.naturalWidth * r, h = thumbImg.naturalHeight * r;
-          ctx2d.drawImage(thumbImg, (CANVAS_W - w) / 2, (CANVAS_H - h) / 2, w, h);
+          // Thumbnail intro: cover the first second while audio already plays
+          if (thumbImg && elapsed < THUMB_DUR) {
+            const r = Math.max(CANVAS_W / thumbImg.naturalWidth, CANVAS_H / thumbImg.naturalHeight);
+            const w = thumbImg.naturalWidth * r, h = thumbImg.naturalHeight * r;
+            ctx2d.drawImage(thumbImg, (CANVAS_W - w) / 2, (CANVAS_H - h) / 2, w, h);
+          }
         }
       }
       requestAnimationFrame(animate);
@@ -565,6 +602,7 @@ function AdminShortsContent() {
   const [loadedRecipe, setLoadedRecipe] = useState<RecipeDetail | null>(null);
   const [heroImage, setHeroImage] = useState<string | null>(null);
   const [finishedImage, setFinishedImage] = useState<string | null>(null);
+  const [detailImage, setDetailImage] = useState<string | null>(null);
   const [recipeCharacter, setRecipeCharacter] = useState<string>("cute");
 
   // ── Pipeline tab ──
@@ -630,6 +668,7 @@ function AdminShortsContent() {
         character: string;
         heroImage?: string | null;
         finishedImage?: string | null;
+        detailImage?: string | null;
         recipe: RecipeDetail;
       };
       const r = record.recipe;
@@ -639,9 +678,11 @@ function AdminShortsContent() {
       setLoadedRecipe(r);
       setHeroImage(record.heroImage ?? null);
       setFinishedImage(record.finishedImage ?? null);
+      setDetailImage(record.detailImage ?? null);
       setRecipeCharacter(tone);
 
       // Reset pipeline state
+      setDetailImage(null);
       setKeypoints(null);
       setNarrationSegments([]);
       setSrtContent("");
@@ -839,6 +880,7 @@ function AdminShortsContent() {
         ttsAudios,
         setRenderProgress,
         thumbnail,
+        detailImage,
       );
       finalVideoBlobRef.current = { blob, ext };
       setFinalVideoUrl(URL.createObjectURL(blob));
@@ -1039,6 +1081,12 @@ function AdminShortsContent() {
                     <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
                       style={{ background: "rgba(34,197,94,0.22)", color: "#86efac" }}>
                       📸 완성본
+                    </span>
+                  )}
+                  {r.hasDetailImage && (
+                    <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                      style={{ background: "rgba(99,102,241,0.22)", color: "#a5b4fc" }}>
+                      🖼️ 레시피카드
                     </span>
                   )}
                 </span>
@@ -1252,11 +1300,18 @@ function AdminShortsContent() {
                   </span>
                 ))}
               </div>
-              <p className="text-white/40 text-xs">
-                {thumbnail
-                  ? "🖼️ 썸네일 탭 이미지가 인트로 1초로 삽입됩니다 (시작과 동시에 TTS 재생)."
-                  : "🖼️ 썸네일 탭에서 썸네일을 만들면 인트로 1초로 자동 삽입됩니다."}
-              </p>
+              <div className="space-y-1">
+                <p className="text-white/40 text-xs">
+                  {thumbnail
+                    ? "🖼️ 썸네일 탭 이미지가 인트로 1초로 삽입됩니다 (시작과 동시에 TTS 재생)."
+                    : "🖼️ 썸네일 탭에서 썸네일을 만들면 인트로 1초로 자동 삽입됩니다."}
+                </p>
+                <p className="text-xs" style={{ color: detailImage ? "#a5b4fc" : "rgba(255,255,255,0.3)" }}>
+                  {detailImage
+                    ? "📋 상세 레시피 한장 이미지가 아웃트로 2초로 삽입됩니다."
+                    : "📋 유저가 상세 레시피 이미지를 생성하면 아웃트로 2초로 자동 삽입됩니다."}
+                </p>
+              </div>
               <button
                 onClick={renderVideo}
                 disabled={!recipeMapImage || renderLoading}

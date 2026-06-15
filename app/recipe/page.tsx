@@ -446,9 +446,25 @@ function RecipeDetailContent() {
         }),
       });
       const data = await res.json();
-      if (data.error) setRecipeGuideError(data.error);
-      else if (data.imageUrl) setRecipeGuideImage(data.imageUrl);
-      else setRecipeGuideError("이미지를 생성하지 못했습니다.");
+      if (data.error) {
+        setRecipeGuideError(data.error);
+      } else if (data.imageUrl) {
+        setRecipeGuideImage(data.imageUrl);
+        // 생성된 상세 레시피 이미지를 관리자 영상 합성용으로 자동 저장
+        if (savedRecipeId) {
+          try {
+            await fetch(`/api/recipes?id=${encodeURIComponent(savedRecipeId)}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ detailImage: data.imageUrl }),
+            });
+          } catch {
+            // 저장 실패는 UI에 표시하지 않음 (이미지 자체는 이미 생성됨)
+          }
+        }
+      } else {
+        setRecipeGuideError("이미지를 생성하지 못했습니다.");
+      }
     } catch (err) {
       setRecipeGuideError(err instanceof Error ? err.message : "이미지 생성 실패");
     } finally {

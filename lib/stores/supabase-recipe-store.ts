@@ -19,6 +19,7 @@ interface Row {
   recipe: RecipeDetail;
   hero_image_ref: string | null;
   finished_image_ref: string | null;
+  detail_image_ref: string | null;
 }
 
 function rowToRecord(r: Row): SavedRecipeRecord {
@@ -31,6 +32,7 @@ function rowToRecord(r: Row): SavedRecipeRecord {
     recipe: r.recipe,
     heroImageRef: r.hero_image_ref,
     finishedImageRef: r.finished_image_ref,
+    detailImageRef: r.detail_image_ref,
   };
 }
 
@@ -46,6 +48,7 @@ function rowToSummary(r: Row): SavedRecipeSummary {
     difficulty: r.recipe.difficulty,
     hasHeroImage: Boolean(r.hero_image_ref),
     hasFinishedImage: Boolean(r.finished_image_ref),
+    hasDetailImage: Boolean(r.detail_image_ref),
   };
 }
 
@@ -81,6 +84,7 @@ export const supabaseRecipeRepository: RecipeRepository = {
       recipe: input.recipe,
       heroImageRef: input.heroImageRef ?? null,
       finishedImageRef: input.finishedImageRef ?? null,
+      detailImageRef: null,
     };
 
     const { error } = await sb.from(TABLE).insert({
@@ -92,6 +96,7 @@ export const supabaseRecipeRepository: RecipeRepository = {
       recipe: record.recipe,
       hero_image_ref: record.heroImageRef,
       finished_image_ref: record.finishedImageRef,
+      detail_image_ref: null,
     });
     if (error) throw new Error(`레시피 저장 실패: ${error.message}`);
     return record;
@@ -101,6 +106,7 @@ export const supabaseRecipeRepository: RecipeRepository = {
     const sb = getSupabaseAdmin();
     const dbUpdate: Record<string, unknown> = {};
     if ("finishedImageRef" in update) dbUpdate.finished_image_ref = update.finishedImageRef ?? null;
+    if ("detailImageRef" in update) dbUpdate.detail_image_ref = update.detailImageRef ?? null;
     if (Object.keys(dbUpdate).length === 0) return true;
 
     const { data, error } = await sb

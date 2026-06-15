@@ -13,6 +13,7 @@ export interface SavedRecipeRecord {
   recipe: RecipeDetail;
   heroImageRef?: string | null;
   finishedImageRef?: string | null;
+  detailImageRef?: string | null;
 }
 
 export interface SavedRecipeSummary {
@@ -26,6 +27,7 @@ export interface SavedRecipeSummary {
   difficulty: string;
   hasHeroImage: boolean;
   hasFinishedImage: boolean;
+  hasDetailImage: boolean;
 }
 
 export interface SaveRecipeInput {
@@ -37,6 +39,7 @@ export interface SaveRecipeInput {
 
 export interface PatchRecipeInput {
   finishedImageRef?: string | null;
+  detailImageRef?: string | null;
 }
 
 export interface RecipeRepository {
@@ -79,6 +82,7 @@ function toSummary(r: SavedRecipeRecord): SavedRecipeSummary {
     difficulty: r.recipe.difficulty,
     hasHeroImage: Boolean(r.heroImageRef),
     hasFinishedImage: Boolean(r.finishedImageRef),
+    hasDetailImage: Boolean(r.detailImageRef),
   };
 }
 
@@ -107,6 +111,7 @@ const fileRecipeRepository: RecipeRepository = {
       recipe: input.recipe,
       heroImageRef: input.heroImageRef ?? null,
       finishedImageRef: input.finishedImageRef ?? null,
+      detailImageRef: null,
     };
     const next = [record, ...filtered].slice(0, MAX_RECORDS);
     await writeAll(next);

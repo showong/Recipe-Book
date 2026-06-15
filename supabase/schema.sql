@@ -41,5 +41,9 @@ on conflict (id) do nothing;
 alter table public.recipes
   add column if not exists finished_image_ref text;
 
+-- 5) 상세 레시피 한장 이미지 레퍼런스 컬럼 추가 ----------------------------------
+alter table public.recipes
+  add column if not exists detail_image_ref text;
+
 -- 끝. 배포 환경변수에 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 를 설정하면
 -- 앱이 자동으로 파일 저장소 대신 이 Supabase 저장소를 사용한다.

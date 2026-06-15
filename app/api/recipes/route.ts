@@ -4,7 +4,7 @@ import { imageStore } from "@/lib/image-store";
 import { requireAdmin } from "@/lib/auth/admin";
 
 // GET /api/recipes            → 저장된 레시피 요약 목록
-// GET /api/recipes?id=xxx     → 단일 레시피 전체 (heroImage + finishedImage URL 포함)
+// GET /api/recipes?id=xxx     → 단일 레시피 전체 (heroImage + finishedImage + detailImage URL 포함)
 export async function GET(req: NextRequest) {
   try {
     const id = req.nextUrl.searchParams.get("id");
@@ -13,11 +13,12 @@ export async function GET(req: NextRequest) {
       if (!record) {
         return NextResponse.json({ error: "레시피를 찾을 수 없습니다." }, { status: 404 });
       }
-      const [heroImage, finishedImage] = await Promise.all([
+      const [heroImage, finishedImage, detailImage] = await Promise.all([
         imageStore.resolve(record.heroImageRef),
         imageStore.resolve(record.finishedImageRef),
+        imageStore.resolve(record.detailImageRef),
       ]);
-      return NextResponse.json({ recipe: { ...record, heroImage, finishedImage } });
+      return NextResponse.json({ recipe: { ...record, heroImage, finishedImage, detailImage } });
     }
     const recipes = await recipeRepository.list();
     return NextResponse.json({ recipes });
@@ -47,37 +48,49 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PATCH /api/recipes?id=xxx → 완성 요리 사진 업데이트 { finishedImage: dataUrl }
+// PATCH /api/recipes?id=xxx → 완성 요리 사진 또는 상세 레시피 이미지 업데이트
+// { finishedImage?: dataUrl, detailImage?: dataUrl }
 export async function PATCH(req: NextRequest) {
   try {
     const id = req.nextUrl.searchParams.get("id");
     if (!id) {
       return NextResponse.json({ error: "id가 필요합니다." }, { status: 400 });
     }
-    const { finishedImage } = await req.json();
-    if (!finishedImage) {
-      return NextResponse.json({ error: "finishedImage가 필요합니다." }, { status: 400 });
+    const body = await req.json() as { finishedImage?: string; detailImage?: string };
+    if (!body.finishedImage && !body.detailImage) {
+      return NextResponse.json({ error: "finishedImage 또는 detailImage가 필요합니다." }, { status: 400 });
     }
 
-    // 기존 완성 사진이 있으면 스토리지에서 삭제 후 새 이미지 저장
     const existing = await recipeRepository.get(id);
     if (!existing) {
       return NextResponse.json({ error: "레시피를 찾을 수 없습니다." }, { status: 404 });
     }
-    if (existing.finishedImageRef) {
-      await imageStore.remove(existing.finishedImageRef);
+
+    const patchInput: { finishedImageRef?: string | null; detailImageRef?: string | null } = {};
+    const result: { ok: boolean; finishedImageUrl?: string | null; detailImageUrl?: string | null } = { ok: true };
+
+    if (body.finishedImage) {
+      if (existing.finishedImageRef) await imageStore.remove(existing.finishedImageRef);
+      const finishedImageRef = await imageStore.put(body.finishedImage);
+      patchInput.finishedImageRef = finishedImageRef;
+      result.finishedImageUrl = await imageStore.resolve(finishedImageRef);
     }
 
-    const finishedImageRef = await imageStore.put(finishedImage);
-    const ok = await recipeRepository.patch(id, { finishedImageRef });
+    if (body.detailImage) {
+      if (existing.detailImageRef) await imageStore.remove(existing.detailImageRef);
+      const detailImageRef = await imageStore.put(body.detailImage);
+      patchInput.detailImageRef = detailImageRef;
+      result.detailImageUrl = await imageStore.resolve(detailImageRef);
+    }
+
+    const ok = await recipeRepository.patch(id, patchInput);
     if (!ok) {
       return NextResponse.json({ error: "레시피를 찾을 수 없습니다." }, { status: 404 });
     }
-    const resolvedUrl = await imageStore.resolve(finishedImageRef);
-    return NextResponse.json({ ok: true, finishedImageUrl: resolvedUrl });
+    return NextResponse.json(result);
   } catch (error) {
     console.error("[recipes] PATCH error:", error);
-    return NextResponse.json({ error: "완성 사진 저장 중 오류가 발생했습니다." }, { status: 500 });
+    return NextResponse.json({ error: "이미지 저장 중 오류가 발생했습니다." }, { status: 500 });
   }
 }
 
@@ -96,6 +109,7 @@ export async function DELETE(req: NextRequest) {
       await Promise.all([
         imageStore.remove(record.heroImageRef),
         imageStore.remove(record.finishedImageRef),
+        imageStore.remove(record.detailImageRef),
       ]);
     }
     const ok = await recipeRepository.remove(id);
