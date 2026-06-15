@@ -363,36 +363,83 @@ function RecipeDetailContent() {
     setTelegramError(null);
     try {
       const useVideo = reelIsVideo && !!reelVideoThumbnailUrl;
-      let base64: string;
-      let mimeType: string;
-      let filename: string;
+      const caption = `🐻 ${recipe.name} 릴스`;
 
       if (useVideo && reelVideoThumbnailUrl) {
-        const response = await fetch(reelVideoThumbnailUrl);
-        const blob = await response.blob();
-        const dataUrl = await new Promise<string>((res) => {
-          const reader = new FileReader();
-          reader.onloadend = () => res(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-        const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/)!;
-        mimeType = m[1];
-        base64 = m[2];
-        filename = `${recipe.name}-reel.webm`;
+        // Try presigned-URL path first so the video bypasses Vercel's 4.5 MB body limit.
+        const videoResponse = await fetch(reelVideoThumbnailUrl);
+        const blob = await videoResponse.blob();
+        const ext = blob.type.split("/")[1] ?? "webm";
+        const filename = `${recipe.name}-reel.${ext}`;
+
+        let sent = false;
+        try {
+          const presignRes = await fetch("/api/upload-video-presign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ filename }),
+          });
+          if (presignRes.ok) {
+            const { signedUrl, path, publicUrl } = await presignRes.json() as {
+              signedUrl: string; token: string; path: string; publicUrl: string;
+            };
+            const uploadForm = new FormData();
+            uploadForm.append("cacheControl", "3600");
+            uploadForm.append("", blob, filename);
+            const uploadRes = await fetch(signedUrl, { method: "POST", body: uploadForm });
+            if (uploadRes.ok) {
+              const res = await fetch("/api/send-telegram", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ videoUrl: publicUrl, storagePath: path, caption }),
+              });
+              const data = await res.json();
+              if (data.error) throw new Error(data.error);
+              sent = true;
+            }
+          }
+        } catch (presignErr) {
+          // Fall through to legacy base64 path.
+          if (presignErr instanceof Error && presignErr.message !== "전송 실패") {
+            console.warn("[sendToTelegram] presign path failed, falling back:", presignErr.message);
+          } else {
+            throw presignErr;
+          }
+        }
+
+        if (!sent) {
+          // Fallback: base64 encode and send directly (may hit 413 for large videos).
+          const dataUrl = await new Promise<string>((res) => {
+            const reader = new FileReader();
+            reader.onloadend = () => res(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+          const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/)!;
+          const res = await fetch("/api/send-telegram", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ data: m[2], mimeType: m[1], filename, caption }),
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+        }
       } else {
+        // Image thumbnail — small enough to send as base64.
         const m = reelThumbnail.match(/^data:([^;]+);base64,(.+)$/)!;
-        mimeType = m[1];
-        base64 = m[2];
-        filename = `${recipe.name}-thumbnail.jpg`;
+        const res = await fetch("/api/send-telegram", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            data: m[2],
+            mimeType: m[1],
+            filename: `${recipe.name}-thumbnail.jpg`,
+            caption,
+          }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
       }
 
-      const res = await fetch("/api/send-telegram", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: base64, mimeType, filename, caption: `🐻 ${recipe.name} 릴스` }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
       setTelegramSent(true);
       setTimeout(() => setTelegramSent(false), 3000);
     } catch (err) {
