@@ -912,11 +912,46 @@ function AdminShortsContent() {
     try {
       const name = loadedRecipe?.name ?? "recipe";
       const fd = new FormData();
+
       if (finalVideoBlobRef.current) {
         const { blob, ext } = finalVideoBlobRef.current;
-        fd.append("video", blob, `${name}-shorts.${ext}`);
-        fd.append("caption", `🎬 ${name} 쇼츠`);
+        const filename = `${name}-shorts.${ext}`;
+
+        // Try presigned-URL path first so the video bypasses Vercel's 4.5 MB body limit.
+        let uploadedViaPresign = false;
+        try {
+          const presignRes = await fetch("/api/upload-video-presign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ filename }),
+          });
+          if (presignRes.ok) {
+            const { signedUrl, path, publicUrl } = await presignRes.json() as {
+              signedUrl: string; token: string; path: string; publicUrl: string;
+            };
+            // Upload directly from browser to Supabase — does NOT go through Vercel.
+            const uploadForm = new FormData();
+            uploadForm.append("cacheControl", "3600");
+            uploadForm.append("", blob, filename);
+            const uploadRes = await fetch(signedUrl, { method: "POST", body: uploadForm });
+            if (uploadRes.ok) {
+              fd.append("videoUrl", publicUrl);
+              fd.append("storagePath", path);
+              fd.append("caption", `🎬 ${name} 쇼츠`);
+              uploadedViaPresign = true;
+            }
+          }
+        } catch {
+          // Presign path unavailable (e.g. local dev without Supabase) — fall through.
+        }
+
+        if (!uploadedViaPresign) {
+          // Fallback: send the blob directly (may fail with 413 on large files in prod).
+          fd.append("video", blob, filename);
+          fd.append("caption", `🎬 ${name} 쇼츠`);
+        }
       }
+
       SOCIAL_PLATFORMS.forEach(({ id }) => {
         if (socialPosts[id].trim()) fd.append(id, socialPosts[id]);
       });

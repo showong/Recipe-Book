@@ -16,6 +16,7 @@ const PROTECTED_API = [
   "/api/generate-shorts",
   "/api/generate-shorts-map",
   "/api/generate-social-post",
+  "/api/upload-video-presign",
 ];
 
 function isProtected(pathname: string): boolean {
@@ -55,5 +56,6 @@ export const config = {
     "/api/generate-shorts",
     "/api/generate-shorts-map",
     "/api/generate-social-post",
+    "/api/upload-video-presign",
   ],
 };
