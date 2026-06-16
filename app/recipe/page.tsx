@@ -1554,6 +1554,60 @@ function RecipeDetailContent() {
               </div>
             </div>
 
+            {/* 구매 필요 재료 — 외부 쇼핑 검색 */}
+            {neededIngredients.length > 0 && (
+              <div className="bg-white rounded-3xl shadow-md overflow-hidden">
+                <div className="px-6 py-4 flex items-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #fff7ed, #fed7aa)" }}>
+                  <span className="text-xl">🛒</span>
+                  <div>
+                    <h3 className="font-bold text-orange-700">구매 필요 재료 ({neededIngredients.length}가지)</h3>
+                    <p className="text-xs text-orange-500 mt-0.5">재료명을 클릭해 쿠팡·네이버에서 바로 검색하세요</p>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3">
+                  {neededIngredients.map((ing) => {
+                    const query = encodeURIComponent(`${ing.name} ${ing.amount}${ing.unit}`.trim());
+                    const coupangUrl = `https://www.coupang.com/np/search?q=${query}`;
+                    const naverUrl = `https://search.shopping.naver.com/search/all?query=${query}`;
+                    return (
+                      <div key={ing.name} className="rounded-2xl overflow-hidden"
+                        style={{ border: "1px solid #fed7aa" }}>
+                        <div className="flex items-center justify-between px-4 py-2.5"
+                          style={{ background: "#fff7ed" }}>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-base flex-shrink-0">🛒</span>
+                            <span className="font-bold text-sm text-orange-800 truncate">{ing.name}</span>
+                          </div>
+                          <span className="text-xs font-bold text-orange-600 flex-shrink-0 ml-2">
+                            {ing.amount}{ing.unit}
+                          </span>
+                        </div>
+                        <div className="flex gap-2 px-3 py-2.5" style={{ background: "#fffbf5" }}>
+                          <a
+                            href={coupangUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                            style={{ background: "linear-gradient(135deg, #e8391e, #ff6640)" }}>
+                            🛍 쿠팡 검색
+                          </a>
+                          <a
+                            href={naverUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                            style={{ background: "linear-gradient(135deg, #03c75a, #00a849)" }}>
+                            🟢 네이버 검색
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <button
               onClick={() => setActiveSection("steps")}
               className="w-full py-4 rounded-2xl text-white font-bold text-lg transition-all hover:opacity-90"
