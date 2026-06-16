@@ -1461,128 +1461,93 @@ function RecipeDetailContent() {
         {/* =========== INGREDIENTS SECTION =========== */}
         {activeSection === "ingredients" && (
           <div className="fade-in-up space-y-4">
-            {/* 재료 사진 카드 — 한국어 / 영어 */}
-            {(["ko", "en"] as const).map((lang) => {
-              const img = lang === "ko" ? ingredientsImage : ingredientsImageEn;
-              const loading = lang === "ko" ? ingredientsImageLoading : ingredientsImageEnLoading;
-              const label = lang === "ko" ? "🇰🇷 재료 사진 (한국어)" : "🌎 Ingredients Photo (English)";
-              return (
-                <div key={lang} className="bg-white rounded-3xl shadow-md overflow-hidden">
-                  <div className="px-5 py-3 flex items-center justify-between"
-                    style={{ background: "linear-gradient(135deg, #f8fafc, #e2e8f0)" }}>
-                    <span className="text-sm font-bold text-gray-600">{label}</span>
-                    {loading && (
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
-                        <svg className="spinner w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                        생성 중...
-                      </span>
-                    )}
-                  </div>
-                  <div className="relative w-full mx-auto bg-gray-50"
-                    style={{ aspectRatio: "1 / 1", maxWidth: "400px" }}>
-                    {img ? (
-                      <Image src={img} alt="재료" fill className="object-cover" unoptimized />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        {loading ? (
-                          <div className="text-center">
-                            <div className="text-4xl mb-2">🥕</div>
-                            <p className="text-sm text-gray-400">생성 중...</p>
-                          </div>
-                        ) : (
-                          <span className="text-5xl opacity-20">📷</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="px-4 py-3 flex gap-2"
-                    style={{ background: "linear-gradient(135deg, #f8fafc, #e2e8f0)" }}>
-                    {img && (
-                      <button
-                        onClick={() => { const a = document.createElement("a"); a.href = img; a.download = `${recipe.name}-ingredients-${lang}.png`; a.click(); }}
-                        className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
-                        style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
-                        ⬇️ 저장
-                      </button>
-                    )}
-                    <button
-                      onClick={() => generateIngredientsImage(recipe.name, recipe.ingredients, lang)}
-                      disabled={loading}
-                      className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold border-2 transition-all hover:bg-gray-100 disabled:opacity-40"
-                      style={{ borderColor: "#94a3b8", color: "#64748b" }}>
-                      {loading ? <svg className="spinner w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> : "🔄"} {img ? "재생성" : "생성"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Owned ingredients card */}
+            {/* 재료 사진 카드 (한국어) */}
             <div className="bg-white rounded-3xl shadow-md overflow-hidden">
-              <div className="px-6 py-4 flex items-center gap-2"
-                style={{ background: "linear-gradient(135deg, #f0fdf4, #dcfce7)" }}>
-                <span className="text-xl">✅</span>
-                <h3 className="font-bold text-green-700">보유 재료 ({ownedIngredients.length}가지)</h3>
+              <div className="px-5 py-3 flex items-center justify-between"
+                style={{ background: "linear-gradient(135deg, #f8fafc, #e2e8f0)" }}>
+                <span className="text-sm font-bold text-gray-600">🥕 재료 사진</span>
+                {ingredientsImageLoading && (
+                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                    <svg className="spinner w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    생성 중...
+                  </span>
+                )}
               </div>
-              <div className="p-6">
-                <div className="grid grid-cols-2 gap-3">
-                  {ownedIngredients.map((ing) => (
-                    <div key={ing.name} className="flex items-center justify-between p-3 rounded-xl"
-                      style={{ background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
-                      <span className="font-semibold text-sm text-gray-700">{ing.name}</span>
-                      <span className="text-sm font-bold" style={{ color: "#16a34a" }}>
-                        {ing.amount}{ing.unit}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+              <div className="relative w-full mx-auto bg-gray-50"
+                style={{ aspectRatio: "1 / 1", maxWidth: "400px" }}>
+                {ingredientsImage ? (
+                  <Image src={ingredientsImage} alt="재료" fill className="object-cover" unoptimized />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    {ingredientsImageLoading ? (
+                      <div className="text-center">
+                        <div className="text-4xl mb-2">🥕</div>
+                        <p className="text-sm text-gray-400">생성 중...</p>
+                      </div>
+                    ) : (
+                      <span className="text-5xl opacity-20">📷</span>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="px-4 py-3 flex gap-2"
+                style={{ background: "linear-gradient(135deg, #f8fafc, #e2e8f0)" }}>
+                {ingredientsImage && (
+                  <button
+                    onClick={() => { const a = document.createElement("a"); a.href = ingredientsImage; a.download = `${recipe.name}-ingredients.png`; a.click(); }}
+                    className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
+                    style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
+                    ⬇️ 저장
+                  </button>
+                )}
+                <button
+                  onClick={() => generateIngredientsImage(recipe.name, recipe.ingredients)}
+                  disabled={ingredientsImageLoading}
+                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold border-2 transition-all hover:bg-gray-100 disabled:opacity-40"
+                  style={{ borderColor: "#94a3b8", color: "#64748b" }}>
+                  {ingredientsImageLoading ? <svg className="spinner w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> : "🔄"} {ingredientsImage ? "재생성" : "생성"}
+                </button>
               </div>
             </div>
 
-            {neededIngredients.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-md overflow-hidden">
-                <div className="px-6 py-4 flex items-center gap-2"
-                  style={{ background: "linear-gradient(135deg, #fff7ed, #fed7aa)" }}>
-                  <span className="text-xl">🛍️</span>
-                  <h3 className="font-bold text-orange-700">추가 구매 필요 ({neededIngredients.length}가지)</h3>
-                </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-2 gap-3">
-                    {neededIngredients.map((ing) => (
-                      <div key={ing.name} className="flex items-center justify-between p-3 rounded-xl"
-                        style={{ background: "#fff7ed", border: "1px solid #fed7aa" }}>
-                        <span className="font-semibold text-sm text-gray-700">{ing.name}</span>
-                        <span className="text-sm font-bold" style={{ color: "#ea580c" }}>
-                          {ing.amount}{ing.unit}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+            {/* 전체 재료 목록 — 보유 / 구매 필요 구분 */}
+            <div className="bg-white rounded-3xl shadow-md overflow-hidden">
+              <div className="px-6 py-4 flex items-center justify-between"
+                style={{ background: "linear-gradient(135deg, #f8fafc, #e2e8f0)" }}>
+                <h3 className="font-bold text-gray-700 flex items-center gap-2">
+                  <span>📋</span> 전체 재료 ({recipe.ingredients.length}가지)
+                </h3>
+                <div className="flex items-center gap-3 text-xs font-bold">
+                  <span className="flex items-center gap-1" style={{ color: "#16a34a" }}>
+                    <span>✅</span> 보유 {ownedIngredients.length}
+                  </span>
+                  {neededIngredients.length > 0 && (
+                    <span className="flex items-center gap-1" style={{ color: "#ea580c" }}>
+                      <span>🛒</span> 구매 {neededIngredients.length}
+                    </span>
+                  )}
                 </div>
               </div>
-            )}
-
-            {/* Full list */}
-            <div className="bg-white rounded-3xl shadow-md p-6">
-              <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
-                <span>📋</span> 전체 재료 목록
-              </h3>
-              <div className="space-y-2">
+              <div className="p-4 space-y-2">
                 {recipe.ingredients.map((ing) => (
-                  <div key={ing.name}
-                    className="flex items-center justify-between py-2 border-b last:border-b-0"
-                    style={{ borderColor: "#f3f4f6" }}>
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{ing.isOwned ? "✅" : "🔲"}</span>
-                      <span className={`font-medium text-sm ${ing.isOwned ? "text-gray-700" : "text-orange-600"}`}>
+                  <div
+                    key={ing.name}
+                    className="flex items-center justify-between px-4 py-3 rounded-2xl"
+                    style={ing.isOwned
+                      ? { background: "#f0fdf4", border: "1px solid #bbf7d0" }
+                      : { background: "#fff7ed", border: "1px solid #fed7aa" }}>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-base flex-shrink-0">{ing.isOwned ? "✅" : "🛒"}</span>
+                      <span className={`font-semibold text-sm truncate ${ing.isOwned ? "text-gray-700" : "text-orange-700"}`}>
                         {ing.name}
                       </span>
                     </div>
-                    <span className="text-sm font-bold text-gray-600">
-                      {ing.amount} {ing.unit}
+                    <span className="text-sm font-bold flex-shrink-0 ml-3"
+                      style={{ color: ing.isOwned ? "#16a34a" : "#ea580c" }}>
+                      {ing.amount}{ing.unit}
                     </span>
                   </div>
                 ))}
@@ -1978,20 +1943,6 @@ function RecipeDetailContent() {
               </div>
             )}
 
-            {/* 음성 조리 모드 */}
-            <button
-              onClick={() => {
-                const encoded = encodeURIComponent(JSON.stringify({
-                  recipe,
-                  character: characterVersion,
-                }));
-                router.push(`/cook-mode?data=${encoded}`);
-              }}
-              className="w-full mt-4 py-4 rounded-2xl text-white font-bold text-lg transition-all hover:opacity-90 flex items-center justify-center gap-2"
-              style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
-              🎙️ 음성 조리 모드 시작
-            </button>
-
             <button
               onClick={() => {
                 setActiveSection("summary");
@@ -2013,21 +1964,7 @@ function RecipeDetailContent() {
               summaryImageLoading={summaryImageLoading}
             />
 
-            {/* 음성 조리 모드 */}
-            <button
-              onClick={() => {
-                const encoded = encodeURIComponent(JSON.stringify({
-                  recipe,
-                  character: characterVersion,
-                }));
-                router.push(`/cook-mode?data=${encoded}`);
-              }}
-              className="w-full mt-6 py-4 rounded-2xl text-white font-bold text-lg transition-all hover:opacity-90 flex items-center justify-center gap-2"
-              style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
-              🎙️ 음성 조리 모드로 요리하기
-            </button>
-
-            <div className="mt-3 flex gap-3">
+            <div className="mt-6 flex gap-3">
               <button
                 onClick={() => router.push("/")}
                 className="flex-1 py-4 rounded-2xl font-bold text-base transition-all
