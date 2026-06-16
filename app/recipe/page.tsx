@@ -1836,7 +1836,7 @@ function RecipeDetailContent() {
                           {finishedUploadStatus === "idle" && finishedDishImage && <span className="text-xs">✅ 업로드 완료</span>}
                         </p>
                         <p className="text-xs text-gray-500 mt-1 mb-3">
-                          직접 만든 완성 요리 사진을 올려야 이미지 저장과 영상 생성을 진행할 수 있어요.
+                          직접 만든 완성 요리 사진을 올려야 게시물 영상을 만들 수 있어요. (이미지 다운로드는 사진 없이도 가능)
                           {savedRecipeId && " 사진은 관리자 쇼츠 썸네일로도 자동 연동됩니다."}
                         </p>
                         {finishedUploadError && (
@@ -1866,13 +1866,11 @@ function RecipeDetailContent() {
                       </div>
 
                       <a
-                        href={finishedDishImage ? recipeGuideImage : undefined}
-                        download={finishedDishImage ? `${recipe.name}-상세조리법.png` : undefined}
-                        aria-disabled={!finishedDishImage}
-                        onClick={(e) => { if (!finishedDishImage) e.preventDefault(); }}
-                        className={`block w-full text-center py-3 rounded-2xl text-white font-bold transition-all ${finishedDishImage ? "hover:opacity-90 cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
+                        href={recipeGuideImage}
+                        download={`${recipe.name}-상세조리법.png`}
+                        className="block w-full text-center py-3 rounded-2xl text-white font-bold transition-all hover:opacity-90 cursor-pointer"
                         style={{ background: "linear-gradient(135deg, #16a34a, #84cc16)" }}>
-                        {finishedDishImage ? "⬇️ 이미지 다운로드" : "🔒 완성 요리 사진을 먼저 올려주세요"}
+                        ⬇️ 이미지 다운로드
                       </a>
 
                       {/* 게시물(피드)용 영상 — 정지 이미지 + TTS 음성 연속 재생 */}
