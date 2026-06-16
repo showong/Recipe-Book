@@ -6,6 +6,74 @@ import { RecipeDetail, RecipeStep } from "@/types/recipe";
 import { Suspense } from "react";
 import Image from "next/image";
 
+// ── 여러 음성 URL을 디코드해 하나의 WAV 파일로 이어붙인다 ─────────────────────
+function audioBufferToWav(buffer: AudioBuffer): Blob {
+  const sampleRate = buffer.sampleRate;
+  const samples = buffer.getChannelData(0);
+  const dataSize = samples.length * 2;
+  const ab = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(ab);
+  const writeStr = (off: number, s: string) => {
+    for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
+  };
+  writeStr(0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);   // PCM
+  view.setUint16(22, 1, true);   // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, "data");
+  view.setUint32(40, dataSize, true);
+  let off = 44;
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    off += 2;
+  }
+  return new Blob([ab], { type: "audio/wav" });
+}
+
+// 단계별 음성(mp3 data URL 또는 다운로드 URL)을 순서대로 디코드해, 사이에 무음
+// 간격(gapSec)을 두고 하나의 모노 WAV 로 합친다. 브라우저에서 바로 재생 가능.
+async function mergeAudioUrlsToWav(urls: string[], gapSec = 0.5): Promise<Blob> {
+  const ctx = new AudioContext();
+  try {
+    const buffers: AudioBuffer[] = [];
+    for (const url of urls) {
+      const arr = await (await fetch(url)).arrayBuffer();
+      buffers.push(await ctx.decodeAudioData(arr));
+    }
+    const sampleRate = ctx.sampleRate;
+    const gap = Math.round(gapSec * sampleRate);
+    const total = buffers.reduce(
+      (sum, b, i) => sum + b.length + (i < buffers.length - 1 ? gap : 0),
+      0,
+    );
+    const out = ctx.createBuffer(1, Math.max(1, total), sampleRate);
+    const data = out.getChannelData(0);
+    let offset = 0;
+    for (let i = 0; i < buffers.length; i++) {
+      const b = buffers[i];
+      const ch0 = b.getChannelData(0);
+      if (b.numberOfChannels > 1) {
+        const ch1 = b.getChannelData(1);
+        for (let s = 0; s < b.length; s++) data[offset + s] = (ch0[s] + ch1[s]) / 2;
+      } else {
+        data.set(ch0, offset);
+      }
+      offset += b.length + (i < buffers.length - 1 ? gap : 0);
+    }
+    return audioBufferToWav(out);
+  } finally {
+    await ctx.close();
+  }
+}
+
 function RecipeDetailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -78,11 +146,19 @@ function RecipeDetailContent() {
   // Telegram 전송 상태
   const [telegramStatus, setTelegramStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [telegramError, setTelegramError] = useState<string | null>(null);
-  // TTS (스텝별)
-  const [ttsLoading, setTtsLoading] = useState<Record<number, boolean>>({});
+  // TTS (스텝별) — 자동 생성 후 하나의 음성으로 병합한다. 단계별 URL 은
+  // 게시물/릴스 영상 합성에서 계속 사용하므로 유지한다.
   const [ttsAudioUrls, setTtsAudioUrls] = useState<Record<number, string>>({});
   const [ttsTexts, setTtsTexts] = useState<Record<number, string>>({});
   const [ttsErrors, setTtsErrors] = useState<Record<number, string>>({});
+  // 자동 음성 생성 파이프라인 상태
+  const [stepTtsPhase, setStepTtsPhase] = useState<"idle" | "generating" | "merging" | "done" | "error">("idle");
+  const [stepTtsProgress, setStepTtsProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  const [stepTtsError, setStepTtsError] = useState<string | null>(null);
+  const [mergedAudioUrl, setMergedAudioUrl] = useState<string | null>(null);
+  const stepTtsStartedRef = useRef(false);
+  // 조리 단계 뷰어 — 한 번에 한 단계씩 집중해서 보여준다
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   // 게시글 커버 이미지 (1:1)
   const [postCoverImage, setPostCoverImage] = useState<string | null>(null);
   const [postCoverLoading, setPostCoverLoading] = useState(false);
@@ -779,9 +855,8 @@ function RecipeDetailContent() {
     }
   };
 
-  const generateStepTts = async (step: RecipeStep) => {
+  const generateStepTts = async (step: RecipeStep): Promise<string | null> => {
     const num = step.number;
-    setTtsLoading((p) => ({ ...p, [num]: true }));
     setTtsErrors((p) => ({ ...p, [num]: "" }));
     try {
       // 순수 조리 설명만 구어체 변환 — 팁·포인트 등 부수 내용 제외
@@ -794,16 +869,71 @@ function RecipeDetailContent() {
       const data = await res.json();
       if (data.error) {
         setTtsErrors((p) => ({ ...p, [num]: data.error }));
-      } else {
-        setTtsAudioUrls((p) => ({ ...p, [num]: data.audioUrl }));
-        if (data.speechText) setTtsTexts((p) => ({ ...p, [num]: data.speechText }));
+        return null;
       }
+      setTtsAudioUrls((p) => ({ ...p, [num]: data.audioUrl }));
+      if (data.speechText) setTtsTexts((p) => ({ ...p, [num]: data.speechText }));
+      return (data.audioUrl as string) ?? null;
     } catch (err) {
       setTtsErrors((p) => ({ ...p, [num]: err instanceof Error ? err.message : "음성 생성 실패" }));
-    } finally {
-      setTtsLoading((p) => ({ ...p, [num]: false }));
+      return null;
     }
   };
+
+  // 조리법 화면 진입 시 모든 단계 음성을 자동으로(1초 간격) 생성한 뒤,
+  // 하나의 음성 파일로 병합한다. 버튼 없이 백그라운드에서 진행된다.
+  const runStepTtsPipeline = async () => {
+    if (!recipe) return;
+    const steps = [...recipe.steps].sort((a, b) => a.number - b.number);
+    if (steps.length === 0) return;
+
+    setStepTtsError(null);
+    setMergedAudioUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+    setStepTtsPhase("generating");
+    setStepTtsProgress({ current: 0, total: steps.length });
+
+    const collected: { number: number; url: string }[] = [];
+    for (let i = 0; i < steps.length; i++) {
+      setStepTtsProgress({ current: i + 1, total: steps.length });
+      const url = await generateStepTts(steps[i]);
+      if (url) collected.push({ number: steps[i].number, url });
+      // 각 음성 사이 1초 간격 (마지막 단계 제외)
+      if (i < steps.length - 1) await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    if (collected.length === 0) {
+      setStepTtsError("음성 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      setStepTtsPhase("error");
+      stepTtsStartedRef.current = false; // 재시도 허용
+      return;
+    }
+
+    try {
+      setStepTtsPhase("merging");
+      const ordered = collected.sort((a, b) => a.number - b.number).map((c) => c.url);
+      const blob = await mergeAudioUrlsToWav(ordered, 0.5);
+      setMergedAudioUrl(URL.createObjectURL(blob));
+      setStepTtsPhase("done");
+    } catch (err) {
+      setStepTtsError(err instanceof Error ? err.message : "음성 병합에 실패했습니다.");
+      setStepTtsPhase("error");
+      stepTtsStartedRef.current = false; // 재시도 허용
+    }
+  };
+
+  const retryStepTts = () => {
+    stepTtsStartedRef.current = true;
+    void runStepTtsPipeline();
+  };
+
+  // 조리법 탭을 처음 열면 음성 자동 생성을 1회 시작한다.
+  useEffect(() => {
+    if (activeSection !== "steps" || !recipe) return;
+    if (stepTtsStartedRef.current) return;
+    stepTtsStartedRef.current = true;
+    void runStepTtsPipeline();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection, recipe]);
 
   const handleReelImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1492,109 +1622,199 @@ function RecipeDetailContent() {
               </div>
             )}
 
-            <div className="space-y-4">
-              {recipe.steps.map((step) => (
-                <div
-                  key={step.number}
-                  className={`step-card bg-white rounded-3xl shadow-md overflow-hidden
-                    ${step.isKick ? "is-kick" : ""}`}
-                  style={step.isKick ? {} : { border: "1px solid #f3f4f6" }}
-                >
-                  <div className="p-6">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl
-                          ${step.isKick ? "bg-orange-100" : "bg-gray-100"}`}>
-                          {step.emoji}
-                        </div>
-                        <div className="text-center mt-1">
-                          <span className={`text-xs font-bold ${step.isKick ? "text-orange-500" : "text-gray-400"}`}>
-                            {step.number}
-                          </span>
-                        </div>
-                      </div>
+            {/* 조리 음성 — 자동 생성 후 하나로 병합 (버튼 없음) */}
+            <div className="mb-6 rounded-3xl shadow-md overflow-hidden bg-white">
+              <div className="px-5 py-4 flex items-center gap-3"
+                style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
+                <span className="text-2xl">🎙️</span>
+                <div className="flex-1">
+                  <p className="text-white font-extrabold text-sm">조리 음성 (자동 생성)</p>
+                  <p className="text-white/80 text-xs">모든 단계 음성을 자동으로 만들어 하나로 이어드려요</p>
+                </div>
+              </div>
+              <div className="p-5">
+                {(stepTtsPhase === "generating" || stepTtsPhase === "merging") && (
+                  <div className="flex flex-col items-center gap-3 py-6">
+                    <svg className="spinner w-8 h-8 text-sky-500" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    <p className="text-sm font-bold text-gray-600">
+                      {stepTtsPhase === "merging"
+                        ? "음성을 하나로 합치는 중..."
+                        : `음성 생성 중... (${stepTtsProgress.current}/${stepTtsProgress.total})`}
+                    </p>
+                    <div className="w-full max-w-xs h-2 rounded-full overflow-hidden bg-gray-100">
+                      <div className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${stepTtsPhase === "merging"
+                            ? 100
+                            : Math.round((stepTtsProgress.current / Math.max(1, stepTtsProgress.total)) * 100)}%`,
+                          background: "linear-gradient(90deg,#0ea5e9,#6366f1)",
+                        }} />
+                    </div>
+                    <p className="text-xs text-gray-400">각 단계 음성을 1초 간격으로 생성하고 있어요</p>
+                  </div>
+                )}
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <h4 className={`font-extrabold text-base ${step.isKick ? "text-orange-700" : "text-gray-800"}`}>
-                            {step.title}
-                          </h4>
-                          {step.time && (
-                            <span className="text-xs px-2 py-0.5 rounded-full"
-                              style={{ background: "#f3f4f6", color: "#6b7280" }}>
-                              ⏱ {step.time}
+                {stepTtsPhase === "done" && mergedAudioUrl && (
+                  <div className="space-y-3">
+                    <p className="flex items-center gap-2 text-sm font-bold text-green-600">
+                      <span>✅</span> 전체 조리 음성이 준비됐어요 ({recipe.steps.length}단계)
+                    </p>
+                    <audio controls src={mergedAudioUrl} className="w-full h-11" />
+                    <a
+                      href={mergedAudioUrl}
+                      download={`${recipe.name}-조리음성.wav`}
+                      className="block w-full text-center py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
+                      style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
+                      ⬇️ 음성 다운로드
+                    </a>
+                  </div>
+                )}
+
+                {stepTtsPhase === "error" && (
+                  <div className="flex flex-col items-center gap-3 py-4">
+                    <p className="text-sm text-red-500 text-center">⚠️ {stepTtsError ?? "음성 생성에 실패했습니다."}</p>
+                    <button
+                      onClick={retryStepTts}
+                      className="px-5 py-2.5 rounded-xl text-white text-sm font-bold transition-all hover:opacity-90"
+                      style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
+                      🔄 다시 시도
+                    </button>
+                  </div>
+                )}
+
+                {stepTtsPhase === "idle" && (
+                  <p className="text-sm text-gray-400 text-center py-4">조리법을 열면 음성이 자동으로 생성됩니다.</p>
+                )}
+              </div>
+            </div>
+
+            {/* 단계 진행 표시 — 번호 칩 (현재 단계 강조 · 완료 단계 체크) */}
+            <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1">
+              {recipe.steps.map((s, i) => {
+                const active = i === currentStepIndex;
+                const done = i < currentStepIndex;
+                return (
+                  <button
+                    key={s.number}
+                    onClick={() => setCurrentStepIndex(i)}
+                    aria-label={`단계 ${s.number}`}
+                    className="flex-shrink-0 flex items-center justify-center rounded-full font-bold transition-all"
+                    style={{
+                      width: active ? 44 : 36,
+                      height: active ? 44 : 36,
+                      fontSize: active ? 18 : 14,
+                      background: active
+                        ? "linear-gradient(135deg, #ff6b35, #ffc857)"
+                        : s.isKick ? "rgba(255,107,53,0.15)" : "#f3f4f6",
+                      color: active ? "#fff" : s.isKick ? "#ea580c" : "#9ca3af",
+                      boxShadow: active ? "0 4px 12px rgba(255,107,53,0.4)" : "none",
+                    }}>
+                    {done ? "✓" : s.number}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 현재 단계 — 한 번에 한 단계씩 집중해서 크게 표시 */}
+            {(() => {
+              const step = recipe.steps[currentStepIndex];
+              if (!step) return null;
+              const isFirst = currentStepIndex === 0;
+              const isLast = currentStepIndex === recipe.steps.length - 1;
+              return (
+                <div
+                  className={`step-card bg-white rounded-3xl shadow-lg overflow-hidden ${step.isKick ? "is-kick" : ""}`}
+                  style={step.isKick ? {} : { border: "1px solid #f3f4f6" }}>
+                  {/* 헤더: 큰 번호 배지 + 진행 표시 */}
+                  <div className="px-6 pt-6 pb-4 flex items-center justify-between"
+                    style={{ background: step.isKick
+                      ? "linear-gradient(135deg,#fff7ed,#ffedd5)"
+                      : "linear-gradient(135deg,#f8fafc,#f1f5f9)" }}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0"
+                        style={{ background: step.isKick ? "#fed7aa" : "#fff" }}>
+                        {step.emoji}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold uppercase tracking-wider"
+                            style={{ color: step.isKick ? "#ea580c" : "#94a3b8" }}>
+                            STEP {step.number}
+                          </span>
+                          {step.isKick && (
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full text-white"
+                              style={{ background: "linear-gradient(135deg,#ff6b35,#ffc857)" }}>
+                              ⭐ 성공 포인트
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 leading-relaxed">{step.description}</p>
-
-                        {step.isKick && step.kickReason && (
-                          <div className="mt-3 p-3 rounded-xl text-sm font-medium"
-                            style={{ background: "rgba(255, 107, 53, 0.08)", color: "#c2410c" }}>
-                            💡 <span className="font-bold">포인트:</span> {step.kickReason}
-                          </div>
-                        )}
-
-                        {step.parallel && (
-                          <div className="mt-2 p-2.5 rounded-xl text-xs flex items-start gap-2"
-                            style={{ background: "#f0fdf4", color: "#16a34a" }}>
-                            <span className="text-base">⚡</span>
-                            <div><span className="font-bold">시간 절약:</span> {step.parallel}</div>
-                          </div>
-                        )}
-
-                        {step.tip && (
-                          <div className="mt-2 p-2.5 rounded-xl text-xs flex items-start gap-2"
-                            style={{ background: "#eff6ff", color: "#1d4ed8" }}>
-                            <span className="text-base">💡</span>
-                            <div><span className="font-bold">팁:</span> {step.tip}</div>
-                          </div>
-                        )}
+                        <h4 className={`font-extrabold text-lg leading-snug ${step.isKick ? "text-orange-700" : "text-gray-800"}`}>
+                          {step.title}
+                        </h4>
                       </div>
                     </div>
+                    <span className="text-sm font-bold text-gray-400 flex-shrink-0 ml-2">
+                      {currentStepIndex + 1}/{recipe.steps.length}
+                    </span>
                   </div>
 
-                  {/* 단계 TTS 음성 */}
-                  <div className="px-4 py-3 border-t flex flex-col gap-2"
-                    style={{ borderColor: step.isKick ? "rgba(255,107,53,0.15)" : "#f3f4f6",
-                             background: "linear-gradient(to right, #f0f9ff, #fafafa)" }}>
-                    <button
-                      onClick={() => generateStepTts(step)}
-                      disabled={!!ttsLoading[step.number]}
-                      className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 disabled:opacity-50"
-                      style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
-                      {ttsLoading[step.number] ? (
-                        <>
-                          <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                          </svg>
-                          음성 생성 중...
-                        </>
-                      ) : ttsAudioUrls[step.number] ? "🔄 음성 재생성" : "🎙️ 이 단계 음성 생성"}
-                    </button>
+                  {/* 본문 */}
+                  <div className="p-6 pt-5">
+                    {step.time && (
+                      <span className="inline-flex items-center text-xs px-2.5 py-1 rounded-full mb-3"
+                        style={{ background: "#f3f4f6", color: "#6b7280" }}>
+                        ⏱ {step.time}
+                      </span>
+                    )}
+                    <p className="text-base text-gray-700 leading-relaxed">{step.description}</p>
 
-                    {ttsErrors[step.number] && (
-                      <p className="text-xs text-red-500 px-1">⚠️ {ttsErrors[step.number]}</p>
+                    {step.isKick && step.kickReason && (
+                      <div className="mt-4 p-4 rounded-2xl text-sm font-medium"
+                        style={{ background: "rgba(255, 107, 53, 0.08)", color: "#c2410c" }}>
+                        💡 <span className="font-bold">포인트:</span> {step.kickReason}
+                      </div>
                     )}
 
-                    {ttsAudioUrls[step.number] && !ttsLoading[step.number] && (
-                      <div className="flex items-center gap-2">
-                        <audio controls src={ttsAudioUrls[step.number]} className="flex-1 h-9" />
-                        <a
-                          href={ttsAudioUrls[step.number]}
-                          download={`${recipe.name}-step${step.number}-voice.mp3`}
-                          className="flex-shrink-0 px-3 py-2 rounded-xl text-white text-xs font-bold"
-                          style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
-                          ⬇️
-                        </a>
+                    {step.parallel && (
+                      <div className="mt-3 p-3 rounded-2xl text-sm flex items-start gap-2"
+                        style={{ background: "#f0fdf4", color: "#16a34a" }}>
+                        <span className="text-base">⚡</span>
+                        <div><span className="font-bold">시간 절약:</span> {step.parallel}</div>
+                      </div>
+                    )}
+
+                    {step.tip && (
+                      <div className="mt-3 p-3 rounded-2xl text-sm flex items-start gap-2"
+                        style={{ background: "#eff6ff", color: "#1d4ed8" }}>
+                        <span className="text-base">💡</span>
+                        <div><span className="font-bold">팁:</span> {step.tip}</div>
                       </div>
                     )}
                   </div>
 
+                  {/* 이전 / 다음 네비게이션 */}
+                  <div className="px-6 pb-6 flex items-center gap-3">
+                    <button
+                      onClick={() => setCurrentStepIndex((i) => Math.max(0, i - 1))}
+                      disabled={isFirst}
+                      className="flex-1 py-3 rounded-2xl font-bold text-sm border-2 transition-all disabled:opacity-30"
+                      style={{ borderColor: "#e5e7eb", color: "#6b7280" }}>
+                      ← 이전
+                    </button>
+                    <button
+                      onClick={() => setCurrentStepIndex((i) => Math.min(recipe.steps.length - 1, i + 1))}
+                      disabled={isLast}
+                      className="flex-1 py-3 rounded-2xl font-bold text-sm text-white transition-all disabled:opacity-30"
+                      style={{ background: "linear-gradient(135deg, #ff6b35, #ffc857)" }}>
+                      다음 →
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
+              );
+            })()}
 
             {/* 상세 레시피 한장 이미지 (gpt-image-2) — 모든 단계 음성 생성 후 활성화 */}
             {(() => {
