@@ -171,10 +171,10 @@ function RecipeDetailContent() {
   const [postCoverEnStyleName, setPostCoverEnStyleName] = useState<string | null>(null);
   // 캐릭터 버전
   const [characterVersion, setCharacterVersion] = useState<string>("cute_bear");
-  // 구매 필요 재료 — 네이버 쇼핑 인라인 상품 카드
+  // 구매 필요 재료 — 네이버 쇼핑 바텀 시트
   type NaverProduct = { title: string; link: string; image: string; price: number; mallName: string };
   const [productResults, setProductResults] = useState<Record<string, NaverProduct[] | "loading" | "none">>({});
-  const [expandedIngredient, setExpandedIngredient] = useState<string | null>(null);
+  const [shoppingSheet, setShoppingSheet] = useState<{ name: string; amount: string; unit: string } | null>(null);
 
   // 페이로드는 sessionStorage에서 한 번만 소비한다. effect가 재실행되면
   // (Strict Mode 이중 호출 등) 이미 제거된 키를 읽어 홈으로 튕기므로 가드한다.
@@ -939,21 +939,22 @@ function RecipeDetailContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSection, recipe]);
 
-  // hover 시 해당 재료 상품을 lazy fetch한다.
-  const fetchProductsForIngredient = (ingName: string) => {
-    if (productResults[ingName]) return; // 이미 검색됨
-    setProductResults((prev) => ({ ...prev, [ingName]: "loading" }));
-    fetch(`/api/search-products?query=${encodeURIComponent(ingName)}`)
+  // 카트 클릭 — 바텀 시트를 열고 아직 검색 안 된 재료면 fetch한다.
+  const openShoppingSheet = (ing: { name: string; amount: string; unit: string }) => {
+    setShoppingSheet(ing);
+    if (productResults[ing.name]) return;
+    setProductResults((prev) => ({ ...prev, [ing.name]: "loading" }));
+    fetch(`/api/search-products?query=${encodeURIComponent(ing.name)}`)
       .then((r) => r.json())
       .then((data: { products?: NaverProduct[] }) => {
         const products = data.products ?? [];
         setProductResults((prev) => ({
           ...prev,
-          [ingName]: products.length > 0 ? products : "none",
+          [ing.name]: products.length > 0 ? products : "none",
         }));
       })
       .catch(() => {
-        setProductResults((prev) => ({ ...prev, [ingName]: "none" }));
+        setProductResults((prev) => ({ ...prev, [ing.name]: "none" }));
       });
   };
 
@@ -1391,8 +1392,127 @@ function RecipeDetailContent() {
   const ownedIngredients = recipe.ingredients.filter((i) => i.isOwned);
   const neededIngredients = recipe.ingredients.filter((i) => !i.isOwned);
 
+  // 바텀 시트에 표시할 상품 결과
+  const sheetResult = shoppingSheet ? productResults[shoppingSheet.name] : null;
+  const sheetFallbackQuery = shoppingSheet ? encodeURIComponent(shoppingSheet.name) : "";
+
   return (
     <div className="min-h-screen pb-20">
+      {/* 쇼핑 바텀 시트 — 재료 카트 클릭 시 표시 */}
+      {shoppingSheet && (
+        <>
+          {/* 딤 배경 */}
+          <div
+            className="fixed inset-0 z-40"
+            style={{ background: "rgba(0,0,0,0.45)" }}
+            onClick={() => setShoppingSheet(null)}
+          />
+          {/* 시트 본체 */}
+          <div
+            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-white"
+            style={{ maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+            {/* 핸들 + 헤더 */}
+            <div className="flex-shrink-0">
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-gray-300" />
+              </div>
+              <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100">
+                <div>
+                  <p className="font-bold text-gray-800 text-base">🛒 {shoppingSheet.name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{shoppingSheet.amount}{shoppingSheet.unit} 필요 · 추천 상품</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShoppingSheet(null)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors text-sm font-bold">
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* 상품 목록 스크롤 영역 */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+              {sheetResult === "loading" && (
+                <div className="flex flex-col items-center justify-center py-12 gap-3 text-orange-400">
+                  <span className="animate-spin inline-block w-8 h-8 border-4 border-orange-200 border-t-orange-500 rounded-full" />
+                  <p className="text-sm">상품 검색 중...</p>
+                </div>
+              )}
+
+              {Array.isArray(sheetResult) && sheetResult.length > 0 && (
+                <>
+                  {sheetResult.map((product, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-start gap-4 p-3 rounded-2xl"
+                      style={{ background: "#fffbf5", border: "1px solid #fde68a" }}>
+                      {product.image && (
+                        <img
+                          src={product.image}
+                          alt={product.title}
+                          width={72}
+                          height={72}
+                          className="rounded-xl object-cover flex-shrink-0"
+                          style={{ width: 72, height: 72 }}
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2">
+                          {product.title}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">{product.mallName}</p>
+                        {product.price > 0 && (
+                          <p className="text-base font-bold text-orange-600 mt-1">
+                            {product.price.toLocaleString()}원
+                          </p>
+                        )}
+                        <a
+                          href={product.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block mt-2 px-4 py-1.5 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                          style={{ background: "linear-gradient(135deg, #03c75a, #00a849)" }}>
+                          구매하기 →
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                  <a
+                    href={`https://search.shopping.naver.com/search/all?query=${sheetFallbackQuery}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-center text-sm text-orange-400 py-3 hover:text-orange-600">
+                    네이버 쇼핑에서 더 보기 →
+                  </a>
+                </>
+              )}
+
+              {sheetResult === "none" && (
+                <div className="space-y-3 py-4">
+                  <p className="text-center text-sm text-gray-400 mb-4">추천 상품을 찾지 못했습니다</p>
+                  <a
+                    href={`https://www.coupang.com/np/search?q=${sheetFallbackQuery}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white"
+                    style={{ background: "linear-gradient(135deg, #e8391e, #ff6640)" }}>
+                    🛍 쿠팡에서 검색
+                  </a>
+                  <a
+                    href={`https://search.shopping.naver.com/search/all?query=${sheetFallbackQuery}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white"
+                    style={{ background: "linear-gradient(135deg, #03c75a, #00a849)" }}>
+                    🟢 네이버 쇼핑에서 검색
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Header with Imagen hero photo */}
       <div className="relative overflow-hidden" style={{ minHeight: "280px" }}>
         {heroImage ? (
@@ -1555,7 +1675,7 @@ function RecipeDetailContent() {
               </div>
               {neededIngredients.length > 0 && (
                 <p className="px-6 pt-3 text-xs text-orange-500">
-                  🛒 표시 재료의 카트를 클릭하면 추천 상품(네이버 쇼핑)이 펼쳐져요
+                  🛒 카트를 탭하면 추천 상품을 바로 확인할 수 있어요
                 </p>
               )}
               <div className="p-4 space-y-2">
@@ -1578,139 +1698,26 @@ function RecipeDetailContent() {
                     );
                   }
 
-                  // 구매 필요 재료 — 카트 클릭/hover 시 인라인 쇼핑 펼침
-                  const result = productResults[ing.name];
-                  const fallbackQuery = encodeURIComponent(ing.name);
-                  const naverFallback = `https://search.shopping.naver.com/search/all?query=${fallbackQuery}`;
-                  const isExpanded = expandedIngredient === ing.name;
-                  const toggle = () => {
-                    if (isExpanded) {
-                      setExpandedIngredient(null);
-                    } else {
-                      setExpandedIngredient(ing.name);
-                      fetchProductsForIngredient(ing.name);
-                    }
-                  };
+                  // 구매 필요 재료 — 카트 클릭 시 바텀 시트 오픈
                   return (
                     <div
                       key={ing.name}
-                      className="rounded-2xl overflow-hidden"
-                      style={{ border: `1px solid ${isExpanded ? "#fb923c" : "#fed7aa"}`, transition: "border-color 0.2s" }}>
-                      {/* 재료명 행 — 카트 아이콘이 트리거 */}
-                      <div className="flex items-center justify-between px-4 py-3"
-                        style={{ background: isExpanded ? "#ffedd5" : "#fff7ed", transition: "background 0.2s" }}>
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <button
-                            type="button"
-                            onClick={toggle}
-                            onMouseEnter={() => {
-                              setExpandedIngredient(ing.name);
-                              fetchProductsForIngredient(ing.name);
-                            }}
-                            aria-label={`${ing.name} 추천 상품 보기`}
-                            className="flex-shrink-0 text-base rounded-full transition-transform hover:scale-125 active:scale-95 cursor-pointer"
-                            style={{ lineHeight: 1 }}>
-                            🛒
-                          </button>
-                          <span className="font-semibold text-sm truncate text-orange-700">{ing.name}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
-                          <span className="text-sm font-bold" style={{ color: "#ea580c" }}>
-                            {ing.amount}{ing.unit}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={toggle}
-                            aria-label="펼치기"
-                            className="text-orange-400 text-xs cursor-pointer"
-                            style={{ transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
-                            ▼
-                          </button>
-                        </div>
+                      className="flex items-center justify-between px-4 py-3 rounded-2xl"
+                      style={{ background: "#fff7ed", border: "1px solid #fed7aa" }}>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => openShoppingSheet({ name: ing.name, amount: ing.amount, unit: ing.unit })}
+                          aria-label={`${ing.name} 추천 상품 보기`}
+                          className="flex-shrink-0 text-base rounded-full transition-transform hover:scale-125 active:scale-95 cursor-pointer"
+                          style={{ lineHeight: 1 }}>
+                          🛒
+                        </button>
+                        <span className="font-semibold text-sm truncate text-orange-700">{ing.name}</span>
                       </div>
-
-                      {/* 상품 패널 — 카트 클릭/hover 시 슬라이드 다운 */}
-                      <div style={{
-                        maxHeight: isExpanded ? "600px" : "0",
-                        overflow: "hidden",
-                        transition: "max-height 0.3s ease",
-                        background: "#fffbf5",
-                      }}>
-                        <div className="px-3 py-3">
-                          {result === "loading" && (
-                            <div className="flex items-center gap-2 py-3 text-xs text-orange-400">
-                              <span className="animate-spin inline-block w-3 h-3 border-2 border-orange-300 border-t-orange-500 rounded-full" />
-                              상품 검색 중...
-                            </div>
-                          )}
-
-                          {Array.isArray(result) && result.length > 0 && (
-                            <div className="space-y-2">
-                              {result.map((product, idx) => (
-                                <a
-                                  key={idx}
-                                  href={product.link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-3 p-2 rounded-xl transition-all hover:opacity-80 active:scale-95"
-                                  style={{ background: "#fff", border: "1px solid #fde68a" }}>
-                                  {product.image && (
-                                    <img
-                                      src={product.image}
-                                      alt={product.title}
-                                      width={52}
-                                      height={52}
-                                      className="rounded-lg object-cover flex-shrink-0"
-                                      style={{ width: 52, height: 52 }}
-                                    />
-                                  )}
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight">
-                                      {product.title}
-                                    </p>
-                                    <div className="flex items-center justify-between mt-1">
-                                      <span className="text-xs text-gray-400">{product.mallName}</span>
-                                      {product.price > 0 && (
-                                        <span className="text-sm font-bold text-orange-600">
-                                          {product.price.toLocaleString()}원
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </a>
-                              ))}
-                              <a
-                                href={naverFallback}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block text-center text-xs text-orange-400 py-1 hover:text-orange-600">
-                                더 많은 상품 검색 →
-                              </a>
-                            </div>
-                          )}
-
-                          {(result === "none") && (
-                            <div className="flex gap-2">
-                              <a
-                                href={`https://www.coupang.com/np/search?q=${fallbackQuery}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
-                                style={{ background: "linear-gradient(135deg, #e8391e, #ff6640)" }}>
-                                🛍 쿠팡 검색
-                              </a>
-                              <a
-                                href={naverFallback}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
-                                style={{ background: "linear-gradient(135deg, #03c75a, #00a849)" }}>
-                                🟢 네이버 검색
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      <span className="text-sm font-bold flex-shrink-0 ml-3" style={{ color: "#ea580c" }}>
+                        {ing.amount}{ing.unit}
+                      </span>
                     </div>
                   );
                 })}
