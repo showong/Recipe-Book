@@ -1535,7 +1535,7 @@ function RecipeDetailContent() {
               </div>
             </div>
 
-            {/* 전체 재료 목록 — 보유 / 구매 필요 구분 */}
+            {/* 전체 재료 목록 — 보유 / 구매 필요 구분, 없는 재료는 카트 클릭 시 쇼핑 */}
             <div className="bg-white rounded-3xl shadow-md overflow-hidden">
               <div className="px-6 py-4 flex items-center justify-between"
                 style={{ background: "linear-gradient(135deg, #f8fafc, #e2e8f0)" }}>
@@ -1553,167 +1553,169 @@ function RecipeDetailContent() {
                   )}
                 </div>
               </div>
+              {neededIngredients.length > 0 && (
+                <p className="px-6 pt-3 text-xs text-orange-500">
+                  🛒 표시 재료의 카트를 클릭하면 추천 상품(네이버 쇼핑)이 펼쳐져요
+                </p>
+              )}
               <div className="p-4 space-y-2">
-                {recipe.ingredients.map((ing) => (
-                  <div
-                    key={ing.name}
-                    className="flex items-center justify-between px-4 py-3 rounded-2xl"
-                    style={ing.isOwned
-                      ? { background: "#f0fdf4", border: "1px solid #bbf7d0" }
-                      : { background: "#fff7ed", border: "1px solid #fed7aa" }}>
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-base flex-shrink-0">{ing.isOwned ? "✅" : "🛒"}</span>
-                      <span className={`font-semibold text-sm truncate ${ing.isOwned ? "text-gray-700" : "text-orange-700"}`}>
-                        {ing.name}
-                      </span>
-                    </div>
-                    <span className="text-sm font-bold flex-shrink-0 ml-3"
-                      style={{ color: ing.isOwned ? "#16a34a" : "#ea580c" }}>
-                      {ing.amount}{ing.unit}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 구매 필요 재료 — 쇼핑 상품 카드 */}
-            {neededIngredients.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-md overflow-hidden">
-                <div className="px-6 py-4 flex items-center gap-2"
-                  style={{ background: "linear-gradient(135deg, #fff7ed, #fed7aa)" }}>
-                  <span className="text-xl">🛒</span>
-                  <div>
-                    <h3 className="font-bold text-orange-700">구매 필요 재료 ({neededIngredients.length}가지)</h3>
-                    <p className="text-xs text-orange-500 mt-0.5">재료에 마우스를 올리면 추천 상품이 나타나요</p>
-                  </div>
-                </div>
-                <div className="p-4 space-y-4">
-                  {neededIngredients.map((ing) => {
-                    const result = productResults[ing.name];
-                    const fallbackQuery = encodeURIComponent(ing.name);
-                    const naverFallback = `https://search.shopping.naver.com/search/all?query=${fallbackQuery}`;
-                    const isExpanded = expandedIngredient === ing.name;
+                {recipe.ingredients.map((ing) => {
+                  // 보유 재료 — 단순 행
+                  if (ing.isOwned) {
                     return (
                       <div
                         key={ing.name}
-                        className="rounded-2xl overflow-hidden cursor-pointer select-none"
-                        style={{ border: `1px solid ${isExpanded ? "#fb923c" : "#fed7aa"}`, transition: "border-color 0.2s" }}
-                        onMouseEnter={() => {
-                          setExpandedIngredient(ing.name);
-                          fetchProductsForIngredient(ing.name);
-                        }}
-                        onMouseLeave={() => setExpandedIngredient(null)}
-                        onClick={() => {
-                          if (isExpanded) {
-                            setExpandedIngredient(null);
-                          } else {
-                            setExpandedIngredient(ing.name);
-                            fetchProductsForIngredient(ing.name);
-                          }
-                        }}>
-                        {/* 재료명 헤더 */}
-                        <div className="flex items-center justify-between px-4 py-2.5"
-                          style={{ background: isExpanded ? "#ffedd5" : "#fff7ed", transition: "background 0.2s" }}>
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-base flex-shrink-0">🛒</span>
-                            <span className="font-bold text-sm text-orange-800 truncate">{ing.name}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                            <span className="text-xs font-bold text-orange-600">{ing.amount}{ing.unit}</span>
-                            <span className="text-orange-400 text-xs" style={{ transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
-                          </div>
+                        className="flex items-center justify-between px-4 py-3 rounded-2xl"
+                        style={{ background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-base flex-shrink-0">✅</span>
+                          <span className="font-semibold text-sm truncate text-gray-700">{ing.name}</span>
                         </div>
-
-                        {/* 상품 패널 — hover/클릭 시 슬라이드 다운 */}
-                        <div style={{
-                          maxHeight: isExpanded ? "600px" : "0",
-                          overflow: "hidden",
-                          transition: "max-height 0.3s ease",
-                          background: "#fffbf5",
-                        }}>
-                          <div className="px-3 py-3">
-                            {result === "loading" && (
-                              <div className="flex items-center gap-2 py-3 text-xs text-orange-400">
-                                <span className="animate-spin inline-block w-3 h-3 border-2 border-orange-300 border-t-orange-500 rounded-full" />
-                                상품 검색 중...
-                              </div>
-                            )}
-
-                            {Array.isArray(result) && result.length > 0 && (
-                              <div className="space-y-2">
-                                {result.map((product, idx) => (
-                                  <a
-                                    key={idx}
-                                    href={product.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="flex items-center gap-3 p-2 rounded-xl transition-all hover:opacity-80 active:scale-95"
-                                    style={{ background: "#fff", border: "1px solid #fde68a" }}>
-                                    {product.image && (
-                                      <img
-                                        src={product.image}
-                                        alt={product.title}
-                                        width={52}
-                                        height={52}
-                                        className="rounded-lg object-cover flex-shrink-0"
-                                        style={{ width: 52, height: 52 }}
-                                      />
-                                    )}
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight">
-                                        {product.title}
-                                      </p>
-                                      <div className="flex items-center justify-between mt-1">
-                                        <span className="text-xs text-gray-400">{product.mallName}</span>
-                                        {product.price > 0 && (
-                                          <span className="text-sm font-bold text-orange-600">
-                                            {product.price.toLocaleString()}원
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </a>
-                                ))}
-                                <a
-                                  href={naverFallback}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="block text-center text-xs text-orange-400 py-1 hover:text-orange-600">
-                                  더 많은 상품 검색 →
-                                </a>
-                              </div>
-                            )}
-
-                            {(result === "none") && (
-                              <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                                <a
-                                  href={`https://www.coupang.com/np/search?q=${fallbackQuery}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
-                                  style={{ background: "linear-gradient(135deg, #e8391e, #ff6640)" }}>
-                                  🛍 쿠팡 검색
-                                </a>
-                                <a
-                                  href={naverFallback}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
-                                  style={{ background: "linear-gradient(135deg, #03c75a, #00a849)" }}>
-                                  🟢 네이버 검색
-                                </a>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        <span className="text-sm font-bold flex-shrink-0 ml-3" style={{ color: "#16a34a" }}>
+                          {ing.amount}{ing.unit}
+                        </span>
                       </div>
                     );
-                  })}
-                </div>
+                  }
+
+                  // 구매 필요 재료 — 카트 클릭/hover 시 인라인 쇼핑 펼침
+                  const result = productResults[ing.name];
+                  const fallbackQuery = encodeURIComponent(ing.name);
+                  const naverFallback = `https://search.shopping.naver.com/search/all?query=${fallbackQuery}`;
+                  const isExpanded = expandedIngredient === ing.name;
+                  const toggle = () => {
+                    if (isExpanded) {
+                      setExpandedIngredient(null);
+                    } else {
+                      setExpandedIngredient(ing.name);
+                      fetchProductsForIngredient(ing.name);
+                    }
+                  };
+                  return (
+                    <div
+                      key={ing.name}
+                      className="rounded-2xl overflow-hidden"
+                      style={{ border: `1px solid ${isExpanded ? "#fb923c" : "#fed7aa"}`, transition: "border-color 0.2s" }}>
+                      {/* 재료명 행 — 카트 아이콘이 트리거 */}
+                      <div className="flex items-center justify-between px-4 py-3"
+                        style={{ background: isExpanded ? "#ffedd5" : "#fff7ed", transition: "background 0.2s" }}>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <button
+                            type="button"
+                            onClick={toggle}
+                            onMouseEnter={() => {
+                              setExpandedIngredient(ing.name);
+                              fetchProductsForIngredient(ing.name);
+                            }}
+                            aria-label={`${ing.name} 추천 상품 보기`}
+                            className="flex-shrink-0 text-base rounded-full transition-transform hover:scale-125 active:scale-95 cursor-pointer"
+                            style={{ lineHeight: 1 }}>
+                            🛒
+                          </button>
+                          <span className="font-semibold text-sm truncate text-orange-700">{ing.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
+                          <span className="text-sm font-bold" style={{ color: "#ea580c" }}>
+                            {ing.amount}{ing.unit}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={toggle}
+                            aria-label="펼치기"
+                            className="text-orange-400 text-xs cursor-pointer"
+                            style={{ transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
+                            ▼
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 상품 패널 — 카트 클릭/hover 시 슬라이드 다운 */}
+                      <div style={{
+                        maxHeight: isExpanded ? "600px" : "0",
+                        overflow: "hidden",
+                        transition: "max-height 0.3s ease",
+                        background: "#fffbf5",
+                      }}>
+                        <div className="px-3 py-3">
+                          {result === "loading" && (
+                            <div className="flex items-center gap-2 py-3 text-xs text-orange-400">
+                              <span className="animate-spin inline-block w-3 h-3 border-2 border-orange-300 border-t-orange-500 rounded-full" />
+                              상품 검색 중...
+                            </div>
+                          )}
+
+                          {Array.isArray(result) && result.length > 0 && (
+                            <div className="space-y-2">
+                              {result.map((product, idx) => (
+                                <a
+                                  key={idx}
+                                  href={product.link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-3 p-2 rounded-xl transition-all hover:opacity-80 active:scale-95"
+                                  style={{ background: "#fff", border: "1px solid #fde68a" }}>
+                                  {product.image && (
+                                    <img
+                                      src={product.image}
+                                      alt={product.title}
+                                      width={52}
+                                      height={52}
+                                      className="rounded-lg object-cover flex-shrink-0"
+                                      style={{ width: 52, height: 52 }}
+                                    />
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight">
+                                      {product.title}
+                                    </p>
+                                    <div className="flex items-center justify-between mt-1">
+                                      <span className="text-xs text-gray-400">{product.mallName}</span>
+                                      {product.price > 0 && (
+                                        <span className="text-sm font-bold text-orange-600">
+                                          {product.price.toLocaleString()}원
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </a>
+                              ))}
+                              <a
+                                href={naverFallback}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block text-center text-xs text-orange-400 py-1 hover:text-orange-600">
+                                더 많은 상품 검색 →
+                              </a>
+                            </div>
+                          )}
+
+                          {(result === "none") && (
+                            <div className="flex gap-2">
+                              <a
+                                href={`https://www.coupang.com/np/search?q=${fallbackQuery}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                                style={{ background: "linear-gradient(135deg, #e8391e, #ff6640)" }}>
+                                🛍 쿠팡 검색
+                              </a>
+                              <a
+                                href={naverFallback}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                                style={{ background: "linear-gradient(135deg, #03c75a, #00a849)" }}>
+                                🟢 네이버 검색
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            )}
+            </div>
 
             <button
               onClick={() => setActiveSection("steps")}
