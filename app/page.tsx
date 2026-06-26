@@ -42,12 +42,20 @@ export default function HomePage() {
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    // IME 조합 중(한글 등)에는 keydown을 무시한다.
-    // 조합 완료 후 쉼표 처리는 onChange에서 nativeEvent.isComposing으로 처리한다.
     if (e.nativeEvent.isComposing) return;
-    if (e.key === "Enter" || e.key === ",") {
+    const trailingCommaStripped = inputValue.replace(/,+$/, "").trim();
+    if (e.key === "Enter") {
+      // Enter: 후행 쉼표를 제거하고 추가 (IME 후 남은 쉼표도 처리)
+      e.preventDefault();
+      addIngredient(trailingCommaStripped);
+    } else if (e.key === ",") {
+      // 비IME 환경: 쉼표 즉시 추가
       e.preventDefault();
       addIngredient(inputValue);
+    } else if (e.key === " " && inputValue.trimEnd().endsWith(",")) {
+      // IME 환경: "양배추," 입력 후 스페이스로 확정
+      e.preventDefault();
+      addIngredient(trailingCommaStripped);
     } else if (e.key === "Backspace" && inputValue === "" && ingredients.length > 0) {
       setIngredients((prev) => prev.slice(0, -1));
     }
@@ -150,27 +158,16 @@ export default function HomePage() {
               ref={inputRef}
               type="text"
               value={inputValue}
-              onChange={(e) => {
-                const val = e.target.value;
-                // nativeEvent.isComposing: IME 조합 중이면 true, compositionend 이후면 false.
-                // React의 onCompositionEnd 합성 이벤트는 onChange보다 늦게 실행되므로
-                // ref 대신 네이티브 이벤트 프로퍼티를 직접 읽어야 정확하다.
-                const composing = (e.nativeEvent as InputEvent).isComposing;
-                if (!composing && val.endsWith(",")) {
-                  addIngredient(val.slice(0, -1));
-                } else {
-                  setInputValue(val);
-                }
-              }}
+              onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={ingredients.length === 0 ? "재료 입력 후 Enter 또는 , 로 추가" : "재료 추가..."}
+              placeholder={ingredients.length === 0 ? "재료 입력 후 Enter 또는 , + 스페이스로 추가" : "재료 추가..."}
               className="flex-1 min-w-32 outline-none text-sm bg-transparent"
               style={{ minWidth: "120px" }}
             />
           </div>
 
           <p className="text-xs text-gray-400 mt-2">
-            Enter 또는 쉼표(,)로 재료를 추가하세요 · Backspace로 마지막 재료 삭제
+            Enter · 쉼표(,) · 쉼표+스페이스로 재료 추가 · Backspace로 마지막 재료 삭제
           </p>
 
           {/* Servings selector */}
