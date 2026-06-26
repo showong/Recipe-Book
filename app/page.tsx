@@ -21,6 +21,7 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const isComposingRef = useRef(false); // IME 조합 중 여부 추적
 
   const [showOptions, setShowOptions] = useState(false);
   const [prefStyle, setPrefStyle] = useState("");
@@ -42,6 +43,10 @@ export default function HomePage() {
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    // 한글 IME 조합 중에는 keydown을 무시한다.
+    // 데스크탑에서 조합 완료 전 keydown → compositionend → onChange 순서로 실행되어
+    // "추," 같은 잔여 문자가 남는 버그를 방지한다.
+    if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
       addIngredient(inputValue);
@@ -147,7 +152,18 @@ export default function HomePage() {
               ref={inputRef}
               type="text"
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                // IME 조합이 끝난 직후 쉼표가 붙어있으면 재료로 추가한다.
+                // (keydown 에서 isComposing 체크로 건너뛴 경우 여기서 처리)
+                if (!isComposingRef.current && val.endsWith(",")) {
+                  addIngredient(val.slice(0, -1));
+                } else {
+                  setInputValue(val);
+                }
+              }}
+              onCompositionStart={() => { isComposingRef.current = true; }}
+              onCompositionEnd={() => { isComposingRef.current = false; }}
               onKeyDown={handleKeyDown}
               placeholder={ingredients.length === 0 ? "재료 입력 후 Enter 또는 , 로 추가" : "재료 추가..."}
               className="flex-1 min-w-32 outline-none text-sm bg-transparent"
