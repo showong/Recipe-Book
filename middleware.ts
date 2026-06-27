@@ -27,6 +27,19 @@ function isProtected(pathname: string): boolean {
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // 모바일 앱(일반 유저용)에서 온 요청은 관리자 영역을 전면 차단한다.
+  // capacitor.config.ts 의 appendUserAgent('RecipeAppNative') 로 식별.
+  // → 관리자(숏츠 생성)는 웹(노트북 브라우저) 전용으로만 접근 가능.
+  const isNativeApp = req.headers.get("user-agent")?.includes("RecipeAppNative");
+  if (isNativeApp && isProtected(pathname)) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "앱에서는 사용할 수 없는 기능입니다." }, { status: 403 });
+    }
+    const homeUrl = req.nextUrl.clone();
+    homeUrl.pathname = "/";
+    return NextResponse.redirect(homeUrl);
+  }
+
   // 로그인 화면/엔드포인트는 항상 통과
   if (pathname === "/admin/login" || pathname === "/api/admin/login") {
     return NextResponse.next();
