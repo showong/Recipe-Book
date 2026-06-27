@@ -71,15 +71,19 @@ npm run cap:open:android   # Android Studio 열림 → Build > Generate Signed B
 
 ## 아이콘 / 스플래시
 
-현재 `public/oh_showong_logo.png` 를 PWA 아이콘으로 사용 중입니다.
-네이티브 아이콘/스플래시는 아래로 자동 생성 권장:
+소스 이미지는 `assets/` 폴더에 이미 준비되어 있습니다
+(`icon.png` 1024, `splash.png`/`splash-dark.png` 2732, 배경색 `#fff7ed`).
+
+Mac 에서 아래 한 줄로 iOS/Android 모든 크기를 자동 생성:
 
 ```bash
-npm install -D @capacitor/assets
-npx capacitor-assets generate --iconBackgroundColor "#fff7ed" --splashBackgroundColor "#fff7ed"
+npm install            # @capacitor/assets(sharp 포함) 설치
+npm run cap:assets     # ios/ android/ 에 아이콘·스플래시 생성
+npx cap sync
 ```
 
-(1024x1024 `assets/icon.png`, 2732x2732 `assets/splash.png` 준비 후 실행)
+디자인 교체는 `assets/icon.png` / `assets/splash.png` 를 바꾼 뒤
+`npm run cap:assets` 재실행. 자세한 내용은 `assets/README.md` 참고.
 
 ## 체크리스트
 
