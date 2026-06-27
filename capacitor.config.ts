@@ -18,7 +18,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 // 배포된 Vercel 주소. 환경변수로 덮어쓸 수 있지만, 없으면 이 기본값을 쓴다.
 // (env 누락으로 흰 화면이 뜨는 문제를 방지하기 위해 기본값을 박아둠)
 const SERVER_URL =
-  process.env.CAP_SERVER_URL || "https://recipe-book-olive-delta.vercel.app";
+  process.env.CAP_SERVER_URL || "https://recipe-book-olive-data.vercel.app";
 
 const config: CapacitorConfig = {
   appId: "com.recipeapp.user",
