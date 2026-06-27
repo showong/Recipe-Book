@@ -15,19 +15,20 @@ import type { CapacitorConfig } from "@capacitor/cli";
  *  - appendUserAgent 로 앱 요청에 'RecipeAppNative' 표식을 남긴다.
  *  - 서버 middleware.ts 가 이 표식을 보고 /admin 접근을 차단 → 관리자는 웹 전용.
  */
-const SERVER_URL = process.env.CAP_SERVER_URL;
+// 배포된 Vercel 주소. 환경변수로 덮어쓸 수 있지만, 없으면 이 기본값을 쓴다.
+// (env 누락으로 흰 화면이 뜨는 문제를 방지하기 위해 기본값을 박아둠)
+const SERVER_URL =
+  process.env.CAP_SERVER_URL || "https://recipe-book-olive-delta.vercel.app";
 
 const config: CapacitorConfig = {
   appId: "com.recipeapp.user",
   appName: "레시피북",
   webDir: "public", // server.url 사용 시 실질적으로 미사용 (필수 필드라 지정)
   appendUserAgent: "RecipeAppNative",
-  ...(SERVER_URL && {
-    server: {
-      url: SERVER_URL,
-      cleartext: false,
-    },
-  }),
+  server: {
+    url: SERVER_URL,
+    cleartext: false,
+  },
   ios: {
     contentInset: "always",
   },
