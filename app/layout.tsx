@@ -28,7 +28,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className="h-full">
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {/*
+          네이티브 앱(WebView) 여부를 UA로 감지해 <html>에 native-app 클래스를 붙인다.
+          Capacitor appendUserAgent('RecipeAppNative') 로 앱 요청에만 표식이 있으므로,
+          일반 웹 브라우저에는 이 클래스가 붙지 않아 기존 UI가 그대로 유지된다.
+          페인트 전에 실행되도록 body 최상단 인라인 스크립트로 둔다.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(navigator.userAgent.indexOf('RecipeAppNative')>-1){document.documentElement.classList.add('native-app')}}catch(e){}",
+          }}
+        />
+        {children}
+      </body>
     </html>
   );
 }

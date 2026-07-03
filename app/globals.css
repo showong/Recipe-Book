@@ -18,6 +18,34 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   네이티브 앱(WebView) 전용 스타일. <html class="native-app"> 일 때만 적용.
+   일반 웹 브라우저엔 적용되지 않으므로 기존 UI/프로세스는 그대로 유지된다.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* 스크롤 고무줄 반동 제거 → 앱 같은 스크롤감 */
+.native-app,
+.native-app body {
+  overscroll-behavior: none;
+}
+
+/* 탭 시 회색 하이라이트 & 롱프레스 컨텍스트 메뉴 제거 */
+.native-app {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* 텍스트 드래그 선택 비활성화(앱 느낌). 단, 입력 요소는 선택 가능하게 유지 */
+.native-app *:not(input):not(textarea) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 이미지 롱프레스 저장/드래그 방지 */
+.native-app img {
+  -webkit-user-drag: none;
+}
+
 .hero-gradient {
   background: linear-gradient(135deg, #ff6b35 0%, #ffc857 50%, #4ecb71 100%);
   background-size: 300% 300%;
