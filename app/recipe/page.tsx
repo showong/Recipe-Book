@@ -74,6 +74,35 @@ async function mergeAudioUrlsToWav(urls: string[], gapSec = 0.5): Promise<Blob> 
   }
 }
 
+// 네이티브 앱(WebView) 여부 — Capacitor appendUserAgent('RecipeAppNative')로 식별.
+function isNativeApp(): boolean {
+  return typeof navigator !== "undefined" && navigator.userAgent.includes("RecipeAppNative");
+}
+
+// 다운로드 실행기. 웹은 기존대로 파일 저장(<a download>), 앱은 WKWebView가
+// download 속성을 지원하지 않으므로 새 창(시스템 브라우저/뷰어)으로 열어 저장하게 한다.
+function triggerDownload(url: string, filename: string) {
+  if (isNativeApp()) {
+    window.open(url, "_blank");
+    return;
+  }
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+}
+
+// <a download> 클릭 핸들러: 앱에서만 기본 동작을 막고 새 창으로 연다(웹은 그대로).
+function handleNativeDownloadClick(
+  e: React.MouseEvent<HTMLAnchorElement>,
+  url: string,
+) {
+  if (isNativeApp()) {
+    e.preventDefault();
+    window.open(url, "_blank");
+  }
+}
+
 function RecipeDetailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1639,7 +1668,7 @@ function RecipeDetailContent() {
                 style={{ background: "linear-gradient(135deg, #f8fafc, #e2e8f0)" }}>
                 {ingredientsImage && (
                   <button
-                    onClick={() => { const a = document.createElement("a"); a.href = ingredientsImage; a.download = `${recipe.name}-ingredients.png`; a.click(); }}
+                    onClick={() => triggerDownload(ingredientsImage, `${recipe.name}-ingredients.png`)}
                     className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
                     style={{ background: "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)" }}>
                     ⬇️ 저장
@@ -1801,6 +1830,7 @@ function RecipeDetailContent() {
                     <a
                       href={mergedAudioUrl}
                       download={`${recipe.name}-조리음성.wav`}
+                      onClick={(e) => handleNativeDownloadClick(e, mergedAudioUrl)}
                       className="block w-full text-center py-3 rounded-2xl text-white font-bold text-sm transition-all hover:opacity-90"
                       style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
                       ⬇️ 음성 다운로드
@@ -2038,6 +2068,7 @@ function RecipeDetailContent() {
                       <a
                         href={recipeGuideImage}
                         download={`${recipe.name}-상세조리법.png`}
+                        onClick={(e) => handleNativeDownloadClick(e, recipeGuideImage)}
                         className="block w-full text-center py-3 rounded-2xl text-white font-bold transition-all hover:opacity-90 cursor-pointer"
                         style={{ background: "linear-gradient(135deg, #16a34a, #84cc16)" }}>
                         ⬇️ 이미지 다운로드
@@ -2074,6 +2105,7 @@ function RecipeDetailContent() {
                               <a
                                 href={guidePostUrl}
                                 download={`${recipe.name}-게시물.${guidePostExt}`}
+                                onClick={(e) => handleNativeDownloadClick(e, guidePostUrl)}
                                 className="flex-1 text-center py-3 rounded-2xl text-white font-bold transition-all hover:opacity-90"
                                 style={{ background: "linear-gradient(135deg, #0ea5e9, #6366f1)" }}>
                                 ⬇️ 영상 다운로드
