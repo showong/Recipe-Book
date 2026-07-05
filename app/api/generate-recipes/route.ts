@@ -4,6 +4,8 @@ import { normalizeCharacter } from "@/types/character";
 import { decideSearch } from "@/lib/agents/search-decision";
 import { multiSearchTavily } from "@/lib/services/tavily";
 import { extractTrendPatterns, TrendExtractResult } from "@/lib/agents/trend-pattern-extractor";
+import { verifySuggestions, SuggestionVerification } from "@/lib/agents/suggestion-verifier";
+import { FLAVOR_PRINCIPLES } from "@/lib/constants/flavor-principles";
 import { parseFirstJsonObject } from "@/lib/parse-json";
 
 const GEMINI_MODEL = "gemini-3.5-flash";
@@ -39,17 +41,22 @@ async function callGemini(prompt: string, systemInstruction: string, apiKey: str
 
 function buildSystemInstruction(character: string): string {
   if (character === "lazy_bear" || character === "lazy") {
-    return `당신은 귀차니즘 곰돌이입니다. 요리는 좋아하지만 복잡한 건 딱 질색인 현실파 요리 도우미예요. '어차피 먹을 거 맛있으면 됐지'를 신조로, 조리 시간이 짧고 단계가 적고 특별한 기술이 필요 없는 레시피를 우선 추천합니다. 하지만 본인만의 킥요소는 반드시 존재해야 합니다.
+    return `당신은 귀차니즘 곰돌이입니다. 요리는 좋아하지만 복잡한 건 딱 질색인 현실파 요리 도우미예요. '어차피 먹을 거 맛있으면 됐지'를 신조로, 조리 시간이 짧고 단계가 적고 특별한 기술이 필요 없는 레시피를 우선 추천합니다.
+단, 귀찮아도 '맛 폭탄 킥' 하나는 반드시 포함하세요 — 버터간장·마요네즈·굴소스·치즈·계란노른자처럼 강력한 감칠맛 한 방이 레시피마다 있어야 합니다. 원팬·전자레인지·에어프라이어를 적극 활용해 설거지를 최소화하세요.
 보유한 재료를 최대한 활용하세요. 기본적인 소스 재료를 제외한 추가 재료 구입은 최소화하고, 가능하면 additionalIngredients는 2개 이하로 줄이세요. 소스는 집에서 쉽게 만들 수 있는 간단한 것만 사용하고 모든 사람이 맛있게 느껴야합니다.
+${FLAVOR_PRINCIPLES}
 반드시 유효한 JSON만 응답하세요. 마크다운 코드 블록 없이 순수 JSON만 반환하세요.`;
   }
   if (character === "trend_bear" || character === "trend") {
     return `당신은 트렌드곰입니다. 유튜브, SNS, 숏츠에서 요즘 화제인 레시피 조합을 기반으로 추천하는 트렌드 레시피 전문가입니다.
 다이어트, 고단백, 원팬, 에어프라이어, 편의점 조합 등 최신 트렌드 키워드를 반영하고, SNS에 올리기 좋은 비주얼과 스토리가 있는 레시피를 추천하세요.
+레시피마다 의외의 재료·소스 조합으로 반전 포인트를 하나씩 넣고, 색 대비와 토핑으로 시선을 끄는 비주얼을 설계하세요. 고단백·다이어트 같은 태그를 붙였다면 실제 재료 구성이 그 태그에 부합해야 합니다.
+${FLAVOR_PRINCIPLES}
 반드시 유효한 JSON만 응답하세요. 마크다운 코드 블록 없이 순수 JSON만 반환하세요.`;
   }
   // cute_bear (default)
-  return `당신은 한국 요리 전문 셰프입니다. 사용자가 가진 재료를 바탕으로 만들 수 있는 레시피를 추천해주세요.
+  return `당신은 정통 한식 기본기가 탄탄한 집밥 셰프입니다. 밑간·육수·양념 밸런스를 중시하고 계절 재료를 살리며, 누구나 실패 없이 따라 해 '집밥인데 식당 맛'이 나는 레시피를 추천합니다.
+${FLAVOR_PRINCIPLES}
 반드시 유효한 JSON만 응답하세요. 마크다운 코드 블록 없이 순수 JSON만 반환하세요.`;
 }
 
@@ -125,10 +132,15 @@ export async function POST(req: NextRequest) {
       ? `,\n      "searchUsed": ${searchUsed},\n      "trendReason": "이 레시피가 트렌드인 이유 한 줄"`
       : `,\n      "searchUsed": false,\n      "trendReason": null`;
 
-    const result = await callGemini(
-      `집에 있는 재료: ${ingredientList}${preferenceSection}${servingsSection}${trendContext}
+    const basePrompt = `집에 있는 재료: ${ingredientList}${preferenceSection}${servingsSection}${trendContext}
 
 이 재료들로 만들 수 있는 3가지 레시피를 추천해주세요.
+
+3가지 레시피는 서로 확실히 달라야 합니다:
+- 조리 방식이 겹치지 않게 (예: 볶음/구이 · 국물/찌개 · 무침/비빔/오븐 중 서로 다른 방식)
+- 맛 프로파일을 다르게 (예: 매콤 · 담백고소 · 새콤달콤)
+- 난이도를 분산 (초간단 1개 이상 포함)
+- 같은 주재료라도 전혀 다른 장르의 요리로 변주할 것
 
 다음 JSON 형식으로 정확히 응답해주세요:
 {
@@ -152,13 +164,36 @@ export async function POST(req: NextRequest) {
 
 difficulty는 반드시 "쉬움", "보통", "어려움" 중 하나여야 합니다.
 additionalIngredients는 최대 4개로 제한해주세요.
-pairings는 2-3개로 제한해주세요.`,
-      systemInstruction,
-      googleApiKey,
-    );
+pairings는 2-3개로 제한해주세요.`;
 
-    const parsed = parseFirstJsonObject<{ recipes: RecipeSuggestion[] }>(result);
-    const recipes: RecipeSuggestion[] = parsed.recipes;
+    const result = await callGemini(basePrompt, systemInstruction, googleApiKey);
+    let recipes: RecipeSuggestion[] = parseFirstJsonObject<{ recipes: RecipeSuggestion[] }>(result).recipes;
+
+    // ── 추천 검증 Agent — 기준점 미달 시 이슈를 피드백으로 넣어 1회 재생성 ──────
+    let verification: SuggestionVerification | null = null;
+    try {
+      verification = await verifySuggestions(recipes, ingredients, character, googleApiKey);
+
+      if (!verification.passed) {
+        console.log("[generate-recipes] 검증 기준 미달, 재생성:", verification.qualityScore, verification.issues);
+        const retryPrompt = `${basePrompt}
+
+이전 추천은 다음 문제로 반려되었습니다. 반드시 해결해서 다시 추천하세요:
+${verification.issues.map((i) => `- ${i}`).join("\n")}`;
+
+        const retryResult = await callGemini(retryPrompt, systemInstruction, googleApiKey);
+        const retryRecipes = parseFirstJsonObject<{ recipes: RecipeSuggestion[] }>(retryResult).recipes;
+        const retryVerification = await verifySuggestions(retryRecipes, ingredients, character, googleApiKey);
+
+        // 재생성본이 더 나을 때만 교체 (더 나빠지면 원본 유지)
+        if (retryVerification.qualityScore >= verification.qualityScore) {
+          recipes = retryRecipes;
+          verification = retryVerification;
+        }
+      }
+    } catch (verifyErr) {
+      console.warn("[generate-recipes] 검증 실패, 원본 사용:", verifyErr);
+    }
 
     return NextResponse.json({
       recipes,
@@ -166,6 +201,7 @@ pairings는 2-3개로 제한해주세요.`,
         character,
         searchUsed,
         searchSummary: trendData?.summary ?? null,
+        qualityScore: verification?.qualityScore ?? null,
       },
     });
   } catch (error) {
