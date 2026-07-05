@@ -15,7 +15,7 @@ async function callGemini(prompt: string, systemInstruction: string, apiKey: str
     body: JSON.stringify({
       system_instruction: { parts: [{ text: systemInstruction }] },
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.5, maxOutputTokens: 8192, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } },
+      generationConfig: { temperature: 0.25, maxOutputTokens: 8192, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } },
     }),
   });
   if (!res.ok) {
@@ -107,10 +107,13 @@ async function generateRecipeDetail(
 
 중요한 규칙:
 1. isKick이 true인 단계는 이 요리의 핵심이 되는 단계입니다. 2-3개의 단계에 isKick: true를 설정하고 kickReason을 작성하세요.
+   킥 단계는 반드시 "맛의 결정적 순간"과 연결하세요 — 감칠맛 재료 투입, 불맛(마이야르)을 내는 순간, 마무리 향 터치 중 하나여야 하며, kickReason에 그 순간이 왜 맛을 좌우하는지 설명하세요.
 2. parallel 필드에는 이 단계를 진행하면서 동시에 할 수 있는 작업을 적어주세요.
 3. 계량은 반드시 밥숟가락(T), 찻숟가락(t), 컵(cup), g, ml 등 명확하게 표시하세요.
-4. 총 6-10단계로 구성하세요.
-5. 단계별 emoji는 해당 조리 동작을 표현하는 이모지를 사용하세요.`;
+4. 양념·소스는 황금 배합 비율로 구체화하세요. 예: "간장 2 : 설탕 1 : 식초 1", "고추장 2 : 물엿 1 : 다진마늘 0.5" — 재료 목록의 정확한 계량과 함께 단계 설명에 비율을 명시해 초보자도 간을 재현할 수 있게 하세요.
+5. proTips 중 1개는 반드시 "맛 업그레이드:" 로 시작하는 팁이어야 합니다 — 한 가지 재료 추가나 기법 변경으로 맛을 한 단계 끌어올리는 실전 팁 (예: "맛 업그레이드: 마지막에 버터 한 조각을 녹이면 풍미가 배가돼요").
+6. 총 6-10단계로 구성하세요.
+7. 단계별 emoji는 해당 조리 동작을 표현하는 이모지를 사용하세요.`;
 
   const text = await callGemini(contents, systemInstruction, apiKey);
   return parseFirstJsonObject<RecipeDetail>(text);
