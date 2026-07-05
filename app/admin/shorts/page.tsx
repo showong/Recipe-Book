@@ -987,19 +987,31 @@ function AdminShortsContent() {
               signedUrl: string; token: string; path: string; publicUrl: string;
             };
             // Upload directly from browser to Supabase — does NOT go through Vercel.
-            const uploadForm = new FormData();
-            uploadForm.append("cacheControl", "3600");
-            uploadForm.append("", blob, filename);
-            const uploadRes = await fetch(signedUrl, { method: "POST", body: uploadForm });
+            // Supabase signed upload URL 은 PUT + raw body 가 표준이다.
+            // (기존 POST+FormData 는 400으로 거부되어 presign 우회가 무력화되고,
+            //  4.5MB 초과 영상이 Vercel 직송 → 413 HTML → res.json() SyntaxError 로 이어졌음)
+            const uploadRes = await fetch(signedUrl, {
+              method: "PUT",
+              headers: {
+                "content-type": blob.type || "video/mp4",
+                "cache-control": "max-age=3600",
+              },
+              body: blob,
+            });
             if (uploadRes.ok) {
               fd.append("videoUrl", publicUrl);
               fd.append("storagePath", path);
               fd.append("caption", `🎬 ${name} 쇼츠`);
               uploadedViaPresign = true;
+            } else {
+              console.warn("[telegram] presign 업로드 실패:", uploadRes.status, await uploadRes.text().catch(() => ""));
             }
+          } else {
+            console.warn("[telegram] presign URL 발급 실패:", presignRes.status);
           }
-        } catch {
+        } catch (presignErr) {
           // Presign path unavailable (e.g. local dev without Supabase) — fall through.
+          console.warn("[telegram] presign 경로 사용 불가, 직접 전송으로 폴백:", presignErr);
         }
 
         if (!uploadedViaPresign) {
@@ -1014,7 +1026,19 @@ function AdminShortsContent() {
       });
 
       const res = await fetch("/api/send-telegram", { method: "POST", body: fd });
-      const data = await res.json() as { ok?: boolean; error?: string };
+      // Vercel 413/504 등 인프라 에러는 JSON이 아닌 HTML을 반환한다.
+      // 그대로 res.json() 하면 Safari/WKWebView 에서
+      // "The string did not match the expected pattern" SyntaxError 가 사용자에게 노출된다.
+      let data: { ok?: boolean; error?: string };
+      try {
+        data = await res.json() as { ok?: boolean; error?: string };
+      } catch {
+        data = {
+          error: res.status === 413
+            ? "영상 용량이 서버 한도(4.5MB)를 초과했습니다. Supabase 업로드 설정을 확인해주세요."
+            : `서버 응답 오류 (HTTP ${res.status})`,
+        };
+      }
       if (!res.ok || !data.ok) {
         setTelegramStatus({ ok: false, msg: data.error ?? "전송에 실패했습니다." });
       } else {

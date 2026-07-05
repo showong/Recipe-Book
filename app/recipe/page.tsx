@@ -1099,7 +1099,18 @@ function RecipeDetailContent() {
       else if (instagramPostEn) fd.append("postText", instagramPostEn);
 
       const res  = await fetch("/api/send-telegram", { method: "POST", body: fd });
-      const data = await res.json() as { ok?: boolean; error?: string };
+      // Vercel 413 등 인프라 에러는 JSON이 아닌 HTML을 반환한다 — 그대로 파싱하면
+      // Safari/앱(WKWebView)에서 "The string did not match the expected pattern" 노출.
+      let data: { ok?: boolean; error?: string };
+      try {
+        data = await res.json() as { ok?: boolean; error?: string };
+      } catch {
+        data = {
+          error: res.status === 413
+            ? "영상 용량이 서버 한도(4.5MB)를 초과했습니다."
+            : `서버 응답 오류 (HTTP ${res.status})`,
+        };
+      }
       if (!res.ok || !data.ok) {
         setTelegramStatus("error");
         setTelegramError(data.error ?? "전송 실패");
