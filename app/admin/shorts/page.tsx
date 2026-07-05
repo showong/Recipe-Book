@@ -130,6 +130,22 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   });
 }
 
+// http(s) 이미지 URL을 data URL로 변환한다. 이미 data URL이면 그대로 반환.
+// Supabase 전환 후 레시피 레코드의 이미지(heroImage/finishedImage)가
+// 공개 HTTP URL로 내려오므로, base64 를 기대하는 API 호출 전에 변환이 필요하다.
+async function imageSrcToDataUrl(src: string): Promise<string> {
+  if (src.startsWith("data:")) return src;
+  const res = await fetch(src);
+  if (!res.ok) throw new Error(`이미지를 불러오지 못했습니다 (HTTP ${res.status})`);
+  const blob = await res.blob();
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("이미지 변환에 실패했습니다."));
+    reader.readAsDataURL(blob);
+  });
+}
+
 function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number, y: number, w: number, h: number, r: number,
@@ -1025,7 +1041,9 @@ function AdminShortsContent() {
     if (!sourceImage) { setThumbError("음식 사진을 업로드하거나 레시피맵을 먼저 생성해주세요."); return; }
     setThumbLoading(true); setThumbError(null); setThumbnail(null); setStyleName(null);
     try {
-      const matches = sourceImage.match(/^data:([^;]+);base64,(.+)$/);
+      // Supabase 공개 URL 등 http(s) 이미지는 data URL로 변환 후 진행
+      const sourceDataUrl = await imageSrcToDataUrl(sourceImage);
+      const matches = sourceDataUrl.match(/^data:([^;]+);base64,(.+)$/);
       if (!matches) { setThumbError("이미지 형식 오류입니다."); return; }
       const res = await fetch("/api/generate-image", {
         method: "POST",
